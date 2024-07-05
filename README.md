@@ -1,13 +1,6 @@
-<style>
-    img.displayed {
-        display: block;
-        margin-left: auto;
-        margin-right: auto;
-        padding: 20px;
-    }
-</style>
-
-<img src="./icons/icon128.png" class="displayed">
+<p align="center">
+   <img src="./icons/icon128.png" style="padding: 20px;">
+</p>
 
 # Apollo Persisted Query Interceptor
 
@@ -21,5 +14,3 @@ Allows you to intercept graphql queries using Apollo's APQ feature to send graph
 * Request intercepted will trigger twice:
     * One failing due to PersistedQueryNotFound
     * The other consisting of the graphql "query" key
-
-
