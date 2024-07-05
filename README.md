@@ -1,13 +1,4 @@
-<style>
-    img.displayed {
-        display: block;
-        margin-left: auto;
-        margin-right: auto;
-        padding: 20px;
-    }
-</style>
-
-<img src="./icons/icon128.png" class="displayed">
+<img src="./icons/icon128.png" style="display: block; margin-left: auto; margin-right: auto; padding: 20px;">
 
 # Apollo Persisted Query Interceptor
 
