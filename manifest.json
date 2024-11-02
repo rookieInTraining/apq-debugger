@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "APQ Debugger (Beta)",
   "description": "This extension intercepts Apollo's persisted queries, forcing it to retry the request by sending the entire graphql query.",
-  "version": "0.0.5",
+  "version": "0.0.8",
   "permissions": ["debugger", "tabs"],
   "host_permissions": ["<all_urls>"],
   "background": {

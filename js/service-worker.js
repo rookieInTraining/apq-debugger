@@ -6,6 +6,13 @@ function isAttached(value, tab) {
   tabId = tab;
 }
 
+function isDebuggerActive(tabId, callback) {
+  chrome.debugger.getTargets((targets) => {
+    const isActive = targets.some(target => target.tabId === tabId && target.attached);
+    callback(isActive);
+  });
+}
+
 async function digestMessage(message) {
   const encoder = new TextEncoder();
   const data = encoder.encode(message);
@@ -53,8 +60,10 @@ chrome.debugger.onEvent.addListener(async (source, method, params) => {
     if (method === 'Fetch.requestPaused') {
       console.info(params);
       if(params.request.hasPostData) {
+        
         let reqBody = JSON.parse(params.request.postData);
         console.info(reqBody);
+        
         if(Array.isArray(reqBody)) {
           console.log("Request payload is an array")
           reqBody.forEach((req) => {
@@ -64,10 +73,12 @@ chrome.debugger.onEvent.addListener(async (source, method, params) => {
           console.log("Request payload is a JSON element")
           contaminatePayload(reqBody)
         }
+
         let base64Data = btoa(
           new TextEncoder().encode(JSON.stringify(reqBody))
               .reduce((data, byte) => data + String.fromCharCode(byte), '')
         );
+        
         console.info(`Modified Request : ${JSON.stringify(reqBody)}\nBase64 : ${base64Data}`);
         console.info("Executing Fetch.continueRequest...");
         
@@ -83,6 +94,10 @@ chrome.debugger.onEvent.addListener(async (source, method, params) => {
 const contaminatePayload = (payload) => {
   if(payload.query == undefined && payload.extensions != null) {
     payload.extensions.persistedQuery.sha256Hash = digestMessage('1234567890');
+
+    chrome.runtime.sendMessage({status: "INTERCEPTED"}, (response) => {
+      console.info('Response sent to popup/content:', response);
+    });
   } else {
     console.log(`Expected a JSON to contain APQ extensions but found : ${JSON.stringify(payload)}`)
   }
