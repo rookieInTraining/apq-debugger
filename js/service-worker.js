@@ -64,7 +64,10 @@ chrome.debugger.onEvent.addListener(async (source, method, params) => {
           console.log("Request payload is a JSON element")
           contaminatePayload(reqBody)
         }
-        let base64Data = btoa(JSON.stringify(reqBody));
+        let base64Data = btoa(
+          new TextEncoder().encode(JSON.stringify(reqBody))
+              .reduce((data, byte) => data + String.fromCharCode(byte), '')
+        );
         console.info(`Modified Request : ${JSON.stringify(reqBody)}\nBase64 : ${base64Data}`);
         console.info("Executing Fetch.continueRequest...");
         
