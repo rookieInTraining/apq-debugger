@@ -1,4 +1,5 @@
 var totalPatterns = 1;
+var totalInterception = 0;
 
 document.getElementById("add").addEventListener('click', (e) => {
     console.log("Captured click event.....");
@@ -44,10 +45,6 @@ var addStopButton = () => {
         chrome.runtime.sendMessage(dataToSend, (response) => {
             console.log(response);
         })
-        setTimeout(() => {
-            document.querySelector("#form-actions").removeChild(document.querySelector(".stop"))
-            document.querySelector("#response").innerText = "Debugger Disconnected!!"
-        }, 5000);
     });
 }
 
@@ -80,4 +77,33 @@ document.getElementById('form-submit').addEventListener('click', (e) => {
             addStopButton()
         });
     }
+});
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.status === 'INTERCEPTED') {
+      // Update the UI (e.g., add the information to a div)
+      let outputElement = document.getElementById('interception-counter');
+      if (outputElement) {
+        outputElement.textContent = ++totalInterception;
+      }
+  
+      // Optionally, send a response back to the sender
+      sendResponse({ status: 'Message received' });
+    }
+});
+
+chrome.debugger.onDetach.addListener((source, reason) => {
+    console.log(`Debugger detached from tab ID ${source.tabId}. Reason: ${reason}`);
+  
+    // Additional actions when the debugger is disconnected
+    if (reason === 'target_closed') {
+      console.log('The target tab was closed.');
+    } else if (reason === 'canceled_by_user') {
+      console.log('The debugging session was manually detached by the user.');
+    } else {
+      console.log('Debugger detached for an unknown reason.');
+    }
+
+    document.querySelector("#form-actions").removeChild(document.querySelector(".stop"))
+    document.querySelector("#response").innerText = "Debugger Disconnected!!"
 });
