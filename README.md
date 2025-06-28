@@ -45,24 +45,62 @@ apq-debugger/
 │   └── service-worker.min.js  # Minified service worker (production)
 ├── icons/                     # Extension icons
 ├── manifest.json              # Extension manifest
-├── build.js                   # Build script for minification
+├── package.json               # Node.js dependencies
+├── build.js                   # Simple build script
+├── build-enhanced.js          # Enhanced build script with libraries
+├── install-deps.js            # Dependency installation helper
 └── README.md                  # This file
 ```
 
 ## Development
 
-### Building Minified Files
+### Quick Start
 
-Run the build script to generate minified versions:
+1. **Install dependencies** (optional, for enhanced builds):
+   ```bash
+   node install-deps.js
+   # or manually:
+   npm install
+   ```
 
-```bash
-node build.js
-```
+2. **Build minified files**:
+   ```bash
+   # Simple build (no dependencies required)
+   node build.js
+   
+   # Enhanced build (requires dependencies)
+   npm run build
+   # or
+   node build-enhanced.js
+   ```
 
-This will:
-- Minify `js/devtools.js` → `js/devtools.min.js`
-- Minify `js/service-worker.js` → `js/service-worker.min.js`
-- Minify `frontend/devtools.css` → `frontend/devtools.min.css`
+3. **Watch mode for development**:
+   ```bash
+   npm run watch
+   # or
+   node build-enhanced.js --watch
+   ```
+
+### Build Options
+
+#### Simple Build (No Dependencies)
+- **Command**: `node build.js`
+- **Features**: Basic regex-based minification
+- **Pros**: No dependencies required
+- **Cons**: Limited optimization
+
+#### Enhanced Build (With Dependencies)
+- **Command**: `npm run build` or `node build-enhanced.js`
+- **Features**: Professional minification using Terser and Clean-CSS
+- **Pros**: Better compression, dead code elimination, advanced optimizations
+- **Cons**: Requires Node.js dependencies
+
+### Build Libraries Used
+
+- **Terser**: JavaScript minification with ES6+ support
+- **Clean-CSS**: Advanced CSS optimization
+- **Chokidar**: File watching for development
+- **fs-extra**: Enhanced file system operations
 
 ### File Organization
 
@@ -91,7 +129,9 @@ This will:
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Run `node build.js` to update minified files
+4. Run the appropriate build command:
+   - `node build.js` (simple)
+   - `npm run build` (enhanced)
 5. Submit a pull request
 
 ## License
