@@ -14,91 +14,264 @@ function isDebuggerActive(tabId, callback) {
 }
 
 async function digestMessage(message) {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(message);
-  const hash = await crypto.subtle.digest("SHA-256", data);
-  return hash;
+  try {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(message);
+    const hash = await crypto.subtle.digest("SHA-256", data);
+    return Array.from(new Uint8Array(hash))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+  } catch (error) {
+    console.error('Hash generation failed:', error);
+    return null;
+  }
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  console.info(message)
-  if(message.patterns != undefined && message.patterns.length != 0) {
-    chrome.windows.getCurrent((window) => {
-      chrome.tabs.query({active: true, currentWindow: true, windowId: window.id}, (tabs) => {
-          let currentTab = tabs[0];
-          console.info(currentTab)
-          if(currentTab.url.startsWith('http')) {
-              chrome.debugger.attach({tabId : currentTab.id}, '1.3', () => {
-                  chrome.debugger.sendCommand(
-                      {tabId: currentTab.id},
-                      "Fetch.enable",
-                      {patterns : message.patterns},
-                      () => isAttached(true, currentTab.id)
-                  );
-              });
-          } else {
-              console.error('Debugger can only be attached to HTTP/HTTPS pages.');
+  console.info('Received message:', message);
+  
+  try {
+    if (message.patterns !== undefined && message.patterns.length > 0) {
+      // Validate patterns
+      const validPatterns = message.patterns.filter(pattern => 
+        pattern && pattern.urlPattern && pattern.urlPattern.trim() !== ''
+      );
+      
+      if (validPatterns.length === 0) {
+        sendResponse({status: "ERROR", error: "No valid URL patterns provided"});
+        return true;
+      }
+
+      chrome.windows.getCurrent((window) => {
+        if (chrome.runtime.lastError) {
+          console.error('Failed to get current window:', chrome.runtime.lastError);
+          sendResponse({status: "ERROR", error: "Failed to get current window"});
+          return;
+        }
+
+        chrome.tabs.query({active: true, currentWindow: true, windowId: window.id}, (tabs) => {
+          if (chrome.runtime.lastError) {
+            console.error('Failed to query tabs:', chrome.runtime.lastError);
+            sendResponse({status: "ERROR", error: "Failed to get current tab"});
+            return;
           }
-      })
-    })
-    sendResponse({status: "ENABLED", message: `Network Interception enabled for the following regex: \n ${message.patterns.map((regex) => regex.urlPattern)}`});
-  } else if (message.disconnect != undefined && message.disconnect != 0) {
-    if(tabId != undefined) {
-      console.log(`Deatching debugger session for tab id : ${tabId}`)
-      chrome.debugger.detach(
-        {tabId: tabId},
-        () => isAttached(false)
-      )
-      sendResponse({status: "DISABLED"})
+
+          if (!tabs || tabs.length === 0) {
+            sendResponse({status: "ERROR", error: "No active tab found"});
+            return;
+          }
+
+          let currentTab = tabs[0];
+          console.info('Current tab:', currentTab);
+
+          if (!currentTab.url || !currentTab.url.startsWith('http')) {
+            sendResponse({status: "ERROR", error: "Debugger can only be attached to HTTP/HTTPS pages"});
+            return;
+          }
+
+          // Check if debugger is already attached
+          if (debuggerAttached && tabId === currentTab.id) {
+            sendResponse({status: "WARNING", message: "Debugger already attached to this tab"});
+            return;
+          }
+
+          chrome.debugger.attach({tabId: currentTab.id}, '1.3', (error) => {
+            if (chrome.runtime.lastError) {
+              console.error('Debugger attach failed:', chrome.runtime.lastError);
+              sendResponse({status: "ERROR", error: "Failed to attach debugger: " + chrome.runtime.lastError.message});
+              return;
+            }
+
+            // Enable Fetch domain
+            chrome.debugger.sendCommand(
+              {tabId: currentTab.id},
+              "Fetch.enable",
+              {
+                patterns: validPatterns.map(pattern => ({
+                  urlPattern: pattern.urlPattern,
+                  requestStage: pattern.requestStage || "Request"
+                }))
+              },
+              (error) => {
+                if (chrome.runtime.lastError) {
+                  console.error('Fetch.enable failed:', chrome.runtime.lastError);
+                  // Detach debugger if Fetch.enable fails
+                  chrome.debugger.detach({tabId: currentTab.id}, () => {
+                    sendResponse({status: "ERROR", error: "Failed to enable network interception"});
+                  });
+                  return;
+                }
+
+                isAttached(true, currentTab.id);
+                sendResponse({
+                  status: "SUCCESS", 
+                  message: `Network Interception enabled for the following patterns:\n${validPatterns.map((pattern) => pattern.urlPattern).join('\n')}`
+                });
+              }
+            );
+          });
+        });
+      });
+    } else if (message.disconnect !== undefined && message.disconnect === true) {
+      if (tabId !== undefined && debuggerAttached) {
+        console.log(`Detaching debugger session for tab id: ${tabId}`);
+        chrome.debugger.detach(
+          {tabId: tabId},
+          (error) => {
+            if (chrome.runtime.lastError) {
+              console.error('Debugger detach failed:', chrome.runtime.lastError);
+              sendResponse({status: "ERROR", error: "Failed to detach debugger"});
+              return;
+            }
+            isAttached(false, undefined);
+            sendResponse({status: "SUCCESS", message: "Debugger detached successfully"});
+          }
+        );
+      } else {
+        sendResponse({status: "WARNING", message: "No active debugger session to detach"});
+      }
+    } else {
+      sendResponse({status: "ERROR", error: "Invalid message format or empty patterns"});
     }
-  } else {
-    sendResponse({status: "DENIED", error: "URL cannot be empty! Try again!"});
+  } catch (error) {
+    console.error('Message handling error:', error);
+    sendResponse({status: "ERROR", error: "Internal error: " + error.message});
   }
+  
+  return true; // Keep message channel open for async response
 });
 
 chrome.debugger.onEvent.addListener(async (source, method, params) => {
+  try {
     if (method === 'Fetch.requestPaused') {
-      console.info(params);
-      if(params.request.hasPostData) {
-        
-        let reqBody = JSON.parse(params.request.postData);
-        console.info(reqBody);
-        
-        if(Array.isArray(reqBody)) {
-          console.log("Request payload is an array")
-          reqBody.forEach((req) => {
-            contaminatePayload(req);
-          })
-        } else {
-          console.log("Request payload is a JSON element")
-          contaminatePayload(reqBody)
-        }
-
-        let base64Data = btoa(
-          new TextEncoder().encode(JSON.stringify(reqBody))
-              .reduce((data, byte) => data + String.fromCharCode(byte), '')
-        );
-        
-        console.info(`Modified Request : ${JSON.stringify(reqBody)}\nBase64 : ${base64Data}`);
-        console.info("Executing Fetch.continueRequest...");
-        
+      console.info('Request paused:', params);
+      
+      if (!params.request || !params.request.hasPostData) {
+        // Continue request without modification if no post data
         chrome.debugger.sendCommand(
           {tabId: source.tabId},
           "Fetch.continueRequest",
-          { requestId : params.requestId, postData : base64Data }
+          { requestId: params.requestId }
+        );
+        return;
+      }
+
+      let reqBody;
+      try {
+        reqBody = JSON.parse(params.request.postData);
+      } catch (parseError) {
+        console.error('Failed to parse request data:', parseError);
+        // Continue request without modification if parsing fails
+        chrome.debugger.sendCommand(
+          {tabId: source.tabId},
+          "Fetch.continueRequest",
+          { requestId: params.requestId }
+        );
+        return;
+      }
+
+      console.info('Parsed request body:', reqBody);
+
+      try {
+        if (Array.isArray(reqBody)) {
+          console.log("Request payload is an array");
+          for (const req of reqBody) {
+            await contaminatePayload(req);
+          }
+        } else {
+          console.log("Request payload is a JSON element");
+          await contaminatePayload(reqBody);
+        }
+
+        // Convert modified request back to base64
+        const modifiedJson = JSON.stringify(reqBody);
+        const encoder = new TextEncoder();
+        const bytes = encoder.encode(modifiedJson);
+        const base64Data = btoa(String.fromCharCode(...bytes));
+
+        console.info(`Modified Request: ${modifiedJson}\nBase64: ${base64Data}`);
+        console.info("Executing Fetch.continueRequest...");
+
+        chrome.debugger.sendCommand(
+          {tabId: source.tabId},
+          "Fetch.continueRequest",
+          { 
+            requestId: params.requestId, 
+            postData: base64Data 
+          },
+          (error) => {
+            if (chrome.runtime.lastError) {
+              console.error('Fetch.continueRequest failed:', chrome.runtime.lastError);
+            }
+          }
+        );
+      } catch (processingError) {
+        console.error('Error processing request:', processingError);
+        // Continue request without modification if processing fails
+        chrome.debugger.sendCommand(
+          {tabId: source.tabId},
+          "Fetch.continueRequest",
+          { requestId: params.requestId }
         );
       }
+    }
+  } catch (error) {
+    console.error('Debugger event handling error:', error);
   }
 });
 
-const contaminatePayload = (payload) => {
-  if(payload.query == undefined && payload.extensions != null) {
-    payload.extensions.persistedQuery.sha256Hash = digestMessage('1234567890');
+const contaminatePayload = async (payload) => {
+  try {
+    if (!payload || typeof payload !== 'object') {
+      console.log('Invalid payload format:', payload);
+      return;
+    }
 
-    chrome.runtime.sendMessage({status: "INTERCEPTED"}, (response) => {
-      console.info('Response sent to popup/content:', response);
-    });
-  } else {
-    console.log(`Expected a JSON to contain APQ extensions but found : ${JSON.stringify(payload)}`)
+    if (payload.query === undefined && payload.extensions && payload.extensions.persistedQuery) {
+      const hash = await digestMessage('1234567890');
+      if (hash) {
+        payload.extensions.persistedQuery.sha256Hash = hash;
+        
+        chrome.runtime.sendMessage({status: "INTERCEPTED"}, (response) => {
+          if (chrome.runtime.lastError) {
+            console.error('Failed to send intercepted message:', chrome.runtime.lastError);
+          } else {
+            console.info('Response sent to devtools:', response);
+          }
+        });
+      } else {
+        console.error('Failed to generate hash for payload');
+      }
+    } else {
+      console.log(`Payload does not contain APQ extensions:`, JSON.stringify(payload));
+    }
+  } catch (error) {
+    console.error('Error in contaminatePayload:', error);
   }
-}
+};
+
+// Handle debugger detachment events
+chrome.debugger.onDetach.addListener((source, reason) => {
+  console.log(`Debugger detached from tab ID ${source.tabId}. Reason: ${reason}`);
+  
+  if (source.tabId === tabId) {
+    isAttached(false, undefined);
+  }
+  
+  // Additional actions when the debugger is disconnected
+  if (reason === 'target_closed') {
+    console.log('The target tab was closed.');
+  } else if (reason === 'canceled_by_user') {
+    console.log('The debugging session was manually detached by the user.');
+  } else {
+    console.log('Debugger detached for an unknown reason.');
+  }
+});
+
+// Handle extension installation/update
+chrome.runtime.onInstalled.addListener(() => {
+  console.log('APQ Debugger service worker installed/updated');
+  // Reset state
+  debuggerAttached = false;
+  tabId = undefined;
+});
