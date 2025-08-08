@@ -1,7 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "APQ Debugger (Beta)",
-  "description": "This extension intercepts Apollo's persisted queries, forcing it to retry the request by sending the entire graphql query.",
+  "name": "Apollo GraphQL Persisted Queries (APQ) Debugger",
+  "description": "Reveal full GraphQL queries behind Apollo APQ hashes. Inspect fallback flow and debug Automatic Persisted Queries in DevTools.",
+  "tag": ["chrome-extension", "graphql", "apollo-client", "persisted-queries", "apq", "devtools", "debugging", "apq-debugger"],
   "version": "1.0.0",
   "permissions": ["debugger", "tabs"],
   "host_permissions": ["<all_urls>"],

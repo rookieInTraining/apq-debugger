@@ -2,9 +2,10 @@
    <img src="./icons/icon128.png" style="padding: 20px;">
 </p>
 
-# APQ Debugger - Apollo Persisted Query Interceptor
+# APQ Debugger — Chrome extension for Apollo GraphQL Persisted Queries (APQ)
 
-A Chrome DevTools extension that intercepts GraphQL queries using Apollo's APQ (Automatic Persisted Queries) feature to send full GraphQL queries instead of SHA256 hashes.
+**APQ Debugger** reveals the full GraphQL operation behind Apollo Client’s Automatic Persisted Queries (APQ) hashes and visualizes the fallback flow in Chrome DevTools.
+[→ Install from Chrome Web Store](https://chromewebstore.google.com/detail/apq-debugger-beta/gbanmonipiommdljkadhhiomhkgjchee)
 
 ## Features
 
