@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var totalInterception = 0;
     var isDebuggerActive = false;
     var currentOperation = null; // 'starting', 'stopping', null
+    const PATTERNS_STORAGE_KEY = 'apqPatterns';
 
     // Utility function to safely get DOM elements
     function getElement(id) {
@@ -23,6 +24,92 @@ document.addEventListener('DOMContentLoaded', function() {
             return null;
         }
         return element;
+    }
+
+    function getPatternInputs() {
+        return Array.from(document.querySelectorAll('.urlPattern'));
+    }
+
+    function getPatternsFromForm() {
+        return getPatternInputs()
+            .map((input) => (input ? input.value.trim() : ''))
+            .filter((value) => value.length > 0);
+    }
+
+    function savePatternsToStorage() {
+        const patterns = getPatternsFromForm();
+        chrome.storage.local.set({ [PATTERNS_STORAGE_KEY]: patterns }, () => {
+            if (chrome.runtime.lastError) {
+                console.warn('Failed to save patterns:', chrome.runtime.lastError);
+            }
+        });
+    }
+
+    function createPatternField(value) {
+        let formGroup = document.createElement("div");
+        formGroup.setAttribute('class', 'form-group');
+
+        let newFormInput = document.createElement("input");
+        newFormInput.setAttribute('type', 'text');
+        newFormInput.setAttribute('class', 'urlPattern');
+        newFormInput.setAttribute('data-pattern-index', ++totalPatterns);
+        newFormInput.setAttribute('placeholder', 'Enter URL pattern to match (e.g., /graphql)');
+        if (value) {
+            newFormInput.value = value;
+        }
+        newFormInput.addEventListener('input', savePatternsToStorage);
+        
+        let removeButton = document.createElement("button");
+        removeButton.setAttribute('type', 'button');
+        removeButton.setAttribute('class', 'btn btn-danger');
+        removeButton.innerText = "Remove";
+        removeButton.addEventListener('click', (e) => {
+            try {
+                const parent = e.target.parentElement;
+                if (parent && parent.parentElement) {
+                    parent.parentElement.removeChild(parent);
+                    savePatternsToStorage();
+                }
+            } catch (error) {
+                console.error('Error removing pattern field:', error);
+            }
+        });
+
+        formGroup.appendChild(newFormInput);
+        formGroup.appendChild(removeButton);
+        return formGroup;
+    }
+
+    function restorePatternsFromStorage() {
+        chrome.storage.local.get([PATTERNS_STORAGE_KEY], (result) => {
+            if (chrome.runtime.lastError) {
+                console.warn('Failed to load patterns:', chrome.runtime.lastError);
+                return;
+            }
+
+            const patterns = Array.isArray(result[PATTERNS_STORAGE_KEY])
+                ? result[PATTERNS_STORAGE_KEY]
+                : [];
+
+            const inputs = getPatternInputs();
+            if (inputs.length === 0) {
+                return;
+            }
+
+            if (patterns.length > 0) {
+                inputs[0].value = patterns[0];
+            }
+
+            const form = document.querySelector("#myForm");
+            if (!form) {
+                console.error("Form element not found");
+                return;
+            }
+
+            for (let i = 1; i < patterns.length; i++) {
+                form.appendChild(createPatternField(patterns[i]));
+            }
+        });
     }
 
     // Safe DOM manipulation
@@ -40,37 +127,11 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log("Adding new pattern field...");
             
             try {
-                let formGroup = document.createElement("div");
-                formGroup.setAttribute('class', 'form-group');
-
-                let newFormInput = document.createElement("input");
-                newFormInput.setAttribute('type', 'text');
-                newFormInput.setAttribute('class', 'urlPattern');
-                newFormInput.setAttribute('data-pattern-index', ++totalPatterns);
-                newFormInput.setAttribute('placeholder', 'Enter URL pattern to match (e.g., /graphql)');
-                
-                let removeButton = document.createElement("button");
-                removeButton.setAttribute('type', 'button');
-                removeButton.setAttribute('class', 'btn btn-danger');
-                removeButton.innerText = "Remove";
-                removeButton.addEventListener('click', (e) => {
-                    try {
-                        const parent = e.target.parentElement;
-                        if (parent && parent.parentElement) {
-                            parent.parentElement.removeChild(parent);
-                        }
-                    } catch (error) {
-                        console.error('Error removing pattern field:', error);
-                    }
-                });
-
-                formGroup.appendChild(newFormInput);
-                formGroup.appendChild(removeButton);
-                
                 const form = document.querySelector("#myForm");
                 if (form) {
-                    form.appendChild(formGroup);
+                    form.appendChild(createPatternField(''));
                     console.log("New pattern field added successfully");
+                    savePatternsToStorage();
                 } else {
                     console.error("Form element not found");
                 }
@@ -326,6 +387,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
+            savePatternsToStorage();
             // Start debugger
             startDebugger(urlPatterns);
         } catch (error) {
@@ -433,6 +495,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Send a response back to the sender
                 sendResponse({ status: 'Message received' });
+            } else if (message.status === 'ACTION_TOGGLE') {
+                if (message.error) {
+                    handleStartError(message.error);
+                    return;
+                }
+
+                if (message.active) {
+                    handleStartSuccess(message.message || 'Debugger attached via toolbar');
+                } else {
+                    handleStopSuccess();
+                }
             }
         } catch (error) {
             console.error('Error handling intercepted message:', error);
@@ -485,4 +558,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // Set initial state
     updateDebuggerStatus("🟢 Ready to Start", "success");
     updateResponse("Enter URL patterns and click 'Start Debugging' to begin");
+
+    const initialInput = document.querySelector('.urlPattern');
+    if (initialInput) {
+        initialInput.addEventListener('input', savePatternsToStorage);
+    }
+    restorePatternsFromStorage();
 });
