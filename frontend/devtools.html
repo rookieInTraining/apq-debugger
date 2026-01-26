@@ -3,70 +3,95 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Apollo GraphQL Persisted Queries (APQ) Debugger</title>
+    <title>APQ Debugger</title>
     <link rel="stylesheet" href="devtools.min.css">
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <div class="logo"> Apollo GraphQL Persisted Queries (APQ) Debugger </div>
-            <div class="subtitle">Advanced Apollo GraphQL Query Analysis Tool</div>
-        </div>
-
-        <div class="content">
-            <div class="status" id="debugger-status">🟢 Ready to Start</div>
-            <p style="margin: 15px 0; color: #555; line-height: 1.6;">
-                Configure URL patterns to intercept and analyze Apollo Client queries for performance optimization.
-            </p>
-        </div>
-
-        <!-- URL Pattern Form Section -->
-        <div class="form-section">
-            <div class="form-title">🔗 URL Pattern Configuration</div>
-            <form id="myForm">
-                <div class="form-group">
-                    <input type="text" class="urlPattern" data-pattern-index="1" placeholder="Enter URL pattern to match (e.g., /graphql*, *domain*, etc.)">
-                    <button id="add" class="btn btn-secondary" type="button">Add Pattern</button>
-                </div>
-            </form>
-            
-            <div class="stats">
-                <div class="stat-item">
-                    <div class="stat-number" id="interception-counter">0</div>
-                    <div class="stat-label">Intercepted Requests</div>
+    <div class="app">
+        <!-- Header Bar -->
+        <header class="header">
+            <div class="header-left">
+                <img src="../icons/icon32.png" alt="APQ" class="header-logo">
+                <span class="header-title">APQ Debugger</span>
+            </div>
+            <div class="header-center">
+                <div class="status-badge" id="debugger-status">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Ready</span>
                 </div>
             </div>
-
-            <div id="form-actions">
-                <button id="form-submit" class="btn btn-primary" type="submit">Start Debugging</button>
+            <div class="header-right">
+                <span class="request-count" id="request-count">
+                    <span class="count-number" id="interception-counter">0</span>
+                    <span class="count-label">requests</span>
+                </span>
             </div>
+        </header>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Left Sidebar - Patterns -->
+            <aside class="sidebar" id="patterns-sidebar">
+                <div class="sidebar-header">
+                    <h2 class="sidebar-title">🔗 Patterns</h2>
+                </div>
+                <div class="patterns-list" id="patterns-list">
+                    <form id="myForm">
+                        <div class="pattern-item">
+                            <input type="text" class="urlPattern" data-pattern-index="1" placeholder="*graphql*">
+                            <button type="button" class="btn-icon btn-remove" title="Remove pattern" style="display: none;">×</button>
+                        </div>
+                    </form>
+                </div>
+                <button type="button" class="btn-add-pattern" id="add">
+                    <span class="btn-icon-plus">+</span> Add Pattern
+                </button>
+                <div class="sidebar-actions">
+                    <button id="form-submit" class="btn btn-primary btn-block">
+                        <span class="btn-icon-play">▶</span> Start
+                    </button>
+                </div>
+            </aside>
+
+            <!-- Center Panel - Request List -->
+            <main class="request-panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">📊 Intercepted Requests</h2>
+                    <div class="filter-bar">
+                        <input type="text" class="filter-input" id="filter-input" placeholder="Filter by operation name...">
+                        <div class="filter-chips">
+                            <button class="chip active" data-filter="all">All</button>
+                            <button class="chip" data-filter="apq">APQ</button>
+                            <button class="chip" data-filter="full">Full</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="request-list" id="request-list">
+                    <div class="empty-state" id="empty-state">
+                        <div class="empty-icon">📡</div>
+                        <p class="empty-title">No requests intercepted yet</p>
+                        <p class="empty-desc">Add URL patterns and start debugging to capture GraphQL requests</p>
+                    </div>
+                </div>
+            </main>
+
+            <!-- Right Panel - Request Details -->
+            <aside class="detail-panel" id="detail-panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">🔍 Request Details</h2>
+                    <button class="btn-icon btn-close" id="close-detail" title="Close">×</button>
+                </div>
+                <div class="detail-content" id="detail-content">
+                    <div class="detail-placeholder">
+                        <p>Select a request to view details</p>
+                    </div>
+                </div>
+            </aside>
         </div>
 
-        <!-- Response Section -->
+        <!-- Response Container (hidden, for compatibility) -->
         <div id="response-container" style="display: none;">
             <div class="response" id="response"></div>
-        </div>
-
-        <!-- <div class="features">
-            <div class="feature">
-                <div class="feature-icon">📊</div>
-                <div class="feature-title">Query Analytics</div>
-                <div class="feature-desc">Monitor query execution times and performance metrics</div>
-            </div>
-            <div class="feature">
-                <div class="feature-icon">🔍</div>
-                <div class="feature-title">Cache Inspection</div>
-                <div class="feature-desc">Explore cached data and identify optimization opportunities</div>
-            </div>
-            <div class="feature">
-                <div class="feature-icon">⚡</div>
-                <div class="feature-title">Performance Insights</div>
-                <div class="feature-desc">Get detailed insights into query performance bottlenecks</div>
-            </div>
-        </div> -->
-
-        <div class="footer">
-            <p>Apollo GraphQL Persisted Queries (APQ) Debugger v1.0.0-beta | Built for Apollo Client</p>
         </div>
     </div>
 

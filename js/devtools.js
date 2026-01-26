@@ -1,7 +1,7 @@
 // DevTools Panel Creation
 chrome.devtools.panels.create("APQ Debugger",
-    "icons/icon128.png",
-    "devtools.html",
+    "../icons/icon128.png",
+    "../frontend/devtools.html",
     function (panel) {
         console.log("APQ Debugger panel created:", panel);
     }
@@ -9,19 +9,32 @@ chrome.devtools.panels.create("APQ Debugger",
 
 // Wait for DOM to be ready
 document.addEventListener('DOMContentLoaded', function () {
-    // Initialize variables
-    const inspectedTabId = chrome.devtools.inspectedWindow.tabId;
-    var totalPatterns = 1;
-    var totalInterception = 0;
-    var currentOperation = null; // 'starting', 'stopping', null
+    // ================================================
+    // State Management
+    // ================================================
+    let totalPatterns = 1;
+    let isDebuggerActive = false;
+    let currentOperation = null;
+    let selectedRequestId = null;
+    let activeFilter = 'all';
+    let filterText = '';
+
     const PATTERNS_STORAGE_KEY = 'apqPatterns';
 
-    // Utility function to safely get DOM elements
+    // Get the tab ID of the inspected window (works even when DevTools is undocked)
+    const inspectedTabId = chrome.devtools.inspectedWindow.tabId;
+
+    // Request history storage
+    const requestHistory = [];
+    let requestIdCounter = 0;
+
+    // ================================================
+    // DOM Element Helpers
+    // ================================================
     function getElement(id) {
         const element = document.getElementById(id);
         if (!element) {
             console.error(`Element with id '${id}' not found`);
-            return null;
         }
         return element;
     }
@@ -36,6 +49,9 @@ document.addEventListener('DOMContentLoaded', function () {
             .filter((value) => value.length > 0);
     }
 
+    // ================================================
+    // Pattern Storage
+    // ================================================
     function savePatternsToStorage() {
         const patterns = getPatternsFromForm();
         chrome.storage.local.set({ [PATTERNS_STORAGE_KEY]: patterns }, () => {
@@ -43,41 +59,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 console.warn('Failed to save patterns:', chrome.runtime.lastError);
             }
         });
-    }
-
-    function createPatternField(value) {
-        let formGroup = document.createElement("div");
-        formGroup.setAttribute('class', 'form-group');
-
-        let newFormInput = document.createElement("input");
-        newFormInput.setAttribute('type', 'text');
-        newFormInput.setAttribute('class', 'urlPattern');
-        newFormInput.setAttribute('data-pattern-index', ++totalPatterns);
-        newFormInput.setAttribute('placeholder', 'Enter URL pattern to match (e.g., /graphql)');
-        if (value) {
-            newFormInput.value = value;
-        }
-        newFormInput.addEventListener('input', savePatternsToStorage);
-
-        let removeButton = document.createElement("button");
-        removeButton.setAttribute('type', 'button');
-        removeButton.setAttribute('class', 'btn btn-danger');
-        removeButton.innerText = "Remove";
-        removeButton.addEventListener('click', (e) => {
-            try {
-                const parent = e.target.parentElement;
-                if (parent && parent.parentElement) {
-                    parent.parentElement.removeChild(parent);
-                    savePatternsToStorage();
-                }
-            } catch (error) {
-                console.error('Error removing pattern field:', error);
-            }
-        });
-
-        formGroup.appendChild(newFormInput);
-        formGroup.appendChild(removeButton);
-        return formGroup;
     }
 
     function restorePatternsFromStorage() {
@@ -92,345 +73,437 @@ document.addEventListener('DOMContentLoaded', function () {
                 : [];
 
             const inputs = getPatternInputs();
-            if (inputs.length === 0) {
-                return;
-            }
+            if (inputs.length === 0) return;
 
             if (patterns.length > 0) {
                 inputs[0].value = patterns[0];
             }
 
-            const form = document.querySelector("#myForm");
-            if (!form) {
-                console.error("Form element not found");
-                return;
-            }
-
             for (let i = 1; i < patterns.length; i++) {
-                form.appendChild(createPatternField(patterns[i]));
+                addPatternField(patterns[i]);
             }
         });
     }
 
-    // Safe DOM manipulation
-    function safeUpdateElement(id, property, value) {
-        const element = getElement(id);
-        if (element) {
-            element[property] = value;
-        }
+    // ================================================
+    // Pattern Field Management
+    // ================================================
+    function addPatternField(value = '') {
+        const form = document.querySelector("#myForm");
+        if (!form) return;
+
+        const patternItem = document.createElement("div");
+        patternItem.className = 'pattern-item';
+
+        const input = document.createElement("input");
+        input.type = 'text';
+        input.className = 'urlPattern';
+        input.setAttribute('data-pattern-index', ++totalPatterns);
+        input.placeholder = '*graphql*';
+        if (value) input.value = value;
+        input.addEventListener('input', savePatternsToStorage);
+
+        const removeBtn = document.createElement("button");
+        removeBtn.type = 'button';
+        removeBtn.className = 'btn-icon btn-remove';
+        removeBtn.title = 'Remove pattern';
+        removeBtn.innerHTML = '×';
+        removeBtn.addEventListener('click', () => {
+            patternItem.remove();
+            savePatternsToStorage();
+        });
+
+        patternItem.appendChild(input);
+        patternItem.appendChild(removeBtn);
+        form.appendChild(patternItem);
+
+        savePatternsToStorage();
     }
 
-    // Add pattern button functionality
+    // Add pattern button
     const addButton = getElement("add");
     if (addButton) {
-        addButton.addEventListener('click', (e) => {
-            console.log("Adding new pattern field...");
-
-            try {
-                const form = document.querySelector("#myForm");
-                if (form) {
-                    form.appendChild(createPatternField(''));
-                    console.log("New pattern field added successfully");
-                    savePatternsToStorage();
-                } else {
-                    console.error("Form element not found");
-                }
-            } catch (error) {
-                console.error('Error adding pattern field:', error);
-                showError("Failed to add pattern field");
-            }
-        });
+        addButton.addEventListener('click', () => addPatternField());
     }
 
-    // Add stop button functionality with error handling
-    var addStopButton = () => {
-        try {
-            // Remove existing stop button if any
-            const existingStopButton = document.querySelector("#form-actions .btn-danger");
-            if (existingStopButton) {
-                existingStopButton.remove();
-            }
+    // Initial pattern input listener
+    const initialInput = document.querySelector('.urlPattern');
+    if (initialInput) {
+        initialInput.addEventListener('input', savePatternsToStorage);
+    }
 
-            let stopDebugger = document.createElement("button");
-            stopDebugger.setAttribute('type', 'button');
-            stopDebugger.setAttribute('class', 'btn btn-danger');
-            stopDebugger.setAttribute('id', 'stop-debugger-btn');
-            stopDebugger.innerText = "Stop Debugging";
+    // ================================================
+    // Status Management
+    // ================================================
+    function updateDebuggerStatus(text, type = 'default') {
+        const statusBadge = getElement('debugger-status');
+        if (!statusBadge) return;
 
-            const formActions = document.querySelector("#form-actions");
-            if (formActions) {
-                formActions.appendChild(stopDebugger);
+        const statusText = statusBadge.querySelector('.status-text');
+        if (statusText) statusText.textContent = text;
 
-                stopDebugger.addEventListener('click', handleStopDebugger);
-                console.log("Stop button added successfully");
-            } else {
-                console.error("Form actions container not found");
-            }
-        } catch (error) {
-            console.error('Error adding stop button:', error);
-            showError("Failed to add stop button");
-        }
-    };
-
-    // Handle stop debugger with comprehensive error handling
-    function handleStopDebugger(e) {
-        if (currentOperation === 'stopping') {
-            console.log("Stop operation already in progress");
-            return;
-        }
-
-        try {
-            currentOperation = 'stopping';
-            console.log("Stopping debugger...");
-
-            updateResponse("Disconnecting Debugger....");
-            updateDebuggerStatus("🟡 Disconnecting...", "warning");
-
-            // Disable stop button during operation
-            const stopButton = getElement('stop-debugger-btn');
-            if (stopButton) {
-                stopButton.disabled = true;
-                stopButton.textContent = 'Stopping...';
-            }
-
-            const dataToSend = { disconnect: true, tabId: inspectedTabId };
-
-            // Add timeout for stop operation
-            const stopTimeout = setTimeout(() => {
-                console.error("Stop operation timed out");
-                handleStopTimeout();
-            }, 10000); // 10 second timeout
-
-            chrome.runtime.sendMessage(dataToSend, (response) => {
-                clearTimeout(stopTimeout);
-                currentOperation = null;
-
-                console.log('Stop response:', response);
-
-                if (chrome.runtime.lastError) {
-                    console.error('Stop operation failed:', chrome.runtime.lastError);
-                    handleStopError(chrome.runtime.lastError.message);
-                    return;
-                }
-
-                if (response && response.status === "SUCCESS") {
-                    handleStopSuccess();
-                } else if (response && response.status === "WARNING") {
-                    handleStopWarning(response.message);
-                } else {
-                    handleStopError(response?.error || "Unknown error occurred");
-                }
-            });
-        } catch (error) {
-            currentOperation = null;
-            console.error('Error in stop debugger:', error);
-            handleStopError("Internal error occurred");
+        statusBadge.className = 'status-badge';
+        if (type === 'active' || type === 'success') {
+            statusBadge.classList.add('active');
+        } else if (type === 'warning') {
+            statusBadge.classList.add('warning');
+        } else if (type === 'error') {
+            statusBadge.classList.add('error');
         }
     }
 
-    function handleStopSuccess() {
-        updateDebuggerStatus("🔴 Debugger Stopped", "error");
-        updateResponse("Debugger Disconnected Successfully!");
-        resetUIState();
-        isDebuggerActive = false;
-    }
-
-    function handleStopWarning(message) {
-        updateDebuggerStatus("🟡 Debugger Status Unknown", "warning");
-        updateResponse(`Warning: ${message}`);
-        resetUIState();
-        isDebuggerActive = false;
-    }
-
-    function handleStopError(error) {
-        updateDebuggerStatus("🔴 Stop Failed", "error");
-        updateResponse(`Error: ${error}`);
-        resetUIState();
-        // Keep debugger as active since stop failed
-    }
-
-    function handleStopTimeout() {
-        currentOperation = null;
-        updateDebuggerStatus("🔴 Stop Timeout", "error");
-        updateResponse("Stop operation timed out. Please try again.");
-        resetUIState();
-    }
-
-    // Update debugger status with validation
-    function updateDebuggerStatus(message, type) {
-        try {
-            const statusElement = getElement('debugger-status');
-            if (!statusElement) {
-                console.error("Status element not found");
-                return;
-            }
-
-            statusElement.textContent = message;
-
-            // Reset all styles first
-            statusElement.className = 'status';
-            statusElement.style.background = '';
-            statusElement.style.color = '';
-
-            // Apply type-specific styling
-            if (type === 'success') {
-                statusElement.style.background = '#28a745';
-            } else if (type === 'warning') {
-                statusElement.style.background = '#ffc107';
-                statusElement.style.color = '#333';
-            } else if (type === 'error') {
-                statusElement.style.background = '#dc3545';
-            } else if (type === 'info') {
-                statusElement.style.background = '#17a2b8';
-            }
-        } catch (error) {
-            console.error('Error updating debugger status:', error);
-        }
-    }
-
-    // Update response with validation
     function updateResponse(message) {
-        try {
-            const responseContainer = getElement('response-container');
-            const responseElement = getElement('response');
+        const responseContainer = getElement('response-container');
+        const responseElement = getElement('response');
 
-            if (responseContainer) {
-                responseContainer.style.display = 'block';
-            }
-
-            if (responseElement) {
-                responseElement.innerText = message;
-            } else {
-                // Create response element if it doesn't exist
-                const newResponse = document.createElement("div");
-                newResponse.setAttribute('id', 'response');
-                newResponse.setAttribute('class', 'response');
-                newResponse.innerText = message;
-
-                if (responseContainer) {
-                    responseContainer.appendChild(newResponse);
-                }
-            }
-        } catch (error) {
-            console.error('Error updating response:', error);
-        }
+        if (responseContainer) responseContainer.style.display = 'block';
+        if (responseElement) responseElement.innerText = message;
     }
 
-    // Show error message
     function showError(message) {
         console.error(message);
-        updateDebuggerStatus("🔴 Error", "error");
+        updateDebuggerStatus("Error", "error");
         updateResponse(`Error: ${message}`);
     }
 
-    // Reset UI state
-    function resetUIState() {
-        try {
-            // Reset form submit button
-            const submitButton = getElement('form-submit');
-            if (submitButton) {
-                submitButton.disabled = false;
-                submitButton.textContent = 'Start Debugging';
-                submitButton.className = 'btn btn-primary';
-            }
-
-            // Remove stop button
-            const stopButton = document.querySelector("#stop-debugger-btn");
-            if (stopButton) {
-                stopButton.remove();
-            }
-
-            // Reset operation state
-            currentOperation = null;
-        } catch (error) {
-            console.error('Error resetting UI state:', error);
+    // ================================================
+    // Request Counter
+    // ================================================
+    function updateRequestCount() {
+        const counter = getElement('interception-counter');
+        if (counter) {
+            counter.textContent = requestHistory.length;
+            counter.style.transform = 'scale(1.2)';
+            setTimeout(() => {
+                counter.style.transform = 'scale(1)';
+            }, 200);
         }
     }
 
-    // Form submit functionality with comprehensive error handling
-    const submitButton = getElement('form-submit');
-    if (submitButton) {
-        submitButton.addEventListener('click', handleFormSubmit);
+    // ================================================
+    // Request History Management
+    // ================================================
+    function addRequest(requestData) {
+        const request = {
+            id: ++requestIdCounter,
+            timestamp: new Date(),
+            operationName: requestData.operationName || 'Unknown',
+            url: requestData.url || '',
+            type: requestData.isAPQ ? 'apq' : 'full',
+            hash: requestData.hash || '',
+            query: requestData.query || '',
+            variables: requestData.variables || null,
+            responseTime: requestData.responseTime || null
+        };
+
+        requestHistory.unshift(request);
+        updateRequestCount();
+        renderRequestList();
+
+        return request;
     }
 
-    function handleFormSubmit(e) {
-        e.preventDefault();
+    function getFilteredRequests() {
+        return requestHistory.filter(req => {
+            // Type filter
+            if (activeFilter !== 'all' && req.type !== activeFilter) {
+                return false;
+            }
+            // Text filter
+            if (filterText) {
+                const searchText = filterText.toLowerCase();
+                return req.operationName.toLowerCase().includes(searchText) ||
+                    req.url.toLowerCase().includes(searchText);
+            }
+            return true;
+        });
+    }
 
-        if (currentOperation === 'starting') {
-            console.log("Start operation already in progress");
+    // ================================================
+    // Request List Rendering
+    // ================================================
+    function renderRequestList() {
+        const listContainer = getElement('request-list');
+        const emptyState = getElement('empty-state');
+        if (!listContainer) return;
+
+        const filtered = getFilteredRequests();
+
+        // Clear existing items (except empty state)
+        listContainer.querySelectorAll('.request-item').forEach(el => el.remove());
+
+        if (filtered.length === 0) {
+            if (emptyState) emptyState.style.display = 'flex';
             return;
         }
 
-        try {
-            // Validate form data
-            const urlPatterns = [];
-            const formGroups = document.querySelectorAll('.form-group');
+        if (emptyState) emptyState.style.display = 'none';
 
-            if (formGroups.length === 0) {
-                showError("No pattern fields found");
-                return;
-            }
+        filtered.forEach(request => {
+            const item = createRequestItem(request);
+            listContainer.appendChild(item);
+        });
+    }
 
-            formGroups.forEach((d) => {
-                const input = d.querySelector('.urlPattern');
-                if (input && input.value.trim()) {
-                    urlPatterns.push({
-                        urlPattern: input.value.trim(),
-                        requestType: 'XHR',
-                        requestStage: 'Request'
-                    });
-                }
+    function createRequestItem(request) {
+        const item = document.createElement('div');
+        item.className = 'request-item';
+        if (request.id === selectedRequestId) {
+            item.classList.add('selected');
+        }
+        item.dataset.requestId = request.id;
+
+        const timeStr = request.timestamp.toLocaleTimeString('en-US', {
+            hour12: false,
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        });
+
+        item.innerHTML = `
+            <div class="request-info">
+                <div class="request-operation">${escapeHtml(request.operationName)}</div>
+                <div class="request-url">${escapeHtml(truncateUrl(request.url))}</div>
+            </div>
+            <div class="request-meta">
+                <span class="request-time">${timeStr}</span>
+                <span class="request-badge ${request.type}">${request.type.toUpperCase()}</span>
+            </div>
+        `;
+
+        item.addEventListener('click', () => selectRequest(request.id));
+
+        return item;
+    }
+
+    function truncateUrl(url, maxLength = 40) {
+        if (url.length <= maxLength) return url;
+        return '...' + url.slice(-maxLength);
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // ================================================
+    // Request Selection & Detail Display
+    // ================================================
+    function selectRequest(requestId) {
+        selectedRequestId = requestId;
+
+        // Update selection in list
+        document.querySelectorAll('.request-item').forEach(item => {
+            item.classList.toggle('selected', parseInt(item.dataset.requestId) === requestId);
+        });
+
+        // Show detail panel
+        const detailPanel = getElement('detail-panel');
+        if (detailPanel) detailPanel.classList.remove('hidden');
+
+        // Render details
+        renderRequestDetail(requestId);
+    }
+
+    function renderRequestDetail(requestId) {
+        const request = requestHistory.find(r => r.id === requestId);
+        const detailContent = getElement('detail-content');
+        if (!request || !detailContent) return;
+
+        const formattedQuery = request.query ? formatGraphQL(request.query) : 'No query available';
+        const variablesJson = request.variables ? JSON.stringify(request.variables, null, 2) : null;
+
+        detailContent.innerHTML = `
+            <div class="detail-section">
+                <div class="detail-label">Operation</div>
+                <div class="detail-value">${escapeHtml(request.operationName)}</div>
+            </div>
+            
+            <div class="detail-section">
+                <div class="detail-label">Type</div>
+                <div class="detail-value">
+                    <span class="request-badge ${request.type}">${request.type.toUpperCase()}</span>
+                </div>
+            </div>
+            
+            ${request.hash ? `
+            <div class="detail-section">
+                <div class="detail-label">SHA256 Hash</div>
+                <div class="detail-hash">${escapeHtml(request.hash)}</div>
+            </div>
+            ` : ''}
+            
+            <div class="detail-section">
+                <div class="detail-label">URL</div>
+                <div class="detail-value" style="font-family: var(--font-mono); font-size: 11px; word-break: break-all;">${escapeHtml(request.url)}</div>
+            </div>
+            
+            <div class="detail-section">
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="code-title">GraphQL Query</span>
+                        <button class="btn btn-copy" data-copy="query">Copy</button>
+                    </div>
+                    <pre class="code-content">${formattedQuery}</pre>
+                </div>
+            </div>
+            
+            ${variablesJson ? `
+            <div class="detail-section">
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="code-title">Variables</span>
+                        <button class="btn btn-copy" data-copy="variables">Copy</button>
+                    </div>
+                    <pre class="code-content">${escapeHtml(variablesJson)}</pre>
+                </div>
+            </div>
+            ` : ''}
+        `;
+
+        // Add copy handlers
+        detailContent.querySelectorAll('.btn-copy').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const type = btn.dataset.copy;
+                const text = type === 'query' ? request.query : JSON.stringify(request.variables, null, 2);
+                copyToClipboard(text, btn);
             });
+        });
+    }
 
-            if (urlPatterns.length === 0) {
-                showError("Please enter at least one URL pattern to match");
-                return;
-            }
+    function formatGraphQL(query) {
+        // Basic syntax highlighting for GraphQL
+        return escapeHtml(query)
+            .replace(/\b(query|mutation|subscription|fragment|on)\b/g, '<span class="keyword">$1</span>')
+            .replace(/\b(String|Int|Float|Boolean|ID|!)\b/g, '<span class="type">$1</span>')
+            .replace(/\$(\w+)/g, '<span class="variable">$$1</span>');
+    }
 
-            savePatternsToStorage();
-            // Start debugger
-            startDebugger(urlPatterns);
-        } catch (error) {
-            console.error('Error in form submit:', error);
-            showError("Form submission failed");
+    function copyToClipboard(text, button) {
+        navigator.clipboard.writeText(text).then(() => {
+            const originalText = button.textContent;
+            button.textContent = 'Copied!';
+            setTimeout(() => {
+                button.textContent = originalText;
+            }, 1500);
+        }).catch(err => {
+            console.error('Failed to copy:', err);
+        });
+    }
+
+    // Close detail panel
+    const closeDetailBtn = getElement('close-detail');
+    if (closeDetailBtn) {
+        closeDetailBtn.addEventListener('click', () => {
+            const detailPanel = getElement('detail-panel');
+            if (detailPanel) detailPanel.classList.add('hidden');
+            selectedRequestId = null;
+            document.querySelectorAll('.request-item.selected').forEach(el => el.classList.remove('selected'));
+        });
+    }
+
+    // ================================================
+    // Filter Functionality
+    // ================================================
+    const filterInput = getElement('filter-input');
+    if (filterInput) {
+        filterInput.addEventListener('input', (e) => {
+            filterText = e.target.value;
+            renderRequestList();
+        });
+    }
+
+    // Filter chips
+    document.querySelectorAll('.chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+            document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+            chip.classList.add('active');
+            activeFilter = chip.dataset.filter;
+            renderRequestList();
+        });
+    });
+
+    // ================================================
+    // Start/Stop Debugger
+    // ================================================
+    function resetUIState() {
+        const submitButton = getElement('form-submit');
+        if (submitButton) {
+            submitButton.disabled = false;
+            submitButton.innerHTML = '<span class="btn-icon-play">▶</span> Start';
+            submitButton.className = 'btn btn-primary btn-block';
+        }
+        currentOperation = null;
+    }
+
+    function setActiveUIState() {
+        const submitButton = getElement('form-submit');
+        if (submitButton) {
+            submitButton.innerHTML = '<span class="btn-icon-play">⏹</span> Stop';
+            submitButton.className = 'btn btn-danger btn-block';
         }
     }
 
-    function startDebugger(urlPatterns) {
+    const submitButton = getElement('form-submit');
+    if (submitButton) {
+        submitButton.addEventListener('click', handleToggleDebugger);
+    }
+
+    function handleToggleDebugger(e) {
+        e.preventDefault();
+
+        if (currentOperation) {
+            console.log("Operation already in progress");
+            return;
+        }
+
+        if (isDebuggerActive) {
+            stopDebugger();
+        } else {
+            startDebugger();
+        }
+    }
+
+    function startDebugger() {
         currentOperation = 'starting';
 
-        // Update UI to show processing
-        updateDebuggerStatus("🟡 Starting Debugger...", "warning");
+        const urlPatterns = [];
+        document.querySelectorAll('.pattern-item').forEach((d) => {
+            const input = d.querySelector('.urlPattern');
+            if (input && input.value.trim()) {
+                urlPatterns.push({
+                    urlPattern: input.value.trim(),
+                    requestType: 'XHR',
+                    requestStage: 'Request'
+                });
+            }
+        });
+
+        if (urlPatterns.length === 0) {
+            showError("Please enter at least one URL pattern");
+            currentOperation = null;
+            return;
+        }
+
+        savePatternsToStorage();
+        updateDebuggerStatus("Connecting...", "warning");
+
         const submitButton = getElement('form-submit');
         if (submitButton) {
             submitButton.disabled = true;
-            submitButton.textContent = 'Starting...';
+            submitButton.innerHTML = '<span class="btn-icon-play">⏳</span> Starting...';
         }
 
-        const dataToSend = { patterns: urlPatterns, tabId: inspectedTabId };
-
-        // Add timeout for start operation
         const startTimeout = setTimeout(() => {
-            console.error("Start operation timed out");
             handleStartTimeout();
-        }, 15000); // 15 second timeout
+        }, 15000);
 
-        // Check if Chrome runtime is available
-        if (!chrome.runtime || !chrome.runtime.sendMessage) {
+        chrome.runtime.sendMessage({ patterns: urlPatterns, tabId: inspectedTabId }, (response) => {
             clearTimeout(startTimeout);
             currentOperation = null;
-            showError("Chrome runtime not available");
-            return;
-        }
-
-        chrome.runtime.sendMessage(dataToSend, (response) => {
-            clearTimeout(startTimeout);
-            currentOperation = null;
-
-            console.log('Start response:', response);
 
             if (chrome.runtime.lastError) {
-                console.error('Start operation failed:', chrome.runtime.lastError);
                 handleStartError(chrome.runtime.lastError.message);
                 return;
             }
@@ -440,60 +513,114 @@ document.addEventListener('DOMContentLoaded', function () {
             } else if (response && response.status === "WARNING") {
                 handleStartWarning(response.message);
             } else {
-                handleStartError(response?.error || "Unknown error occurred");
+                handleStartError(response?.error || "Unknown error");
+            }
+        });
+    }
+
+    function stopDebugger() {
+        currentOperation = 'stopping';
+        updateDebuggerStatus("Disconnecting...", "warning");
+
+        const submitButton = getElement('form-submit');
+        if (submitButton) {
+            submitButton.disabled = true;
+            submitButton.innerHTML = '<span class="btn-icon-play">⏳</span> Stopping...';
+        }
+
+        const stopTimeout = setTimeout(() => {
+            handleStopTimeout();
+        }, 10000);
+
+        chrome.runtime.sendMessage({ disconnect: true, tabId: inspectedTabId }, (response) => {
+            clearTimeout(stopTimeout);
+            currentOperation = null;
+
+            if (chrome.runtime.lastError) {
+                handleStopError(chrome.runtime.lastError.message);
+                return;
+            }
+
+            if (response && response.status === "SUCCESS") {
+                handleStopSuccess();
+            } else if (response && response.status === "WARNING") {
+                handleStopWarning(response.message);
+            } else {
+                handleStopError(response?.error || "Unknown error");
             }
         });
     }
 
     function handleStartSuccess(message) {
-        updateDebuggerStatus("🟢 Debugger Active", "success");
+        updateDebuggerStatus("Active", "active");
         updateResponse(message);
-        addStopButton();
+        setActiveUIState();
         isDebuggerActive = true;
-
-        const submitButton = getElement('form-submit');
-        if (submitButton) {
-            submitButton.textContent = 'Debugging Active';
-            submitButton.className = 'btn btn-success';
-        }
     }
 
     function handleStartWarning(message) {
-        updateDebuggerStatus("🟡 Debugger Status Unknown", "warning");
+        updateDebuggerStatus("Warning", "warning");
         updateResponse(`Warning: ${message}`);
         resetUIState();
     }
 
     function handleStartError(error) {
-        updateDebuggerStatus("🔴 Debugger Failed", "error");
+        updateDebuggerStatus("Failed", "error");
         updateResponse(`Error: ${error}`);
         resetUIState();
     }
 
     function handleStartTimeout() {
         currentOperation = null;
-        updateDebuggerStatus("🔴 Start Timeout", "error");
-        updateResponse("Start operation timed out. Please try again.");
+        updateDebuggerStatus("Timeout", "error");
+        updateResponse("Start operation timed out");
         resetUIState();
     }
 
-    // Listen for intercepted messages with error handling
+    function handleStopSuccess() {
+        updateDebuggerStatus("Stopped", "error");
+        updateResponse("Debugger disconnected");
+        resetUIState();
+        isDebuggerActive = false;
+    }
+
+    function handleStopWarning(message) {
+        updateDebuggerStatus("Warning", "warning");
+        updateResponse(`Warning: ${message}`);
+        resetUIState();
+        isDebuggerActive = false;
+    }
+
+    function handleStopError(error) {
+        updateDebuggerStatus("Error", "error");
+        updateResponse(`Error: ${error}`);
+        resetUIState();
+    }
+
+    function handleStopTimeout() {
+        currentOperation = null;
+        updateDebuggerStatus("Timeout", "error");
+        updateResponse("Stop operation timed out");
+        resetUIState();
+    }
+
+    // ================================================
+    // Message Listeners
+    // ================================================
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         try {
             if (message.status === 'INTERCEPTED') {
-                // Update the UI
-                const outputElement = getElement('interception-counter');
-                if (outputElement) {
-                    outputElement.textContent = ++totalInterception;
+                // Add to request history
+                addRequest({
+                    operationName: message.operationName || 'Unknown Query',
+                    url: message.url || '',
+                    isAPQ: message.isAPQ !== false,
+                    hash: message.hash || '',
+                    query: message.query || '',
+                    variables: message.variables || null,
+                    responseTime: message.responseTime || null
+                });
 
-                    // Add visual feedback
-                    outputElement.style.transform = 'scale(1.1)';
-                    setTimeout(() => {
-                        outputElement.style.transform = 'scale(1)';
-                    }, 200);
-                }
-
-                // Send a response back to the sender
                 sendResponse({ status: 'Message received' });
             } else if (message.status === 'ACTION_TOGGLE') {
                 if (message.error) {
@@ -508,81 +635,50 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             }
         } catch (error) {
-            console.error('Error handling intercepted message:', error);
+            console.error('Error handling message:', error);
             sendResponse({ status: 'Error processing message' });
         }
     });
 
-    // Handle debugger detachment with comprehensive error handling
+    // Debugger detachment listener
     chrome.debugger.onDetach.addListener((source, reason) => {
-        try {
-            console.log(`Debugger detached from tab ID ${source.tabId}. Reason: ${reason}`);
+        currentOperation = null;
+        isDebuggerActive = false;
 
-            // Reset operation state
-            currentOperation = null;
-            isDebuggerActive = false;
+        const reasonMessages = {
+            'target_closed': 'Tab closed',
+            'canceled_by_user': 'Manually detached'
+        };
 
-            // Update UI based on reason
-            if (reason === 'target_closed') {
-                console.log('The target tab was closed.');
-                updateDebuggerStatus("🔴 Tab Closed", "error");
-                updateResponse("Debugger disconnected: Target tab was closed");
-            } else if (reason === 'canceled_by_user') {
-                console.log('The debugging session was manually detached by the user.');
-                updateDebuggerStatus("🔴 Manually Detached", "error");
-                updateResponse("Debugger disconnected: Manually detached by user");
-            } else {
-                console.log('Debugger detached for an unknown reason.');
-                updateDebuggerStatus("🔴 Unexpected Disconnect", "error");
-                updateResponse("Debugger disconnected: Unknown reason");
-            }
-
-            // Reset UI state
-            resetUIState();
-        } catch (error) {
-            console.error('Error handling debugger detachment:', error);
-            resetUIState();
-        }
-    });
-
-    // Handle extension errors
-    chrome.runtime.onSuspend.addListener(() => {
-        console.log('Extension is being suspended');
+        updateDebuggerStatus("Disconnected", "error");
+        updateResponse(`Debugger disconnected: ${reasonMessages[reason] || 'Unknown reason'}`);
         resetUIState();
-        updateDebuggerStatus("🔴 Extension Suspended", "error");
     });
 
-    // Initialize the page
+    // Extension suspend handler
+    chrome.runtime.onSuspend.addListener(() => {
+        resetUIState();
+        updateDebuggerStatus("Suspended", "error");
+    });
+
+    // ================================================
+    // Initialization
+    // ================================================
     console.log("APQ Debugger DevTools panel initialized");
+    updateDebuggerStatus("Ready", "default");
+    restorePatternsFromStorage();
+    renderRequestList();
 
     // Check if debugger is already attached to this tab
-    function checkDebuggerState() {
-        chrome.runtime.sendMessage({ getStatus: true, tabId: inspectedTabId }, (response) => {
-            if (chrome.runtime.lastError) {
-                console.warn('Failed to get debugger status:', chrome.runtime.lastError);
-                updateDebuggerStatus("🟢 Ready to Start", "success");
-                updateResponse("Enter URL patterns and click 'Start Debugging' to begin");
-                return;
-            }
+    chrome.runtime.sendMessage({ getStatus: true, tabId: inspectedTabId }, (response) => {
+        if (chrome.runtime.lastError) {
+            console.warn('Failed to get debugger status:', chrome.runtime.lastError);
+            return;
+        }
 
-            if (response && response.status === "SUCCESS" && response.debuggerActive) {
-                // Debugger is already active on this tab
-                console.log("Debugger already active on tab:", inspectedTabId);
-                handleStartSuccess("Debugger is already active on this tab");
-            } else {
-                // Debugger is not active
-                updateDebuggerStatus("🟢 Ready to Start", "success");
-                updateResponse("Enter URL patterns and click 'Start Debugging' to begin");
-            }
-        });
-    }
-
-    // Run initial state check
-    checkDebuggerState();
-
-    const initialInput = document.querySelector('.urlPattern');
-    if (initialInput) {
-        initialInput.addEventListener('input', savePatternsToStorage);
-    }
-    restorePatternsFromStorage();
+        if (response && response.status === "SUCCESS" && response.debuggerActive) {
+            console.log("Debugger already active on tab:", inspectedTabId);
+            handleStartSuccess("Debugger is already active on this tab");
+        }
+    });
 });

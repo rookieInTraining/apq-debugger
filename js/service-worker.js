@@ -52,6 +52,17 @@ function getActiveTab(callback) {
   });
 }
 
+// Get tab info by ID (for when tabId is explicitly provided)
+function getTabById(tabId, callback) {
+  chrome.tabs.get(tabId, (tab) => {
+    if (chrome.runtime.lastError) {
+      callback(null, `Failed to get tab ${tabId}: ${chrome.runtime.lastError.message}`);
+      return;
+    }
+    callback(tab, null);
+  });
+}
+
 function sendActionUpdate(payload) {
   chrome.runtime.sendMessage({ status: 'ACTION_TOGGLE', ...payload }, () => {
     if (chrome.runtime.lastError) {
@@ -293,11 +304,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true;
       }
 
-      // Use the tabId from DevTools if provided, otherwise fall back to active tab
-      if (message.tabId) {
-        chrome.tabs.get(message.tabId, (currentTab) => {
-          if (chrome.runtime.lastError) {
-            sendResponse({ status: "ERROR", error: "Failed to get tab: " + chrome.runtime.lastError.message });
+      // Use tabId from message if provided (from DevTools panel), otherwise query active tab
+      if (message.tabId !== undefined) {
+        getTabById(message.tabId, (currentTab, error) => {
+          if (error) {
+            sendResponse({ status: "ERROR", error });
             return;
           }
           attachDebuggerToTab(currentTab, validPatterns, sendResponse);
@@ -312,9 +323,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         });
       }
     } else if (message.disconnect !== undefined && message.disconnect === true) {
-      // Prefer the tabId from the message, fall back to stored tabId
-      const targetTabId = message.tabId || tabId;
-      if (targetTabId !== undefined && (message.tabId || debuggerAttached)) {
+      // Use tabId from message if provided, otherwise use stored tabId
+      const targetTabId = message.tabId !== undefined ? message.tabId : tabId;
+
+      if (targetTabId !== undefined && (debuggerAttached || message.tabId !== undefined)) {
         console.log(`Detaching debugger session for tab id: ${targetTabId}`);
         detachDebuggerFromTab(targetTabId, sendResponse);
       } else {
