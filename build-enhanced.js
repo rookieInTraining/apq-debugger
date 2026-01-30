@@ -15,7 +15,7 @@ const chokidar = require('chokidar');
 // Configuration
 const config = {
     sourceDir: __dirname,
-    extDir: path.join(__dirname, 'ext'),
+    extDir: path.join(__dirname, 'extension_build'),
     files: [
         {
             input: 'js/devtools.js',
@@ -83,7 +83,7 @@ const config = {
 async function minifyJS(inputPath, outputPath, options = {}) {
     try {
         const code = await fs.readFile(inputPath, 'utf8');
-        
+
         const result = await minify(code, {
             ...options,
             sourceMap: false // Disable source maps for Chrome extension
@@ -105,7 +105,7 @@ async function minifyJS(inputPath, outputPath, options = {}) {
 async function minifyCSS(inputPath, outputPath, options = {}) {
     try {
         const code = await fs.readFile(inputPath, 'utf8');
-        
+
         const cleanCSS = new CleanCSS(options);
         const result = cleanCSS.minify(code);
 
@@ -226,7 +226,7 @@ async function build() {
     const duration = ((endTime - startTime) / 1000).toFixed(2);
 
     console.log(`🎉 Build completed in ${duration}s!`);
-    console.log('📦 Extension files are ready in the ext/ folder.');
+    console.log('📦 Extension files are ready in the extension_build/ folder.');
 }
 
 // Watch mode for development
@@ -247,7 +247,7 @@ async function watch() {
     watcher.on('change', async (filePath) => {
         const relativePath = path.relative(config.sourceDir, filePath);
         console.log(`📝 File changed: ${relativePath}`);
-        
+
         // Find matching file config
         const file = config.files.find(f => f.input === relativePath);
         if (file) {

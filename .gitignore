@@ -9,6 +9,7 @@ package-lock.json
 **/*.min.js
 **/*.min.css
 ext/
+extension_build/
 dist/
 build/
 

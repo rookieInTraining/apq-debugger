@@ -1,7 +1,7 @@
 // DevTools Panel Creation
 chrome.devtools.panels.create("APQ Debugger",
-    "../icons/icon128.png",
-    "../frontend/devtools.html",
+    "icons/icon128.png",
+    "devtools.html",
     function (panel) {
         console.log("APQ Debugger panel created:", panel);
     }
