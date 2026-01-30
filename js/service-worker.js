@@ -107,6 +107,9 @@ function attachDebuggerToTab(currentTab, validPatterns, callback) {
         }
 
         isAttached(true, currentTab.id);
+        // Update badge to show debugger is ON
+        chrome.action.setBadgeText({ text: "ON" });
+        chrome.action.setBadgeBackgroundColor({ color: "#5cb85c" });
         callback({
           status: "SUCCESS",
           message: `Network Interception enabled for the following patterns:\n${validPatterns.map((pattern) => pattern.urlPattern).join('\n')}`
@@ -138,6 +141,9 @@ function detachDebuggerFromTab(detachTabId, callback) {
       // If the session is not found, it means we are effectively detached already.
       if (errorMessage.includes("Session not found") || errorMessage.includes("Detached") || errorMessage.includes("Debugger is not attached")) {
         console.log("Debugger already detached, treating as success.");
+        // Update badge to show debugger is OFF
+        chrome.action.setBadgeText({ text: "OFF" });
+        chrome.action.setBadgeBackgroundColor({ color: "#d9534f" });
         callback({ status: "SUCCESS", message: "Debugger detached successfully (Session was already gone)" });
         return;
       }
@@ -146,6 +152,9 @@ function detachDebuggerFromTab(detachTabId, callback) {
       return;
     }
     isAttached(false, undefined);
+    // Update badge to show debugger is OFF
+    chrome.action.setBadgeText({ text: "OFF" });
+    chrome.action.setBadgeBackgroundColor({ color: "#d9534f" });
     callback({ status: "SUCCESS", message: "Debugger detached successfully" });
   });
 }
@@ -284,21 +293,50 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true;
       }
 
-      getActiveTab((currentTab, error) => {
-        if (error) {
-          sendResponse({ status: "ERROR", error });
-          return;
-        }
-
-        attachDebuggerToTab(currentTab, validPatterns, sendResponse);
-      });
+      // Use the tabId from DevTools if provided, otherwise fall back to active tab
+      if (message.tabId) {
+        chrome.tabs.get(message.tabId, (currentTab) => {
+          if (chrome.runtime.lastError) {
+            sendResponse({ status: "ERROR", error: "Failed to get tab: " + chrome.runtime.lastError.message });
+            return;
+          }
+          attachDebuggerToTab(currentTab, validPatterns, sendResponse);
+        });
+      } else {
+        getActiveTab((currentTab, error) => {
+          if (error) {
+            sendResponse({ status: "ERROR", error });
+            return;
+          }
+          attachDebuggerToTab(currentTab, validPatterns, sendResponse);
+        });
+      }
     } else if (message.disconnect !== undefined && message.disconnect === true) {
-      if (tabId !== undefined && debuggerAttached) {
-        console.log(`Detaching debugger session for tab id: ${tabId}`);
-        detachDebuggerFromTab(tabId, sendResponse);
+      // Prefer the tabId from the message, fall back to stored tabId
+      const targetTabId = message.tabId || tabId;
+      if (targetTabId !== undefined && (message.tabId || debuggerAttached)) {
+        console.log(`Detaching debugger session for tab id: ${targetTabId}`);
+        detachDebuggerFromTab(targetTabId, sendResponse);
       } else {
         sendResponse({ status: "WARNING", message: "No active debugger session to detach" });
       }
+    } else if (message.getStatus !== undefined && message.getStatus === true) {
+      // Check if our extension has attached a debugger to the specified tab
+      const queryTabId = message.tabId;
+      if (queryTabId === undefined) {
+        sendResponse({ status: "ERROR", error: "No tabId provided for status query" });
+        return true;
+      }
+
+      // Use internal state to check if WE attached a debugger to this tab
+      // chrome.debugger.getTargets() would return true when DevTools is open,
+      // which is not what we want - we only want to know if our extension attached
+      const isActive = debuggerAttached && tabId === queryTabId;
+      sendResponse({
+        status: "SUCCESS",
+        debuggerActive: isActive,
+        tabId: queryTabId
+      });
     } else {
       sendResponse({ status: "ERROR", error: "Invalid message format or empty patterns" });
     }

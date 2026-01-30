@@ -2,17 +2,17 @@
 chrome.devtools.panels.create("APQ Debugger",
     "../icons/icon128.png",
     "../frontend/devtools.html",
-    function(panel) {
+    function (panel) {
         console.log("APQ Debugger panel created:", panel);
     }
 );
 
 // Wait for DOM to be ready
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     // Initialize variables
+    const inspectedTabId = chrome.devtools.inspectedWindow.tabId;
     var totalPatterns = 1;
     var totalInterception = 0;
-    var isDebuggerActive = false;
     var currentOperation = null; // 'starting', 'stopping', null
     const PATTERNS_STORAGE_KEY = 'apqPatterns';
 
@@ -58,7 +58,7 @@ document.addEventListener('DOMContentLoaded', function() {
             newFormInput.value = value;
         }
         newFormInput.addEventListener('input', savePatternsToStorage);
-        
+
         let removeButton = document.createElement("button");
         removeButton.setAttribute('type', 'button');
         removeButton.setAttribute('class', 'btn btn-danger');
@@ -125,7 +125,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (addButton) {
         addButton.addEventListener('click', (e) => {
             console.log("Adding new pattern field...");
-            
+
             try {
                 const form = document.querySelector("#myForm");
                 if (form) {
@@ -156,11 +156,11 @@ document.addEventListener('DOMContentLoaded', function() {
             stopDebugger.setAttribute('class', 'btn btn-danger');
             stopDebugger.setAttribute('id', 'stop-debugger-btn');
             stopDebugger.innerText = "Stop Debugging";
-            
+
             const formActions = document.querySelector("#form-actions");
             if (formActions) {
                 formActions.appendChild(stopDebugger);
-                
+
                 stopDebugger.addEventListener('click', handleStopDebugger);
                 console.log("Stop button added successfully");
             } else {
@@ -182,19 +182,19 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             currentOperation = 'stopping';
             console.log("Stopping debugger...");
-            
+
             updateResponse("Disconnecting Debugger....");
             updateDebuggerStatus("🟡 Disconnecting...", "warning");
-            
+
             // Disable stop button during operation
             const stopButton = getElement('stop-debugger-btn');
             if (stopButton) {
                 stopButton.disabled = true;
                 stopButton.textContent = 'Stopping...';
             }
-            
-            const dataToSend = {disconnect: true};
-            
+
+            const dataToSend = { disconnect: true, tabId: inspectedTabId };
+
             // Add timeout for stop operation
             const stopTimeout = setTimeout(() => {
                 console.error("Stop operation timed out");
@@ -204,9 +204,9 @@ document.addEventListener('DOMContentLoaded', function() {
             chrome.runtime.sendMessage(dataToSend, (response) => {
                 clearTimeout(stopTimeout);
                 currentOperation = null;
-                
+
                 console.log('Stop response:', response);
-                
+
                 if (chrome.runtime.lastError) {
                     console.error('Stop operation failed:', chrome.runtime.lastError);
                     handleStopError(chrome.runtime.lastError.message);
@@ -266,12 +266,12 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             statusElement.textContent = message;
-            
+
             // Reset all styles first
             statusElement.className = 'status';
             statusElement.style.background = '';
             statusElement.style.color = '';
-            
+
             // Apply type-specific styling
             if (type === 'success') {
                 statusElement.style.background = '#28a745';
@@ -293,11 +293,11 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             const responseContainer = getElement('response-container');
             const responseElement = getElement('response');
-            
+
             if (responseContainer) {
                 responseContainer.style.display = 'block';
             }
-            
+
             if (responseElement) {
                 responseElement.innerText = message;
             } else {
@@ -306,7 +306,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 newResponse.setAttribute('id', 'response');
                 newResponse.setAttribute('class', 'response');
                 newResponse.innerText = message;
-                
+
                 if (responseContainer) {
                     responseContainer.appendChild(newResponse);
                 }
@@ -365,7 +365,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Validate form data
             const urlPatterns = [];
             const formGroups = document.querySelectorAll('.form-group');
-            
+
             if (formGroups.length === 0) {
                 showError("No pattern fields found");
                 return;
@@ -375,8 +375,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 const input = d.querySelector('.urlPattern');
                 if (input && input.value.trim()) {
                     urlPatterns.push({
-                        urlPattern: input.value.trim(), 
-                        requestType: 'XHR', 
+                        urlPattern: input.value.trim(),
+                        requestType: 'XHR',
                         requestStage: 'Request'
                     });
                 }
@@ -398,7 +398,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function startDebugger(urlPatterns) {
         currentOperation = 'starting';
-        
+
         // Update UI to show processing
         updateDebuggerStatus("🟡 Starting Debugger...", "warning");
         const submitButton = getElement('form-submit');
@@ -407,7 +407,7 @@ document.addEventListener('DOMContentLoaded', function() {
             submitButton.textContent = 'Starting...';
         }
 
-        const dataToSend = { patterns: urlPatterns };
+        const dataToSend = { patterns: urlPatterns, tabId: inspectedTabId };
 
         // Add timeout for start operation
         const startTimeout = setTimeout(() => {
@@ -426,7 +426,7 @@ document.addEventListener('DOMContentLoaded', function() {
         chrome.runtime.sendMessage(dataToSend, (response) => {
             clearTimeout(startTimeout);
             currentOperation = null;
-            
+
             console.log('Start response:', response);
 
             if (chrome.runtime.lastError) {
@@ -450,7 +450,7 @@ document.addEventListener('DOMContentLoaded', function() {
         updateResponse(message);
         addStopButton();
         isDebuggerActive = true;
-        
+
         const submitButton = getElement('form-submit');
         if (submitButton) {
             submitButton.textContent = 'Debugging Active';
@@ -485,14 +485,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 const outputElement = getElement('interception-counter');
                 if (outputElement) {
                     outputElement.textContent = ++totalInterception;
-                    
+
                     // Add visual feedback
                     outputElement.style.transform = 'scale(1.1)';
                     setTimeout(() => {
                         outputElement.style.transform = 'scale(1)';
                     }, 200);
                 }
-                
+
                 // Send a response back to the sender
                 sendResponse({ status: 'Message received' });
             } else if (message.status === 'ACTION_TOGGLE') {
@@ -517,11 +517,11 @@ document.addEventListener('DOMContentLoaded', function() {
     chrome.debugger.onDetach.addListener((source, reason) => {
         try {
             console.log(`Debugger detached from tab ID ${source.tabId}. Reason: ${reason}`);
-            
+
             // Reset operation state
             currentOperation = null;
             isDebuggerActive = false;
-            
+
             // Update UI based on reason
             if (reason === 'target_closed') {
                 console.log('The target tab was closed.');
@@ -554,10 +554,31 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initialize the page
     console.log("APQ Debugger DevTools panel initialized");
-    
-    // Set initial state
-    updateDebuggerStatus("🟢 Ready to Start", "success");
-    updateResponse("Enter URL patterns and click 'Start Debugging' to begin");
+
+    // Check if debugger is already attached to this tab
+    function checkDebuggerState() {
+        chrome.runtime.sendMessage({ getStatus: true, tabId: inspectedTabId }, (response) => {
+            if (chrome.runtime.lastError) {
+                console.warn('Failed to get debugger status:', chrome.runtime.lastError);
+                updateDebuggerStatus("🟢 Ready to Start", "success");
+                updateResponse("Enter URL patterns and click 'Start Debugging' to begin");
+                return;
+            }
+
+            if (response && response.status === "SUCCESS" && response.debuggerActive) {
+                // Debugger is already active on this tab
+                console.log("Debugger already active on tab:", inspectedTabId);
+                handleStartSuccess("Debugger is already active on this tab");
+            } else {
+                // Debugger is not active
+                updateDebuggerStatus("🟢 Ready to Start", "success");
+                updateResponse("Enter URL patterns and click 'Start Debugging' to begin");
+            }
+        });
+    }
+
+    // Run initial state check
+    checkDebuggerState();
 
     const initialInput = document.querySelector('.urlPattern');
     if (initialInput) {
