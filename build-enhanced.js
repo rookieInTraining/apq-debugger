@@ -167,7 +167,7 @@ async function processFile(file) {
     }
 }
 
-// Copy and patch HTML, manifest, and assets to ext/
+// Copy and patch HTML, manifest, and assets to extension_build/
 async function copyToExt() {
     const extDir = config.extDir;
     await fs.ensureDir(extDir);
@@ -219,7 +219,7 @@ async function build() {
         await processFile(file);
     }
 
-    // Copy everything to ext/
+    // Copy everything to extension_build/
     await copyToExt();
 
     const endTime = Date.now();

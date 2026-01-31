@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>APQ Debugger</title>
     <link rel="stylesheet" href="devtools.min.css">
 </head>
+
 <body>
     <div class="app">
         <!-- Header Bar -->
@@ -39,7 +41,8 @@
                     <form id="myForm">
                         <div class="pattern-item">
                             <input type="text" class="urlPattern" data-pattern-index="1" placeholder="*graphql*">
-                            <button type="button" class="btn-icon btn-remove" title="Remove pattern" style="display: none;">×</button>
+                            <button type="button" class="btn-icon btn-remove" title="Remove pattern"
+                                style="display: none;">×</button>
                         </div>
                     </form>
                 </div>
@@ -51,6 +54,9 @@
                         <span class="btn-icon-play">▶</span> Start
                     </button>
                 </div>
+                <div class="status-banner hidden" id="status-banner">
+                    <span class="status-banner-text" id="status-banner-text"></span>
+                </div>
             </aside>
 
             <!-- Center Panel - Request List -->
@@ -58,7 +64,8 @@
                 <div class="panel-header">
                     <h2 class="panel-title">📊 Intercepted Requests</h2>
                     <div class="filter-bar">
-                        <input type="text" class="filter-input" id="filter-input" placeholder="Filter by operation name...">
+                        <input type="text" class="filter-input" id="filter-input"
+                            placeholder="Filter by operation name...">
                         <div class="filter-chips">
                             <button class="chip active" data-filter="all">All</button>
                             <button class="chip" data-filter="apq">APQ</button>
@@ -97,4 +104,5 @@
 
     <script src="../js/devtools.min.js"></script>
 </body>
+
 </html>

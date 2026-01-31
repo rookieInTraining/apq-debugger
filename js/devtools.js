@@ -1,7 +1,7 @@
 // DevTools Panel Creation
 chrome.devtools.panels.create("APQ Debugger",
-    "../icons/icon128.png",
-    "../frontend/devtools.html",
+    "icons/icon128.png",
+    "devtools.html",
     function (panel) {
         console.log("APQ Debugger panel created:", panel);
     }
@@ -152,18 +152,57 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    function updateResponse(message) {
-        const responseContainer = getElement('response-container');
-        const responseElement = getElement('response');
+    // Status banner auto-dismiss timeout
+    let statusBannerTimeout = null;
 
-        if (responseContainer) responseContainer.style.display = 'block';
-        if (responseElement) responseElement.innerText = message;
+    function showStatusBanner(message, type = 'default', autoDismiss = false) {
+        const banner = getElement('status-banner');
+        const bannerText = getElement('status-banner-text');
+
+        if (!banner || !bannerText) return;
+
+        // Clear any existing timeout
+        if (statusBannerTimeout) {
+            clearTimeout(statusBannerTimeout);
+            statusBannerTimeout = null;
+        }
+
+        // Update banner content and style
+        bannerText.textContent = message;
+        banner.className = 'status-banner';
+        if (type !== 'default') {
+            banner.classList.add(type);
+        }
+        banner.classList.remove('hidden');
+
+        // Auto-dismiss success messages after 5 seconds
+        if (autoDismiss || type === 'success') {
+            statusBannerTimeout = setTimeout(() => {
+                banner.classList.add('hidden');
+            }, 5000);
+        }
+    }
+
+    function hideStatusBanner() {
+        const banner = getElement('status-banner');
+        if (banner) {
+            banner.classList.add('hidden');
+        }
+        if (statusBannerTimeout) {
+            clearTimeout(statusBannerTimeout);
+            statusBannerTimeout = null;
+        }
+    }
+
+    function updateResponse(message) {
+        // Use the new status banner instead of hidden response container
+        showStatusBanner(message);
     }
 
     function showError(message) {
         console.error(message);
         updateDebuggerStatus("Error", "error");
-        updateResponse(`Error: ${message}`);
+        showStatusBanner(message, 'error');
     }
 
     // ================================================
@@ -553,54 +592,54 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function handleStartSuccess(message) {
         updateDebuggerStatus("Active", "active");
-        updateResponse(message);
+        showStatusBanner(message, 'success');
         setActiveUIState();
         isDebuggerActive = true;
     }
 
     function handleStartWarning(message) {
         updateDebuggerStatus("Warning", "warning");
-        updateResponse(`Warning: ${message}`);
+        showStatusBanner(message, 'warning');
         resetUIState();
     }
 
     function handleStartError(error) {
         updateDebuggerStatus("Failed", "error");
-        updateResponse(`Error: ${error}`);
+        showStatusBanner(error, 'error');
         resetUIState();
     }
 
     function handleStartTimeout() {
         currentOperation = null;
         updateDebuggerStatus("Timeout", "error");
-        updateResponse("Start operation timed out");
+        showStatusBanner("Start operation timed out", 'error');
         resetUIState();
     }
 
     function handleStopSuccess() {
         updateDebuggerStatus("Stopped", "error");
-        updateResponse("Debugger disconnected");
+        showStatusBanner("Debugger disconnected", 'warning');
         resetUIState();
         isDebuggerActive = false;
     }
 
     function handleStopWarning(message) {
         updateDebuggerStatus("Warning", "warning");
-        updateResponse(`Warning: ${message}`);
+        showStatusBanner(message, 'warning');
         resetUIState();
         isDebuggerActive = false;
     }
 
     function handleStopError(error) {
         updateDebuggerStatus("Error", "error");
-        updateResponse(`Error: ${error}`);
+        showStatusBanner(error, 'error');
         resetUIState();
     }
 
     function handleStopTimeout() {
         currentOperation = null;
         updateDebuggerStatus("Timeout", "error");
-        updateResponse("Stop operation timed out");
+        showStatusBanner("Stop operation timed out", 'error');
         resetUIState();
     }
 
@@ -608,6 +647,11 @@ document.addEventListener('DOMContentLoaded', function () {
     // Message Listeners
     // ================================================
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+        // Filter messages not meant for this tab
+        if (message.tabId !== undefined && message.tabId !== inspectedTabId) {
+            return;
+        }
+
         try {
             if (message.status === 'INTERCEPTED') {
                 // Add to request history
@@ -642,6 +686,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Debugger detachment listener
     chrome.debugger.onDetach.addListener((source, reason) => {
+        if (source.tabId !== inspectedTabId) return;
+
         currentOperation = null;
         isDebuggerActive = false;
 
@@ -651,7 +697,7 @@ document.addEventListener('DOMContentLoaded', function () {
         };
 
         updateDebuggerStatus("Disconnected", "error");
-        updateResponse(`Debugger disconnected: ${reasonMessages[reason] || 'Unknown reason'}`);
+        showStatusBanner(`Debugger disconnected: ${reasonMessages[reason] || 'Unknown reason'}`, 'warning');
         resetUIState();
     });
 

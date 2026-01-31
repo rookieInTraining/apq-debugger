@@ -13,30 +13,30 @@
     --color-warning-bg: #FEF3C7;
     --color-error: #DC2626;
     --color-error-bg: #FEE2E2;
-    
+
     --color-surface: #FFFFFF;
     --color-surface-alt: #F4F4F5;
     --color-surface-hover: #E4E4E7;
     --color-border: #E4E4E7;
     --color-border-strong: #D4D4D8;
-    
+
     --color-text-primary: #18181B;
     --color-text-secondary: #52525B;
     --color-text-muted: #71717A;
     --color-text-inverse: #FFFFFF;
-    
+
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
     --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
     --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
-    
+
     --radius-sm: 4px;
     --radius-md: 8px;
     --radius-lg: 12px;
     --radius-full: 9999px;
-    
+
     --font-mono: 'SF Mono', 'Fira Code', 'Consolas', monospace;
     --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    
+
     --transition-fast: 0.15s ease;
     --transition-normal: 0.2s ease;
 }
@@ -52,18 +52,18 @@
         --color-warning-bg: rgba(245, 158, 11, 0.15);
         --color-error: #EF4444;
         --color-error-bg: rgba(239, 68, 68, 0.15);
-        
+
         --color-surface: #1E1E2E;
         --color-surface-alt: #2A2A3E;
         --color-surface-hover: #3A3A4E;
         --color-border: #3A3A4E;
         --color-border-strong: #4A4A5E;
-        
+
         --color-text-primary: #E4E4E7;
         --color-text-secondary: #A1A1AA;
         --color-text-muted: #71717A;
         --color-text-inverse: #18181B;
-        
+
         --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
         --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
         --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5);
@@ -185,8 +185,15 @@ body {
 }
 
 @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
 }
 
 /* Request Count */
@@ -303,6 +310,48 @@ body {
 .sidebar-actions {
     padding: 8px;
     border-top: 1px solid var(--color-border);
+}
+
+/* ================================================
+   Status Banner
+   ================================================ */
+.status-banner {
+    margin: 0 8px 8px;
+    padding: 8px 10px;
+    border-radius: var(--radius-md);
+    background: var(--color-surface-alt);
+    border: 1px solid var(--color-border);
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--color-text-secondary);
+    transition: all var(--transition-normal);
+    word-break: break-word;
+}
+
+.status-banner.hidden {
+    display: none;
+}
+
+.status-banner.success {
+    background: var(--color-success-bg);
+    border-color: var(--color-success);
+    color: var(--color-success);
+}
+
+.status-banner.warning {
+    background: var(--color-warning-bg);
+    border-color: var(--color-warning);
+    color: var(--color-warning);
+}
+
+.status-banner.error {
+    background: var(--color-error-bg);
+    border-color: var(--color-error);
+    color: var(--color-error);
+}
+
+.status-banner-text {
+    display: block;
 }
 
 /* ================================================
@@ -729,12 +778,12 @@ body {
         width: 180px;
         min-width: 150px;
     }
-    
+
     .detail-panel {
         width: 280px;
         min-width: 200px;
     }
-    
+
     .filter-input {
         width: 120px;
     }

@@ -1,14 +1,15 @@
-let debuggerAttached = false;
-let tabId;
+const attachedTabs = new Set();
 const PATTERNS_STORAGE_KEY = 'apqPatterns';
 const ACTION_MENU_ID = 'apq-toggle-debugger';
 
-function isAttached(value, tab) {
-  debuggerAttached = value;
-  tabId = tab;
-}
-
 function isDebuggerActive(tabId, callback) {
+  // Check our internal state first
+  if (attachedTabs.has(tabId)) {
+    callback(true);
+    return;
+  }
+
+  // Fallback to chrome.debugger API check
   chrome.debugger.getTargets((targets) => {
     const isActive = targets.some(target => target.tabId === tabId && target.attached);
     callback(isActive);
@@ -63,10 +64,11 @@ function getTabById(tabId, callback) {
   });
 }
 
-function sendActionUpdate(payload) {
-  chrome.runtime.sendMessage({ status: 'ACTION_TOGGLE', ...payload }, () => {
+function sendActionUpdate(payload, tabId) {
+  chrome.runtime.sendMessage({ status: 'ACTION_TOGGLE', ...payload, tabId }, () => {
     if (chrome.runtime.lastError) {
-      console.warn('Failed to notify DevTools:', chrome.runtime.lastError);
+      // It's common for this to fail if no DevTools or popup is listening, so we just warn
+      // console.warn('Failed to notify DevTools:', chrome.runtime.lastError);
     }
   });
 }
@@ -77,7 +79,7 @@ function attachDebuggerToTab(currentTab, validPatterns, callback) {
     return;
   }
 
-  if (debuggerAttached && tabId === currentTab.id) {
+  if (attachedTabs.has(currentTab.id)) {
     callback({ status: "WARNING", message: "Debugger already attached to this tab" });
     return;
   }
@@ -117,13 +119,14 @@ function attachDebuggerToTab(currentTab, validPatterns, callback) {
           return;
         }
 
-        isAttached(true, currentTab.id);
-        // Update badge to show debugger is ON
-        chrome.action.setBadgeText({ text: "ON" });
-        chrome.action.setBadgeBackgroundColor({ color: "#5cb85c" });
+        attachedTabs.add(currentTab.id);
+        // Update badge to show debugger is ON for specific tab
+        chrome.action.setBadgeText({ text: "ON", tabId: currentTab.id });
+        chrome.action.setBadgeBackgroundColor({ color: "#5cb85c", tabId: currentTab.id });
+
         callback({
           status: "SUCCESS",
-          message: `Network Interception enabled for the following patterns:\n${validPatterns.map((pattern) => pattern.urlPattern).join('\n')}`
+          message: `Network Interception enabled for logic`
         });
       }
     );
@@ -132,6 +135,13 @@ function attachDebuggerToTab(currentTab, validPatterns, callback) {
 
 function detachDebuggerFromTab(detachTabId, callback) {
   chrome.debugger.detach({ tabId: detachTabId }, () => {
+    const wasAttached = attachedTabs.has(detachTabId);
+    attachedTabs.delete(detachTabId);
+
+    // Update badge to show debugger is OFF
+    chrome.action.setBadgeText({ text: "OFF", tabId: detachTabId });
+    chrome.action.setBadgeBackgroundColor({ color: "#d9534f", tabId: detachTabId });
+
     if (chrome.runtime.lastError) {
       console.error('Debugger detach failed:', chrome.runtime.lastError);
 
@@ -146,15 +156,9 @@ function detachDebuggerFromTab(detachTabId, callback) {
         }
       }
 
-      // Force cleanup even on error - if we failed to detach, we're likely already detached or broken
-      isAttached(false, undefined);
-
       // If the session is not found, it means we are effectively detached already.
       if (errorMessage.includes("Session not found") || errorMessage.includes("Detached") || errorMessage.includes("Debugger is not attached")) {
         console.log("Debugger already detached, treating as success.");
-        // Update badge to show debugger is OFF
-        chrome.action.setBadgeText({ text: "OFF" });
-        chrome.action.setBadgeBackgroundColor({ color: "#d9534f" });
         callback({ status: "SUCCESS", message: "Debugger detached successfully (Session was already gone)" });
         return;
       }
@@ -162,10 +166,7 @@ function detachDebuggerFromTab(detachTabId, callback) {
       callback({ status: "ERROR", error: "Failed to detach debugger: " + errorMessage });
       return;
     }
-    isAttached(false, undefined);
-    // Update badge to show debugger is OFF
-    chrome.action.setBadgeText({ text: "OFF" });
-    chrome.action.setBadgeBackgroundColor({ color: "#d9534f" });
+
     callback({ status: "SUCCESS", message: "Debugger detached successfully" });
   });
 }
@@ -188,32 +189,27 @@ function getStoredPatterns(callback) {
 function toggleDebuggerFromAction() {
   getActiveTab((currentTab, error) => {
     if (error) {
-      sendActionUpdate({ active: false, error });
+      // Can't set tab-specific badge if we don't have a tab, but we can try to send message
+      sendActionUpdate({ active: false, error }, null);
       return;
     }
 
-    // Use our internal state first for a consistent experience.
-    // If we think we are attached, try to detach from the stored tabId.
-    if (debuggerAttached && tabId !== undefined) {
-      detachDebuggerFromTab(tabId, (result) => {
+    // Use our internal state
+    if (attachedTabs.has(currentTab.id)) {
+      detachDebuggerFromTab(currentTab.id, (result) => {
         if (result.status === "SUCCESS") {
-          sendActionUpdate({ active: false });
-          chrome.action.setBadgeText({ text: "OFF" });
-          chrome.action.setBadgeBackgroundColor({ color: "#d9534f" });
+          sendActionUpdate({ active: false }, currentTab.id);
         } else {
-          // Even if it failed, our internal state should be cleared by detachDebuggerFromTab
-          sendActionUpdate({ active: false, error: result.error || "Failed to detach debugger" });
-          chrome.action.setBadgeText({ text: "OFF" });
-          chrome.action.setBadgeBackgroundColor({ color: "#d9534f" });
+          sendActionUpdate({ active: false, error: result.error || "Failed to detach debugger" }, currentTab.id);
         }
       });
       return;
     }
 
-    // Otherwise, we are not attached (according to our state). Try to attach.
+    // Otherwise, we are not attached. Try to attach.
     getStoredPatterns((storedPatterns, storageError) => {
       if (storageError) {
-        sendActionUpdate({ active: false, error: storageError });
+        sendActionUpdate({ active: false, error: storageError }, currentTab.id);
         return;
       }
 
@@ -229,10 +225,10 @@ function toggleDebuggerFromAction() {
         });
 
         // Set error badge
-        chrome.action.setBadgeText({ text: "ERR" });
-        chrome.action.setBadgeBackgroundColor({ color: "#f0ad4e" });
+        chrome.action.setBadgeText({ text: "ERR", tabId: currentTab.id });
+        chrome.action.setBadgeBackgroundColor({ color: "#f0ad4e", tabId: currentTab.id });
 
-        sendActionUpdate({ active: false, error: errorMsg });
+        sendActionUpdate({ active: false, error: errorMsg }, currentTab.id);
         return;
       }
 
@@ -243,19 +239,17 @@ function toggleDebuggerFromAction() {
           requestStage: "Request"
         }));
       } catch (validationError) {
-        sendActionUpdate({ active: false, error: validationError.message });
+        sendActionUpdate({ active: false, error: validationError.message }, currentTab.id);
         return;
       }
 
       attachDebuggerToTab(currentTab, validPatterns, (result) => {
         if (result.status === "SUCCESS") {
-          sendActionUpdate({ active: true, message: result.message });
-          chrome.action.setBadgeText({ text: "ON" });
-          chrome.action.setBadgeBackgroundColor({ color: "#5cb85c" });
+          sendActionUpdate({ active: true, message: result.message }, currentTab.id);
         } else {
-          sendActionUpdate({ active: false, error: result.error || "Failed to attach debugger" });
-          chrome.action.setBadgeText({ text: "ERR" });
-          chrome.action.setBadgeBackgroundColor({ color: "#d9534f" });
+          sendActionUpdate({ active: false, error: result.error || "Failed to attach debugger" }, currentTab.id);
+          chrome.action.setBadgeText({ text: "ERR", tabId: currentTab.id });
+          chrome.action.setBadgeBackgroundColor({ color: "#d9534f", tabId: currentTab.id });
         }
       });
     });
@@ -323,14 +317,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         });
       }
     } else if (message.disconnect !== undefined && message.disconnect === true) {
-      // Use tabId from message if provided, otherwise use stored tabId
-      const targetTabId = message.tabId !== undefined ? message.tabId : tabId;
+      // Use tabId from message if provided
+      const targetTabId = message.tabId;
 
-      if (targetTabId !== undefined && (debuggerAttached || message.tabId !== undefined)) {
-        console.log(`Detaching debugger session for tab id: ${targetTabId}`);
-        detachDebuggerFromTab(targetTabId, sendResponse);
+      if (targetTabId !== undefined) {
+        if (attachedTabs.has(targetTabId)) {
+          console.log(`Detaching debugger session for tab id: ${targetTabId}`);
+          detachDebuggerFromTab(targetTabId, sendResponse);
+        } else {
+          sendResponse({ status: "WARNING", message: "No active debugger session to detach for this tab" });
+        }
       } else {
-        sendResponse({ status: "WARNING", message: "No active debugger session to detach" });
+        // If no specific tab ID (fallback logic, though normally DevTools sends tabId)
+        getActiveTab((currentTab, error) => {
+          if (!error && currentTab && attachedTabs.has(currentTab.id)) {
+            detachDebuggerFromTab(currentTab.id, sendResponse);
+          } else {
+            sendResponse({ status: "WARNING", message: "No tab specified or active session found" });
+          }
+        });
       }
     } else if (message.getStatus !== undefined && message.getStatus === true) {
       // Check if our extension has attached a debugger to the specified tab
@@ -340,10 +345,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true;
       }
 
-      // Use internal state to check if WE attached a debugger to this tab
-      // chrome.debugger.getTargets() would return true when DevTools is open,
-      // which is not what we want - we only want to know if our extension attached
-      const isActive = debuggerAttached && tabId === queryTabId;
+      const isActive = attachedTabs.has(queryTabId);
       sendResponse({
         status: "SUCCESS",
         debuggerActive: isActive,
@@ -392,14 +394,16 @@ chrome.debugger.onEvent.addListener(async (source, method, params) => {
       console.info('Parsed request body:', reqBody);
 
       try {
+        const requestUrl = params.request.url || '';
+
         if (Array.isArray(reqBody)) {
           console.log("Request payload is an array");
           for (const req of reqBody) {
-            await contaminatePayload(req);
+            await contaminatePayload(req, requestUrl, source.tabId);
           }
         } else {
           console.log("Request payload is a JSON element");
-          await contaminatePayload(reqBody);
+          await contaminatePayload(reqBody, requestUrl, source.tabId);
         }
 
         // Convert modified request back to base64
@@ -439,7 +443,7 @@ chrome.debugger.onEvent.addListener(async (source, method, params) => {
   }
 });
 
-const contaminatePayload = async (payload) => {
+const contaminatePayload = async (payload, requestUrl, tabId) => {
   try {
     if (!payload || typeof payload !== 'object') {
       console.log('Invalid payload format:', payload);
@@ -447,22 +451,36 @@ const contaminatePayload = async (payload) => {
     }
 
     if (payload.query === undefined && payload.extensions && payload.extensions.persistedQuery) {
+      // APQ request without query - contaminate the hash
       const hash = await digestMessage('1234567890');
       if (hash) {
         payload.extensions.persistedQuery.sha256Hash = hash;
-
-        chrome.runtime.sendMessage({ status: "INTERCEPTED" }, (response) => {
-          if (chrome.runtime.lastError) {
-            console.error('Failed to send intercepted message:', chrome.runtime.lastError);
-          } else {
-            console.info('Response sent to devtools:', response);
-          }
-        });
+        console.info('Contaminated APQ request hash');
       } else {
         console.error('Failed to generate hash for payload');
       }
+    } else if (payload.query !== undefined) {
+      // Full query request - capture and send to DevTools
+      console.log('Captured full query request:', payload.operationName);
+
+      chrome.runtime.sendMessage({
+        status: "INTERCEPTED",
+        operationName: payload.operationName || 'Anonymous Query',
+        url: requestUrl || '',
+        query: payload.query || '',
+        variables: payload.variables || null,
+        isAPQ: false,
+        tabId: tabId
+      }, (response) => {
+        if (chrome.runtime.lastError) {
+          // This happens if the devtools panel for this tab isn't open, which is fine
+          // console.error('Failed to send intercepted message:', chrome.runtime.lastError);
+        } else {
+          console.info('Request data sent to devtools:', response);
+        }
+      });
     } else {
-      console.log(`Payload does not contain APQ extensions:`, JSON.stringify(payload));
+      console.log('Payload does not contain query or APQ extensions:', JSON.stringify(payload));
     }
   } catch (error) {
     console.error('Error in contaminatePayload:', error);
@@ -473,8 +491,10 @@ const contaminatePayload = async (payload) => {
 chrome.debugger.onDetach.addListener((source, reason) => {
   console.log(`Debugger detached from tab ID ${source.tabId}. Reason: ${reason}`);
 
-  if (source.tabId === tabId) {
-    isAttached(false, undefined);
+  if (attachedTabs.has(source.tabId)) {
+    attachedTabs.delete(source.tabId);
+    chrome.action.setBadgeText({ text: "OFF", tabId: source.tabId });
+    chrome.action.setBadgeBackgroundColor({ color: "#d9534f", tabId: source.tabId });
   }
 
   // Additional actions when the debugger is disconnected
@@ -491,8 +511,8 @@ chrome.debugger.onDetach.addListener((source, reason) => {
 chrome.runtime.onInstalled.addListener(() => {
   console.log('APQ Debugger service worker installed/updated');
   // Reset state
-  debuggerAttached = false;
-  tabId = undefined;
+  attachedTabs.clear();
+
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({
       id: ACTION_MENU_ID,
@@ -511,3 +531,14 @@ chrome.contextMenus.onClicked.addListener((info) => {
     toggleDebuggerFromAction();
   }
 });
+
+// Export for testing
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    attachedTabs,
+    validateUrlPattern,
+    isDebuggerActive,
+    contaminatePayload,
+    digestMessage
+  };
+}
