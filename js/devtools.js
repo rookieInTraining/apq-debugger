@@ -479,6 +479,7 @@ document.addEventListener('DOMContentLoaded', function () {
     function setActiveUIState() {
         const submitButton = getElement('form-submit');
         if (submitButton) {
+            submitButton.disabled = false;  // Re-enable the button
             submitButton.innerHTML = '<span class="btn-icon-play">⏹</span> Stop';
             submitButton.className = 'btn btn-danger btn-block';
         }
