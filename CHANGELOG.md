@@ -5,6 +5,38 @@ All notable changes to the APQ Debugger extension will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-02-07
+
+### Added
+- Modular architecture: service worker split into `sw/` modules (chrome-api, debugger-manager, interceptor, messaging, storage, hash)
+- Modular architecture: DevTools panel split into `ui/` modules (state, dom-helpers, patterns, request-list, request-detail, status, debugger-controls)
+- esbuild-powered build system replacing Terser for ~100x faster bundling
+- Promise wrappers for all callback-based Chrome APIs (`sw/chrome-api.js`)
+- Cached bogus hash to avoid recomputing SHA-256 on every APQ request
+- Chunked base64 encoding to prevent stack overflow on large payloads (>65KB)
+- Request history cap (500 entries) to prevent unbounded memory growth
+- Incremental request list rendering (prepend new items instead of full re-render)
+- Lightweight message schema validation at the `onMessage` entry point
+- Global `unhandledrejection` handler in the service worker
+- Unit tests for DevTools panel (pattern management, request history, utilities)
+- ESLint and Prettier for consistent code style
+- Release automation via GitHub Actions (build, test, package on version tags)
+- Version sync between `package.json` and `manifest.json` via npm lifecycle hook
+- `npm run package` script to zip extension for Chrome Web Store upload
+- CONTRIBUTING.md with development setup and architecture guide
+- Chrome Web Store assets (privacy policy, permissions justification, store description)
+- JSDoc comments on all exported functions
+
+### Changed
+- Service worker is now bundled from ES modules instead of a single monolithic file
+- DevTools panel is now bundled from ES modules instead of a single monolithic file
+- Build output now goes to `extension_build/` with flat file structure
+- License field in package.json corrected to Apache-2.0 (matching LICENSE file)
+
+### Fixed
+- Base64 encoding overflow (`RangeError`) for payloads larger than ~65KB
+- Consistent `chrome.runtime.lastError` handling across all Chrome API callbacks
+
 ## [1.1.0] - 2026-01-30
 
 ### Fixed
@@ -51,6 +83,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Commit | Date |
 |---------|--------|------|
+| 2.0.0 | — | 2026-02-07 |
 | 1.1.0 | `5b035ba` | 2026-01-30 |
 | 1.0.0 | `96f5ff3` | 2026-01-26 |
 | 0.1.0 | `79d6472` | 2024-07-05 |

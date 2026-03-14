@@ -1,0 +1,48 @@
+{
+  "env": {
+    "browser": true,
+    "es2021": true,
+    "webextensions": true
+  },
+  "extends": ["eslint:recommended", "prettier"],
+  "parserOptions": {
+    "ecmaVersion": "latest",
+    "sourceType": "module"
+  },
+  "ignorePatterns": [
+    "node_modules/",
+    "extension_build/",
+    "coverage/",
+    "*.min.js",
+    "js/service-worker.js",
+    "js/devtools.js"
+  ],
+  "rules": {
+    "no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
+    "no-console": "off"
+  },
+  "overrides": [
+    {
+      "files": ["js/sw/**/*.js"],
+      "env": {
+        "serviceworker": true
+      }
+    },
+    {
+      "files": ["tests/**/*.js"],
+      "env": {
+        "jest": true,
+        "node": true
+      }
+    },
+    {
+      "files": ["*.config.js", "build-enhanced.js", "install-deps.js", "jest-esbuild-transform.js"],
+      "env": {
+        "node": true
+      },
+      "parserOptions": {
+        "sourceType": "script"
+      }
+    }
+  ]
+}
