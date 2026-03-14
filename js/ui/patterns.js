@@ -50,13 +50,13 @@ export function restorePatternsFromStorage() {
  * @param {string} value - Optional initial value for the new field.
  */
 export function addPatternField(value = '') {
-  const form = document.querySelector("#myForm");
+  const form = document.querySelector('#myForm');
   if (!form) return;
 
-  const patternItem = document.createElement("div");
+  const patternItem = document.createElement('div');
   patternItem.className = 'pattern-item';
 
-  const input = document.createElement("input");
+  const input = document.createElement('input');
   input.type = 'text';
   input.className = 'urlPattern';
   input.setAttribute('data-pattern-index', ++state.totalPatterns);
@@ -64,7 +64,7 @@ export function addPatternField(value = '') {
   if (value) input.value = value;
   input.addEventListener('input', savePatternsToStorage);
 
-  const removeBtn = document.createElement("button");
+  const removeBtn = document.createElement('button');
   removeBtn.type = 'button';
   removeBtn.className = 'btn-icon btn-remove';
   removeBtn.title = 'Remove pattern';
@@ -85,7 +85,7 @@ export function addPatternField(value = '') {
  * Wire up the "Add Pattern" button and the initial pattern input listener.
  */
 export function initPatterns() {
-  const addButton = getElement("add");
+  const addButton = getElement('add');
   if (addButton) {
     addButton.addEventListener('click', () => addPatternField());
   }

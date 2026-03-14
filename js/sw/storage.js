@@ -63,9 +63,7 @@ export async function removeTabFromStorage(tabId) {
 export async function getStoredPatterns() {
   try {
     const result = await storageGet([PATTERNS_STORAGE_KEY]);
-    return Array.isArray(result[PATTERNS_STORAGE_KEY])
-      ? result[PATTERNS_STORAGE_KEY]
-      : [];
+    return Array.isArray(result[PATTERNS_STORAGE_KEY]) ? result[PATTERNS_STORAGE_KEY] : [];
   } catch (error) {
     console.error('Failed to load saved patterns:', error);
     return [];

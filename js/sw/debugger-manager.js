@@ -7,14 +7,9 @@ import {
   getTargets,
   attachDebugger as chromeAttachDebugger,
   detachDebugger as chromeDetachDebugger,
-  sendDebuggerCommand
+  sendDebuggerCommand,
 } from './chrome-api.js';
-import {
-  saveTabToStorage,
-  removeTabFromStorage,
-  getStoredTabs,
-  setStoredTabs
-} from './storage.js';
+import { saveTabToStorage, removeTabFromStorage, getStoredTabs, setStoredTabs } from './storage.js';
 
 /** Set of tab IDs with an active debugger session managed by this extension. */
 export const attachedTabs = new Set();
@@ -68,7 +63,7 @@ export async function isDebuggerActive(tabId) {
 
     // Tab is in our stored list — verify it's still attached via Chrome API
     const targets = await getTargets();
-    const target = targets.find(t => t.tabId === tabId && t.attached);
+    const target = targets.find((t) => t.tabId === tabId && t.attached);
 
     if (target) {
       // Recover state: tab is in storage AND has debugger attached
@@ -94,41 +89,45 @@ export async function isDebuggerActive(tabId) {
  */
 export async function attachDebuggerToTab(currentTab, validPatterns) {
   if (!currentTab.url || !currentTab.url.startsWith('http')) {
-    return { status: "ERROR", error: "Debugger can only be attached to HTTP/HTTPS pages" };
+    return { status: 'ERROR', error: 'Debugger can only be attached to HTTP/HTTPS pages' };
   }
 
   const alreadyAttached = await isDebuggerActive(currentTab.id);
   if (alreadyAttached) {
-    return { status: "WARNING", message: "Debugger already attached to this tab" };
+    return { status: 'WARNING', message: 'Debugger already attached to this tab' };
   }
 
   try {
     await chromeAttachDebugger(currentTab.id);
   } catch (error) {
     console.error('Debugger attach failed:', error);
-    const errorMessage = error.message || safeStringify(error) || "Unknown error";
-    return { status: "ERROR", error: "Failed to attach debugger: " + errorMessage };
+    const errorMessage = error.message || safeStringify(error) || 'Unknown error';
+    return { status: 'ERROR', error: 'Failed to attach debugger: ' + errorMessage };
   }
 
   try {
-    await sendDebuggerCommand(currentTab.id, "Fetch.enable", {
-      patterns: validPatterns.map(pattern => ({
+    await sendDebuggerCommand(currentTab.id, 'Fetch.enable', {
+      patterns: validPatterns.map((pattern) => ({
         urlPattern: pattern.urlPattern,
-        requestStage: pattern.requestStage || "Request"
-      }))
+        requestStage: pattern.requestStage || 'Request',
+      })),
     });
   } catch (error) {
     console.error('Fetch.enable failed:', error);
-    try { await chromeDetachDebugger(currentTab.id); } catch (_) { /* best-effort cleanup */ }
-    return { status: "ERROR", error: "Failed to enable network interception" };
+    try {
+      await chromeDetachDebugger(currentTab.id);
+    } catch (_) {
+      /* best-effort cleanup */
+    }
+    return { status: 'ERROR', error: 'Failed to enable network interception' };
   }
 
   attachedTabs.add(currentTab.id);
   saveTabToStorage(currentTab.id);
-  chrome.action.setBadgeText({ text: "ON", tabId: currentTab.id });
-  chrome.action.setBadgeBackgroundColor({ color: "#5cb85c", tabId: currentTab.id });
+  chrome.action.setBadgeText({ text: 'ON', tabId: currentTab.id });
+  chrome.action.setBadgeBackgroundColor({ color: '#5cb85c', tabId: currentTab.id });
 
-  return { status: "SUCCESS", message: "Network Interception enabled for logic" };
+  return { status: 'SUCCESS', message: 'Network Interception enabled for logic' };
 }
 
 /**
@@ -141,30 +140,35 @@ export async function detachDebuggerFromTab(detachTabId) {
 
   if (!isAttached) {
     cleanupTabState(detachTabId);
-    return { status: "SUCCESS", message: "Debugger already detached" };
+    return { status: 'SUCCESS', message: 'Debugger already detached' };
   }
 
   try {
     await chromeDetachDebugger(detachTabId);
   } catch (error) {
     console.error('Debugger detach failed:', error);
-    const errorMessage = error.message || safeStringify(error) || "Unknown error";
+    const errorMessage = error.message || safeStringify(error) || 'Unknown error';
 
     cleanupTabState(detachTabId);
 
     // If the session was already gone, treat as success
-    if (errorMessage.includes("Session not found") ||
-        errorMessage.includes("Detached") ||
-        errorMessage.includes("Debugger is not attached")) {
-      console.log("Debugger already detached, treating as success.");
-      return { status: "SUCCESS", message: "Debugger detached successfully (Session was already gone)" };
+    if (
+      errorMessage.includes('Session not found') ||
+      errorMessage.includes('Detached') ||
+      errorMessage.includes('Debugger is not attached')
+    ) {
+      console.log('Debugger already detached, treating as success.');
+      return {
+        status: 'SUCCESS',
+        message: 'Debugger detached successfully (Session was already gone)',
+      };
     }
 
-    return { status: "ERROR", error: "Failed to detach debugger: " + errorMessage };
+    return { status: 'ERROR', error: 'Failed to detach debugger: ' + errorMessage };
   }
 
   cleanupTabState(detachTabId);
-  return { status: "SUCCESS", message: "Debugger detached successfully" };
+  return { status: 'SUCCESS', message: 'Debugger detached successfully' };
 }
 
 /**
@@ -186,12 +190,12 @@ export async function restoreDebuggerState() {
     const stillAttached = [];
 
     for (const tabId of storedTabs) {
-      const target = targets.find(t => t.tabId === tabId && t.attached);
+      const target = targets.find((t) => t.tabId === tabId && t.attached);
       if (target) {
         attachedTabs.add(tabId);
         stillAttached.push(tabId);
-        chrome.action.setBadgeText({ text: "ON", tabId });
-        chrome.action.setBadgeBackgroundColor({ color: "#5cb85c", tabId });
+        chrome.action.setBadgeText({ text: 'ON', tabId });
+        chrome.action.setBadgeBackgroundColor({ color: '#5cb85c', tabId });
       }
     }
 
@@ -210,14 +214,14 @@ export async function restoreDebuggerState() {
 function cleanupTabState(tabId) {
   attachedTabs.delete(tabId);
   removeTabFromStorage(tabId);
-  chrome.action.setBadgeText({ text: "OFF", tabId });
-  chrome.action.setBadgeBackgroundColor({ color: "#d9534f", tabId });
+  chrome.action.setBadgeText({ text: 'OFF', tabId });
+  chrome.action.setBadgeBackgroundColor({ color: '#d9534f', tabId });
 }
 
 function safeStringify(obj) {
   try {
     return JSON.stringify(obj);
   } catch (_) {
-    return "Error object could not be stringified";
+    return 'Error object could not be stringified';
   }
 }

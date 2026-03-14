@@ -59,7 +59,7 @@ async function bundleJS(entry, outfile) {
   const inputPath = path.join(config.sourceDir, entry);
   const outputPath = path.join(config.extDir, outfile);
 
-  if (!await fs.pathExists(inputPath)) {
+  if (!(await fs.pathExists(inputPath))) {
     console.log(`❌ Entry not found: ${entry}`);
     return;
   }
@@ -89,12 +89,13 @@ async function bundleJS(entry, outfile) {
   }
 
   const outputStat = await fs.stat(outputPath);
-  const reduction = inputSize > 0
-    ? ((inputSize - outputStat.size) / inputSize * 100).toFixed(1)
-    : '?';
+  const reduction =
+    inputSize > 0 ? (((inputSize - outputStat.size) / inputSize) * 100).toFixed(1) : '?';
 
   console.log(`✅ ${entry} → ${outfile}`);
-  console.log(`   ${inputSize} bytes (source) → ${outputStat.size} bytes (${reduction}% reduction)\n`);
+  console.log(
+    `   ${inputSize} bytes (source) → ${outputStat.size} bytes (${reduction}% reduction)\n`
+  );
 }
 
 // ── CSS minification (Clean-CSS) ──────────────────────────────────
@@ -103,7 +104,7 @@ async function minifyCSS() {
   const inputPath = path.join(config.sourceDir, config.css.input);
   const outputPath = path.join(config.extDir, config.css.output);
 
-  if (!await fs.pathExists(inputPath)) {
+  if (!(await fs.pathExists(inputPath))) {
     console.log(`❌ CSS not found: ${config.css.input}`);
     return;
   }
@@ -122,7 +123,7 @@ async function minifyCSS() {
 
   const originalSize = Buffer.byteLength(code, 'utf8');
   const minifiedSize = Buffer.byteLength(result.styles, 'utf8');
-  const reduction = ((originalSize - minifiedSize) / originalSize * 100).toFixed(1);
+  const reduction = (((originalSize - minifiedSize) / originalSize) * 100).toFixed(1);
 
   console.log(`✅ ${config.css.input} → ${config.css.output}`);
   console.log(`   ${originalSize} bytes → ${minifiedSize} bytes (${reduction}% reduction)\n`);
@@ -203,16 +204,13 @@ async function watch() {
   // Run an initial full build
   await build();
 
-  const watcher = chokidar.watch([
-    'js/**/*.js',
-    'frontend/*.css',
-    'frontend/devtools.html',
-    'manifest.json',
-    'icons/*',
-  ], {
-    ignored: [/\.min\.(js|css)$/, /node_modules/, /extension_build/],
-    persistent: true,
-  });
+  const watcher = chokidar.watch(
+    ['js/**/*.js', 'frontend/*.css', 'frontend/devtools.html', 'manifest.json', 'icons/*'],
+    {
+      ignored: [/\.min\.(js|css)$/, /node_modules/, /extension_build/],
+      persistent: true,
+    }
+  );
 
   watcher.on('change', async (filePath) => {
     const relativePath = path.relative(config.sourceDir, filePath);

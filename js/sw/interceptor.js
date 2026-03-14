@@ -46,19 +46,22 @@ export async function contaminatePayload(payload, requestUrl, tabId) {
       // Full query request — capture and send to DevTools
       console.log('Captured full query request:', payload.operationName);
 
-      chrome.runtime.sendMessage({
-        status: "INTERCEPTED",
-        operationName: payload.operationName || 'Anonymous Query',
-        url: requestUrl || '',
-        query: payload.query || '',
-        variables: payload.variables || null,
-        isAPQ: false,
-        tabId: tabId
-      }, () => {
-        if (chrome.runtime.lastError) {
-          // DevTools panel for this tab might not be open — that's fine
+      chrome.runtime.sendMessage(
+        {
+          status: 'INTERCEPTED',
+          operationName: payload.operationName || 'Anonymous Query',
+          url: requestUrl || '',
+          query: payload.query || '',
+          variables: payload.variables || null,
+          isAPQ: false,
+          tabId: tabId,
+        },
+        () => {
+          if (chrome.runtime.lastError) {
+            // DevTools panel for this tab might not be open — that's fine
+          }
         }
-      });
+      );
     } else {
       try {
         console.log('Payload does not contain query or APQ extensions:', JSON.stringify(payload));
@@ -93,20 +96,13 @@ function uint8ArrayToBase64(bytes) {
  * @param {string} [postData] - Optional base64-encoded post data.
  */
 function continueRequest(tabId, requestId, postData) {
-  const params = postData
-    ? { requestId, postData }
-    : { requestId };
+  const params = postData ? { requestId, postData } : { requestId };
 
-  chrome.debugger.sendCommand(
-    { tabId },
-    "Fetch.continueRequest",
-    params,
-    () => {
-      if (chrome.runtime.lastError) {
-        console.error('Fetch.continueRequest failed:', chrome.runtime.lastError);
-      }
+  chrome.debugger.sendCommand({ tabId }, 'Fetch.continueRequest', params, () => {
+    if (chrome.runtime.lastError) {
+      console.error('Fetch.continueRequest failed:', chrome.runtime.lastError);
     }
-  );
+  });
 }
 
 /**
@@ -137,12 +133,12 @@ export function handleFetchRequestPaused(source, params) {
       const requestUrl = params.request.url || '';
 
       if (Array.isArray(reqBody)) {
-        console.log("Request payload is an array");
+        console.log('Request payload is an array');
         for (const req of reqBody) {
           await contaminatePayload(req, requestUrl, source.tabId);
         }
       } else {
-        console.log("Request payload is a JSON element");
+        console.log('Request payload is a JSON element');
         await contaminatePayload(reqBody, requestUrl, source.tabId);
       }
 
@@ -153,7 +149,7 @@ export function handleFetchRequestPaused(source, params) {
       const base64Data = uint8ArrayToBase64(bytes);
 
       console.info(`Modified Request: ${modifiedJson}\nBase64: ${base64Data}`);
-      console.info("Executing Fetch.continueRequest...");
+      console.info('Executing Fetch.continueRequest...');
 
       continueRequest(source.tabId, params.requestId, base64Data);
     } catch (processingError) {

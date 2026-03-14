@@ -14,7 +14,7 @@ export function selectRequest(requestId) {
   state.selectedRequestId = requestId;
 
   // Update visual selection in the list
-  document.querySelectorAll('.request-item').forEach(item => {
+  document.querySelectorAll('.request-item').forEach((item) => {
     item.classList.toggle('selected', parseInt(item.dataset.requestId) === requestId);
   });
 
@@ -29,7 +29,7 @@ export function selectRequest(requestId) {
  * @param {number} requestId
  */
 export function renderRequestDetail(requestId) {
-  const request = state.requestHistory.find(r => r.id === requestId);
+  const request = state.requestHistory.find((r) => r.id === requestId);
   const detailContent = getElement('detail-content');
   if (!request || !detailContent) return;
 
@@ -55,12 +55,16 @@ export function renderRequestDetail(requestId) {
         </div>
     </div>
     
-    ${request.hash ? `
+    ${
+      request.hash
+        ? `
     <div class="detail-section">
         <div class="detail-label">SHA256 Hash</div>
         <div class="detail-hash">${escapeHtml(request.hash)}</div>
     </div>
-    ` : ''}
+    `
+        : ''
+    }
     
     <div class="detail-section">
         <div class="detail-label">URL</div>
@@ -77,7 +81,9 @@ export function renderRequestDetail(requestId) {
         </div>
     </div>
     
-    ${variablesJson ? `
+    ${
+      variablesJson
+        ? `
     <div class="detail-section">
         <div class="code-block">
             <div class="code-header">
@@ -87,11 +93,13 @@ export function renderRequestDetail(requestId) {
             <pre class="code-content">${escapeHtml(variablesJson)}</pre>
         </div>
     </div>
-    ` : ''}
+    `
+        : ''
+    }
   `;
 
   // Attach copy-to-clipboard handlers
-  detailContent.querySelectorAll('.btn-copy').forEach(btn => {
+  detailContent.querySelectorAll('.btn-copy').forEach((btn) => {
     btn.addEventListener('click', () => {
       try {
         const type = btn.dataset.copy;
@@ -122,15 +130,18 @@ export function formatGraphQL(query) {
  * @param {HTMLButtonElement} button
  */
 function copyToClipboard(text, button) {
-  navigator.clipboard.writeText(text).then(() => {
-    const originalText = button.textContent;
-    button.textContent = 'Copied!';
-    setTimeout(() => {
-      button.textContent = originalText;
-    }, 1500);
-  }).catch(err => {
-    console.error('Failed to copy:', err);
-  });
+  navigator.clipboard
+    .writeText(text)
+    .then(() => {
+      const originalText = button.textContent;
+      button.textContent = 'Copied!';
+      setTimeout(() => {
+        button.textContent = originalText;
+      }, 1500);
+    })
+    .catch((err) => {
+      console.error('Failed to copy:', err);
+    });
 }
 
 /**
@@ -143,7 +154,9 @@ export function initRequestDetail() {
       const detailPanel = getElement('detail-panel');
       if (detailPanel) detailPanel.classList.add('hidden');
       state.selectedRequestId = null;
-      document.querySelectorAll('.request-item.selected').forEach(el => el.classList.remove('selected'));
+      document
+        .querySelectorAll('.request-item.selected')
+        .forEach((el) => el.classList.remove('selected'));
     });
   }
 }

@@ -41,8 +41,8 @@ chrome.debugger.onDetach.addListener((source, reason) => {
 
   attachedTabs.delete(source.tabId);
   removeTabFromStorage(source.tabId);
-  chrome.action.setBadgeText({ text: "OFF", tabId: source.tabId });
-  chrome.action.setBadgeBackgroundColor({ color: "#d9534f", tabId: source.tabId });
+  chrome.action.setBadgeText({ text: 'OFF', tabId: source.tabId });
+  chrome.action.setBadgeBackgroundColor({ color: '#d9534f', tabId: source.tabId });
 
   if (reason === 'target_closed') {
     console.log('The target tab was closed.');
@@ -62,7 +62,7 @@ chrome.runtime.onInstalled.addListener(() => {
     chrome.contextMenus.create({
       id: ACTION_MENU_ID,
       title: 'Toggle APQ Debugger',
-      contexts: ['action']
+      contexts: ['action'],
     });
   });
 
@@ -100,12 +100,12 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo) => {
     }
 
     const targets = await getTargets();
-    const target = targets.find(t => t.tabId === tabId && t.attached);
+    const target = targets.find((t) => t.tabId === tabId && t.attached);
 
     if (target) {
       attachedTabs.add(tabId);
-      chrome.action.setBadgeText({ text: "ON", tabId });
-      chrome.action.setBadgeBackgroundColor({ color: "#5cb85c", tabId });
+      chrome.action.setBadgeText({ text: 'ON', tabId });
+      chrome.action.setBadgeBackgroundColor({ color: '#5cb85c', tabId });
       console.log(`Restored badge for tab ${tabId} after navigation`);
     } else {
       removeTabFromStorage(tabId);

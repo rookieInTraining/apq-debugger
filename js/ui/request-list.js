@@ -37,7 +37,7 @@ export function addRequest(requestData) {
     hash: requestData.hash || '',
     query: requestData.query || '',
     variables: requestData.variables || null,
-    responseTime: requestData.responseTime || null
+    responseTime: requestData.responseTime || null,
   };
 
   state.requestHistory.unshift(request);
@@ -66,8 +66,10 @@ function requestPassesFilter(req) {
   }
   if (state.filterText) {
     const searchText = state.filterText.toLowerCase();
-    return req.operationName.toLowerCase().includes(searchText) ||
-      req.url.toLowerCase().includes(searchText);
+    return (
+      req.operationName.toLowerCase().includes(searchText) ||
+      req.url.toLowerCase().includes(searchText)
+    );
   }
   return true;
 }
@@ -106,14 +108,16 @@ function prependRequestItem(request) {
  * @returns {object[]}
  */
 export function getFilteredRequests() {
-  return state.requestHistory.filter(req => {
+  return state.requestHistory.filter((req) => {
     if (state.activeFilter !== 'all' && req.type !== state.activeFilter) {
       return false;
     }
     if (state.filterText) {
       const searchText = state.filterText.toLowerCase();
-      return req.operationName.toLowerCase().includes(searchText) ||
-        req.url.toLowerCase().includes(searchText);
+      return (
+        req.operationName.toLowerCase().includes(searchText) ||
+        req.url.toLowerCase().includes(searchText)
+      );
     }
     return true;
   });
@@ -130,7 +134,7 @@ export function renderRequestList() {
   const filtered = getFilteredRequests();
 
   // Clear existing request items (preserve the empty-state element)
-  listContainer.querySelectorAll('.request-item').forEach(el => el.remove());
+  listContainer.querySelectorAll('.request-item').forEach((el) => el.remove());
 
   if (filtered.length === 0) {
     if (emptyState) emptyState.style.display = 'flex';
@@ -139,7 +143,7 @@ export function renderRequestList() {
 
   if (emptyState) emptyState.style.display = 'none';
 
-  filtered.forEach(request => {
+  filtered.forEach((request) => {
     const item = createRequestItem(request);
     listContainer.appendChild(item);
   });
@@ -162,7 +166,7 @@ function createRequestItem(request) {
     hour12: false,
     hour: '2-digit',
     minute: '2-digit',
-    second: '2-digit'
+    second: '2-digit',
   });
 
   item.innerHTML = `
@@ -193,9 +197,9 @@ export function initRequestList() {
     });
   }
 
-  document.querySelectorAll('.chip').forEach(chip => {
+  document.querySelectorAll('.chip').forEach((chip) => {
     chip.addEventListener('click', () => {
-      document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      document.querySelectorAll('.chip').forEach((c) => c.classList.remove('active'));
       chip.classList.add('active');
       state.activeFilter = chip.dataset.filter;
       renderRequestList();

@@ -10,7 +10,7 @@ import {
   validateUrlPattern,
   isDebuggerActive,
   attachDebuggerToTab,
-  detachDebuggerFromTab
+  detachDebuggerFromTab,
 } from './debugger-manager.js';
 
 /**
@@ -45,10 +45,13 @@ export async function toggleDebuggerFromAction() {
   // If already attached, detach
   if (attachedTabs.has(currentTab.id)) {
     const result = await detachDebuggerFromTab(currentTab.id);
-    if (result.status === "SUCCESS") {
+    if (result.status === 'SUCCESS') {
       sendActionUpdate({ active: false }, currentTab.id);
     } else {
-      sendActionUpdate({ active: false, error: result.error || "Failed to detach debugger" }, currentTab.id);
+      sendActionUpdate(
+        { active: false, error: result.error || 'Failed to detach debugger' },
+        currentTab.id
+      );
     }
     return;
   }
@@ -57,17 +60,18 @@ export async function toggleDebuggerFromAction() {
   const storedPatterns = await getStoredPatterns();
 
   if (!storedPatterns || storedPatterns.length === 0) {
-    const errorMsg = "No URL patterns configured. Please open DevTools > APQ Debugger to add patterns.";
+    const errorMsg =
+      'No URL patterns configured. Please open DevTools > APQ Debugger to add patterns.';
 
     chrome.notifications.create({
       type: 'basic',
       iconUrl: 'icons/icon128.png',
       title: 'APQ Debugger',
-      message: errorMsg
+      message: errorMsg,
     });
 
-    chrome.action.setBadgeText({ text: "ERR", tabId: currentTab.id });
-    chrome.action.setBadgeBackgroundColor({ color: "#f0ad4e", tabId: currentTab.id });
+    chrome.action.setBadgeText({ text: 'ERR', tabId: currentTab.id });
+    chrome.action.setBadgeBackgroundColor({ color: '#f0ad4e', tabId: currentTab.id });
 
     sendActionUpdate({ active: false, error: errorMsg }, currentTab.id);
     return;
@@ -77,7 +81,7 @@ export async function toggleDebuggerFromAction() {
   try {
     validPatterns = storedPatterns.map((pattern) => ({
       urlPattern: validateUrlPattern(pattern),
-      requestStage: "Request"
+      requestStage: 'Request',
     }));
   } catch (validationError) {
     sendActionUpdate({ active: false, error: validationError.message }, currentTab.id);
@@ -85,12 +89,15 @@ export async function toggleDebuggerFromAction() {
   }
 
   const result = await attachDebuggerToTab(currentTab, validPatterns);
-  if (result.status === "SUCCESS") {
+  if (result.status === 'SUCCESS') {
     sendActionUpdate({ active: true, message: result.message }, currentTab.id);
   } else {
-    sendActionUpdate({ active: false, error: result.error || "Failed to attach debugger" }, currentTab.id);
-    chrome.action.setBadgeText({ text: "ERR", tabId: currentTab.id });
-    chrome.action.setBadgeBackgroundColor({ color: "#d9534f", tabId: currentTab.id });
+    sendActionUpdate(
+      { active: false, error: result.error || 'Failed to attach debugger' },
+      currentTab.id
+    );
+    chrome.action.setBadgeText({ text: 'ERR', tabId: currentTab.id });
+    chrome.action.setBadgeBackgroundColor({ color: '#d9534f', tabId: currentTab.id });
   }
 }
 
@@ -150,8 +157,10 @@ export function handleMessage(message, sender, sendResponse) {
   if (validationError) {
     console.warn('Invalid message schema:', validationError);
     try {
-      sendResponse({ status: "ERROR", error: "Invalid message: " + validationError });
-    } catch (_) { /* sendResponse may be invalid if message port closed */ }
+      sendResponse({ status: 'ERROR', error: 'Invalid message: ' + validationError });
+    } catch (_) {
+      /* sendResponse may be invalid if message port closed */
+    }
     return false;
   }
 
@@ -164,13 +173,15 @@ export function handleMessage(message, sender, sendResponse) {
       } else if (message.getStatus === true) {
         await handleStatusMessage(message, sendResponse);
       } else {
-        sendResponse({ status: "ERROR", error: "Invalid message format or empty patterns" });
+        sendResponse({ status: 'ERROR', error: 'Invalid message format or empty patterns' });
       }
     } catch (error) {
       console.error('Message handling error:', error);
       try {
-        sendResponse({ status: "ERROR", error: "Internal error: " + (error.message || 'Unknown') });
-      } catch (_) { /* sendResponse may be invalid if message port closed */ }
+        sendResponse({ status: 'ERROR', error: 'Internal error: ' + (error.message || 'Unknown') });
+      } catch (_) {
+        /* sendResponse may be invalid if message port closed */
+      }
     }
   })();
 
@@ -182,7 +193,7 @@ export function handleMessage(message, sender, sendResponse) {
 async function getActiveTab() {
   const tabs = await queryTabs({ active: true, currentWindow: true });
   if (!tabs || tabs.length === 0) {
-    throw new Error("No active tab found");
+    throw new Error('No active tab found');
   }
   return tabs[0];
 }
@@ -198,7 +209,7 @@ async function handlePatternsMessage(message, sendResponse) {
       }
       validPatterns.push({
         ...pattern,
-        urlPattern: validateUrlPattern(pattern.urlPattern)
+        urlPattern: validateUrlPattern(pattern.urlPattern),
       });
     } catch (error) {
       errors.push(`Pattern "${pattern?.urlPattern || ''}": ${error.message}`);
@@ -206,7 +217,10 @@ async function handlePatternsMessage(message, sendResponse) {
   }
 
   if (validPatterns.length === 0) {
-    sendResponse({ status: "ERROR", error: "No valid URL patterns provided. " + errors.join('; ') });
+    sendResponse({
+      status: 'ERROR',
+      error: 'No valid URL patterns provided. ' + errors.join('; '),
+    });
     return;
   }
 
@@ -218,7 +232,7 @@ async function handlePatternsMessage(message, sendResponse) {
       currentTab = await getActiveTab();
     }
   } catch (error) {
-    sendResponse({ status: "ERROR", error: error.message || "Failed to get tab" });
+    sendResponse({ status: 'ERROR', error: error.message || 'Failed to get tab' });
     return;
   }
 
@@ -239,7 +253,7 @@ async function handleDisconnectMessage(message, sendResponse) {
       const result = await detachDebuggerFromTab(currentTab.id);
       sendResponse(result);
     } catch (error) {
-      sendResponse({ status: "WARNING", message: "No tab specified" });
+      sendResponse({ status: 'WARNING', message: 'No tab specified' });
     }
   }
 }
@@ -247,14 +261,14 @@ async function handleDisconnectMessage(message, sendResponse) {
 async function handleStatusMessage(message, sendResponse) {
   const queryTabId = message.tabId;
   if (queryTabId === undefined) {
-    sendResponse({ status: "ERROR", error: "No tabId provided for status query" });
+    sendResponse({ status: 'ERROR', error: 'No tabId provided for status query' });
     return;
   }
 
   const isActive = await isDebuggerActive(queryTabId);
   sendResponse({
-    status: "SUCCESS",
+    status: 'SUCCESS',
     debuggerActive: isActive,
-    tabId: queryTabId
+    tabId: queryTabId,
   });
 }

@@ -79,6 +79,6 @@ export function hideStatusBanner() {
  */
 export function showError(message) {
   console.error(message);
-  updateDebuggerStatus("Error", "error");
+  updateDebuggerStatus('Error', 'error');
   showStatusBanner(message, 'error');
 }

@@ -43,7 +43,7 @@ export function setActiveUIState() {
  * @param {string} message - Success message to display in the status banner.
  */
 export function handleStartSuccess(message) {
-  updateDebuggerStatus("Active", "active");
+  updateDebuggerStatus('Active', 'active');
   showStatusBanner(message, 'success');
   setActiveUIState();
   state.isDebuggerActive = true;
@@ -54,7 +54,7 @@ export function handleStartSuccess(message) {
  * @param {string} message - Warning message to display.
  */
 export function handleStartWarning(message) {
-  updateDebuggerStatus("Warning", "warning");
+  updateDebuggerStatus('Warning', 'warning');
   showStatusBanner(message, 'warning');
   resetUIState();
 }
@@ -64,21 +64,21 @@ export function handleStartWarning(message) {
  * @param {string} error - Error message to display.
  */
 export function handleStartError(error) {
-  updateDebuggerStatus("Failed", "error");
+  updateDebuggerStatus('Failed', 'error');
   showStatusBanner(error, 'error');
   resetUIState();
 }
 
 function handleStartTimeout() {
   state.currentOperation = null;
-  updateDebuggerStatus("Timeout", "error");
-  showStatusBanner("Start operation timed out", 'error');
+  updateDebuggerStatus('Timeout', 'error');
+  showStatusBanner('Start operation timed out', 'error');
   resetUIState();
 }
 
 export function handleStopSuccess() {
-  updateDebuggerStatus("Stopped", "error");
-  showStatusBanner("Debugger disconnected", 'warning');
+  updateDebuggerStatus('Stopped', 'error');
+  showStatusBanner('Debugger disconnected', 'warning');
   resetUIState();
   state.isDebuggerActive = false;
 }
@@ -88,22 +88,22 @@ export function handleStopSuccess() {
  * @param {string} message - Warning message to display.
  */
 export function handleStopWarning(message) {
-  updateDebuggerStatus("Warning", "warning");
+  updateDebuggerStatus('Warning', 'warning');
   showStatusBanner(message, 'warning');
   resetUIState();
   state.isDebuggerActive = false;
 }
 
 function handleStopError(error) {
-  updateDebuggerStatus("Error", "error");
+  updateDebuggerStatus('Error', 'error');
   showStatusBanner(error, 'error');
   resetUIState();
 }
 
 function handleStopTimeout() {
   state.currentOperation = null;
-  updateDebuggerStatus("Timeout", "error");
-  showStatusBanner("Stop operation timed out", 'error');
+  updateDebuggerStatus('Timeout', 'error');
+  showStatusBanner('Stop operation timed out', 'error');
   resetUIState();
 }
 
@@ -119,19 +119,19 @@ function startDebugger() {
       urlPatterns.push({
         urlPattern: input.value.trim(),
         requestType: 'XHR',
-        requestStage: 'Request'
+        requestStage: 'Request',
       });
     }
   });
 
   if (urlPatterns.length === 0) {
-    showError("Please enter at least one URL pattern");
+    showError('Please enter at least one URL pattern');
     state.currentOperation = null;
     return;
   }
 
   savePatternsToStorage();
-  updateDebuggerStatus("Connecting...", "warning");
+  updateDebuggerStatus('Connecting...', 'warning');
 
   const submitButton = getElement('form-submit');
   if (submitButton) {
@@ -152,19 +152,19 @@ function startDebugger() {
       return;
     }
 
-    if (response && response.status === "SUCCESS") {
+    if (response && response.status === 'SUCCESS') {
       handleStartSuccess(response.message);
-    } else if (response && response.status === "WARNING") {
+    } else if (response && response.status === 'WARNING') {
       handleStartWarning(response.message);
     } else {
-      handleStartError(response?.error || "Unknown error");
+      handleStartError(response?.error || 'Unknown error');
     }
   });
 }
 
 function stopDebugger() {
   state.currentOperation = 'stopping';
-  updateDebuggerStatus("Disconnecting...", "warning");
+  updateDebuggerStatus('Disconnecting...', 'warning');
 
   const submitButton = getElement('form-submit');
   if (submitButton) {
@@ -185,12 +185,12 @@ function stopDebugger() {
       return;
     }
 
-    if (response && response.status === "SUCCESS") {
+    if (response && response.status === 'SUCCESS') {
       handleStopSuccess();
-    } else if (response && response.status === "WARNING") {
+    } else if (response && response.status === 'WARNING') {
       handleStopWarning(response.message);
     } else {
-      handleStopError(response?.error || "Unknown error");
+      handleStopError(response?.error || 'Unknown error');
     }
   });
 }
@@ -199,7 +199,7 @@ function handleToggleDebugger(e) {
   e.preventDefault();
 
   if (state.currentOperation) {
-    console.log("Operation already in progress");
+    console.log('Operation already in progress');
     return;
   }
 

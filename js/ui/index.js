@@ -13,16 +13,17 @@ import {
   resetUIState,
   handleStartSuccess,
   handleStartError,
-  handleStopSuccess
+  handleStopSuccess,
 } from './debugger-controls.js';
 
 // ── Panel registration ────────────────────────────────────────────
 
-chrome.devtools.panels.create("APQ Debugger",
-  "icons/icon128.png",
-  "devtools.html",
+chrome.devtools.panels.create(
+  'APQ Debugger',
+  'icons/icon128.png',
+  'devtools.html',
   function (panel) {
-    console.log("APQ Debugger panel created:", panel);
+    console.log('APQ Debugger panel created:', panel);
   }
 );
 
@@ -57,12 +58,14 @@ document.addEventListener('DOMContentLoaded', function () {
           hash: message.hash || '',
           query: message.query || '',
           variables: message.variables || null,
-          responseTime: message.responseTime || null
+          responseTime: message.responseTime || null,
         });
 
         try {
           sendResponse({ status: 'Message received' });
-        } catch (_) { /* port may be closed */ }
+        } catch (_) {
+          /* port may be closed */
+        }
       } else if (message.status === 'ACTION_TOGGLE') {
         if (message.error) {
           handleStartError(message.error);
@@ -79,7 +82,9 @@ document.addEventListener('DOMContentLoaded', function () {
       console.error('Error handling message:', error);
       try {
         sendResponse({ status: 'Error processing message' });
-      } catch (_) { /* port may be closed */ }
+      } catch (_) {
+        /* port may be closed */
+      }
     }
   });
 
@@ -92,12 +97,15 @@ document.addEventListener('DOMContentLoaded', function () {
     state.isDebuggerActive = false;
 
     const reasonMessages = {
-      'target_closed': 'Tab closed',
-      'canceled_by_user': 'Manually detached'
+      target_closed: 'Tab closed',
+      canceled_by_user: 'Manually detached',
     };
 
-    updateDebuggerStatus("Disconnected", "error");
-    showStatusBanner(`Debugger disconnected: ${reasonMessages[reason] || 'Unknown reason'}`, 'warning');
+    updateDebuggerStatus('Disconnected', 'error');
+    showStatusBanner(
+      `Debugger disconnected: ${reasonMessages[reason] || 'Unknown reason'}`,
+      'warning'
+    );
     resetUIState();
   });
 
@@ -105,13 +113,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
   chrome.runtime.onSuspend.addListener(() => {
     resetUIState();
-    updateDebuggerStatus("Suspended", "error");
+    updateDebuggerStatus('Suspended', 'error');
   });
 
   // ── Initialisation ────────────────────────────────────────────
 
-  console.log("APQ Debugger DevTools panel initialized");
-  updateDebuggerStatus("Ready", "default");
+  console.log('APQ Debugger DevTools panel initialized');
+  updateDebuggerStatus('Ready', 'default');
   restorePatternsFromStorage();
   renderRequestList();
 
@@ -122,9 +130,9 @@ document.addEventListener('DOMContentLoaded', function () {
       return;
     }
 
-    if (response && response.status === "SUCCESS" && response.debuggerActive) {
-      console.log("Debugger already active on tab:", inspectedTabId);
-      handleStartSuccess("Debugger is already active on this tab");
+    if (response && response.status === 'SUCCESS' && response.debuggerActive) {
+      console.log('Debugger already active on tab:', inspectedTabId);
+      handleStartSuccess('Debugger is already active on this tab');
     }
   });
 });
