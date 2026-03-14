@@ -5,6 +5,7 @@ global.chrome = {
         sendMessage: jest.fn((msg, cb) => cb && cb(null)), // simple mock
         onMessage: { addListener: jest.fn() },
         onInstalled: { addListener: jest.fn() },
+        onStartup: { addListener: jest.fn() },
         onSuspend: { addListener: jest.fn() }
     },
     debugger: {
@@ -17,7 +18,8 @@ global.chrome = {
     },
     tabs: {
         query: jest.fn(),
-        get: jest.fn()
+        get: jest.fn(),
+        onUpdated: { addListener: jest.fn() }
     },
     action: {
         setBadgeText: jest.fn(),
@@ -26,7 +28,8 @@ global.chrome = {
     },
     storage: {
         local: {
-            get: jest.fn((keys, cb) => cb && cb({}))
+            get: jest.fn((keys, cb) => cb && cb({})),
+            set: jest.fn((items, cb) => cb && cb())
         }
     },
     notifications: {
@@ -36,6 +39,14 @@ global.chrome = {
         create: jest.fn(),
         removeAll: jest.fn((cb) => cb && cb()),
         onClicked: { addListener: jest.fn() }
+    },
+    devtools: {
+        inspectedWindow: {
+            tabId: 123
+        },
+        panels: {
+            create: jest.fn()
+        }
     }
 };
 
@@ -43,6 +54,14 @@ global.chrome = {
 const { TextEncoder, TextDecoder } = require('util');
 global.TextEncoder = TextEncoder;
 global.TextDecoder = TextDecoder;
+
+// Mock btoa/atob for Node.js versions that may not have them
+if (typeof btoa === 'undefined') {
+    global.btoa = (str) => Buffer.from(str, 'binary').toString('base64');
+}
+if (typeof atob === 'undefined') {
+    global.atob = (str) => Buffer.from(str, 'base64').toString('binary');
+}
 
 // Mock crypto for JSDOM
 Object.defineProperty(global, 'crypto', {

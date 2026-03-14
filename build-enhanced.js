@@ -1,274 +1,234 @@
 #!/usr/bin/env node
 
 /**
- * Enhanced build script for APQ Debugger
- * Uses professional minification libraries for optimal results
- * After minification, moves all important files into the 'ext' folder for packaging.
+ * Enhanced build script for APQ Debugger.
+ * Uses esbuild for fast ES-module bundling + minification of JS,
+ * and Clean-CSS for CSS minification.
+ * Outputs a ready-to-load extension into the extension_build/ folder.
  */
 
 const fs = require('fs-extra');
 const path = require('path');
-const { minify } = require('terser');
+const esbuild = require('esbuild');
 const CleanCSS = require('clean-css');
 const chokidar = require('chokidar');
 
-// Configuration
+// ── Configuration ─────────────────────────────────────────────────
+
 const config = {
-    sourceDir: __dirname,
-    extDir: path.join(__dirname, 'extension_build'),
-    files: [
-        {
-            input: 'js/devtools.js',
-            output: 'js/devtools.min.js',
-            type: 'js',
-            options: {
-                compress: {
-                    drop_console: false, // Keep console logs for debugging
-                    drop_debugger: true,
-                    pure_funcs: ['console.info', 'console.debug']
-                },
-                mangle: {
-                    toplevel: false // Don't mangle top-level names for Chrome extension
-                },
-                format: {
-                    comments: false
-                }
-            }
+  sourceDir: __dirname,
+  extDir: path.join(__dirname, 'extension_build'),
+  js: [
+    {
+      entry: 'js/sw/index.js',
+      outfile: 'service-worker.min.js',
+    },
+    {
+      entry: 'js/ui/index.js',
+      outfile: 'devtools.min.js',
+    },
+  ],
+  css: {
+    input: 'frontend/devtools.css',
+    output: 'devtools.min.css',
+    options: {
+      level: {
+        1: { all: true, normalizeUrls: false },
+        2: {
+          all: false,
+          removeDuplicateRules: true,
+          removeDuplicateFontRules: true,
+          removeEmpty: true,
         },
-        {
-            input: 'js/service-worker.js',
-            output: 'js/service-worker.min.js',
-            type: 'js',
-            options: {
-                compress: {
-                    drop_console: false,
-                    drop_debugger: true,
-                    pure_funcs: ['console.info', 'console.debug']
-                },
-                mangle: {
-                    toplevel: false
-                },
-                format: {
-                    comments: false
-                }
-            }
-        },
-        {
-            input: 'frontend/devtools.css',
-            output: 'frontend/devtools.min.css',
-            type: 'css',
-            options: {
-                level: {
-                    1: {
-                        all: true,
-                        normalizeUrls: false
-                    },
-                    2: {
-                        all: false,
-                        removeDuplicateRules: true,
-                        removeDuplicateFontRules: true,
-                        removeEmpty: true
-                    }
-                },
-                format: 'keep-breaks'
-            }
-        }
-    ],
-    html: 'frontend/devtools.html',
-    manifest: 'manifest.json',
-    iconsDir: 'icons',
+      },
+      format: 'keep-breaks',
+    },
+  },
+  html: 'frontend/devtools.html',
+  manifest: 'manifest.json',
+  iconsDir: 'icons',
 };
 
-// Enhanced JavaScript minification using Terser
-async function minifyJS(inputPath, outputPath, options = {}) {
-    try {
-        const code = await fs.readFile(inputPath, 'utf8');
+// CLI flags
+const isDev = process.argv.includes('--dev');
+const isWatch = process.argv.includes('--watch');
 
-        const result = await minify(code, {
-            ...options,
-            sourceMap: false // Disable source maps for Chrome extension
-        });
+// ── JS bundling (esbuild) ─────────────────────────────────────────
 
-        if (result.error) {
-            throw new Error(`Terser error: ${result.error.message}`);
-        }
+async function bundleJS(entry, outfile) {
+  const inputPath = path.join(config.sourceDir, entry);
+  const outputPath = path.join(config.extDir, outfile);
 
-        await fs.writeFile(outputPath, result.code);
-        return result.code;
-    } catch (error) {
-        console.error(`❌ Error minifying ${inputPath}:`, error.message);
-        throw error;
+  if (!await fs.pathExists(inputPath)) {
+    console.log(`❌ Entry not found: ${entry}`);
+    return;
+  }
+
+  console.log(`🔄 Bundling ${entry}...`);
+
+  const result = await esbuild.build({
+    entryPoints: [inputPath],
+    bundle: true,
+    outfile: outputPath,
+    format: 'iife',
+    target: ['chrome100'],
+    minify: !isDev,
+    sourcemap: isDev ? 'inline' : false,
+    drop: isDev ? [] : ['debugger'],
+    pure: isDev ? [] : ['console.info', 'console.debug'],
+    logLevel: 'warning',
+    metafile: true,
+  });
+
+  // Calculate combined input size from metafile
+  let inputSize = 0;
+  if (result.metafile) {
+    for (const src of Object.values(result.metafile.inputs)) {
+      inputSize += src.bytes;
     }
+  }
+
+  const outputStat = await fs.stat(outputPath);
+  const reduction = inputSize > 0
+    ? ((inputSize - outputStat.size) / inputSize * 100).toFixed(1)
+    : '?';
+
+  console.log(`✅ ${entry} → ${outfile}`);
+  console.log(`   ${inputSize} bytes (source) → ${outputStat.size} bytes (${reduction}% reduction)\n`);
 }
 
-// Enhanced CSS minification using Clean-CSS
-async function minifyCSS(inputPath, outputPath, options = {}) {
-    try {
-        const code = await fs.readFile(inputPath, 'utf8');
+// ── CSS minification (Clean-CSS) ──────────────────────────────────
 
-        const cleanCSS = new CleanCSS(options);
-        const result = cleanCSS.minify(code);
+async function minifyCSS() {
+  const inputPath = path.join(config.sourceDir, config.css.input);
+  const outputPath = path.join(config.extDir, config.css.output);
 
-        if (result.errors.length > 0) {
-            console.warn(`⚠️  CSS warnings for ${inputPath}:`, result.errors);
-        }
+  if (!await fs.pathExists(inputPath)) {
+    console.log(`❌ CSS not found: ${config.css.input}`);
+    return;
+  }
 
-        await fs.writeFile(outputPath, result.styles);
-        return result.styles;
-    } catch (error) {
-        console.error(`❌ Error minifying ${inputPath}:`, error.message);
-        throw error;
-    }
+  console.log(`🔄 Processing ${config.css.input}...`);
+
+  const code = await fs.readFile(inputPath, 'utf8');
+  const cleanCSS = new CleanCSS(config.css.options);
+  const result = cleanCSS.minify(code);
+
+  if (result.errors.length > 0) {
+    console.warn(`⚠️  CSS warnings:`, result.errors);
+  }
+
+  await fs.writeFile(outputPath, result.styles);
+
+  const originalSize = Buffer.byteLength(code, 'utf8');
+  const minifiedSize = Buffer.byteLength(result.styles, 'utf8');
+  const reduction = ((originalSize - minifiedSize) / originalSize * 100).toFixed(1);
+
+  console.log(`✅ ${config.css.input} → ${config.css.output}`);
+  console.log(`   ${originalSize} bytes → ${minifiedSize} bytes (${reduction}% reduction)\n`);
 }
 
-// Process a single file
-async function processFile(file) {
-    const inputPath = path.join(config.sourceDir, file.input);
-    const outputPath = path.join(config.sourceDir, file.output);
+// ── Asset copying ─────────────────────────────────────────────────
 
-    try {
-        // Check if input file exists
-        if (!await fs.pathExists(inputPath)) {
-            console.log(`❌ Input file not found: ${file.input}`);
-            return;
-        }
+async function copyAssets() {
+  const extDir = config.extDir;
 
-        console.log(`🔄 Processing ${file.input}...`);
+  // Copy icons
+  const iconsSrc = path.join(config.sourceDir, config.iconsDir);
+  const iconsDest = path.join(extDir, config.iconsDir);
+  if (await fs.pathExists(iconsSrc)) {
+    await fs.copy(iconsSrc, iconsDest);
+    console.log('✅ Copied icons/');
+  }
 
-        let minified;
-        if (file.type === 'js') {
-            minified = await minifyJS(inputPath, outputPath, file.options);
-        } else if (file.type === 'css') {
-            minified = await minifyCSS(inputPath, outputPath, file.options);
-        } else {
-            throw new Error(`Unknown file type: ${file.type}`);
-        }
-
-        // Calculate size reduction
-        const originalCode = await fs.readFile(inputPath, 'utf8');
-        const originalSize = Buffer.byteLength(originalCode, 'utf8');
-        const minifiedSize = Buffer.byteLength(minified, 'utf8');
-        const reduction = ((originalSize - minifiedSize) / originalSize * 100).toFixed(1);
-
-        console.log(`✅ ${file.input} → ${file.output}`);
-        console.log(`   ${originalSize} bytes → ${minifiedSize} bytes (${reduction}% reduction)`);
-
-        // Show additional stats for JS files
-        if (file.type === 'js') {
-            const originalLines = originalCode.split('\n').length;
-            const minifiedLines = minified.split('\n').length;
-            console.log(`   Lines: ${originalLines} → ${minifiedLines} (${((originalLines - minifiedLines) / originalLines * 100).toFixed(1)}% reduction)\n`);
-        } else {
-            console.log('');
-        }
-
-    } catch (error) {
-        console.error(`❌ Failed to process ${file.input}:`, error.message);
+  // Copy and patch manifest.json (sync version from package.json)
+  const manifestSrc = path.join(config.sourceDir, config.manifest);
+  const manifest = JSON.parse(await fs.readFile(manifestSrc, 'utf8'));
+  const pkg = JSON.parse(await fs.readFile(path.join(config.sourceDir, 'package.json'), 'utf8'));
+  manifest.version = pkg.version;
+  manifest.background.service_worker = 'service-worker.min.js';
+  manifest.devtools_page = 'devtools.html';
+  if (manifest.icons) {
+    for (const key of Object.keys(manifest.icons)) {
+      manifest.icons[key] = `icons/icon${key}.png`;
     }
+  }
+  await fs.writeFile(path.join(extDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
+  console.log('✅ Copied and patched manifest.json');
+
+  // Copy and patch HTML
+  const htmlSrc = path.join(config.sourceDir, config.html);
+  let html = await fs.readFile(htmlSrc, 'utf8');
+  html = html.replace(
+    /<link rel="stylesheet"[^>]*href=["'][^"']*devtools(\.min)?\.css["'][^>]*>/,
+    '<link rel="stylesheet" href="devtools.min.css">'
+  );
+  html = html.replace(
+    /<script[^>]*src=["'][^"']*devtools(\.min)?\.js["'][^>]*><\/script>/,
+    '<script src="devtools.min.js"></script>'
+  );
+  // Fix icon paths for the flat build output (../icons/ → icons/)
+  html = html.replace(/\.\.\/icons\//g, 'icons/');
+  await fs.writeFile(path.join(extDir, 'devtools.html'), html);
+  console.log('✅ Copied and patched devtools.html');
 }
 
-// Copy and patch HTML, manifest, and assets to extension_build/
-async function copyToExt() {
-    const extDir = config.extDir;
-    await fs.ensureDir(extDir);
-    // Copy icons
-    const iconsSrc = path.join(config.sourceDir, config.iconsDir);
-    const iconsDest = path.join(extDir, config.iconsDir);
-    if (await fs.pathExists(iconsSrc)) {
-        await fs.copy(iconsSrc, iconsDest);
-        console.log('✅ Copied icons/');
-    }
-    // Copy and patch manifest.json
-    const manifestSrc = path.join(config.sourceDir, config.manifest);
-    const manifestDest = path.join(extDir, 'manifest.json');
-    let manifest = JSON.parse(await fs.readFile(manifestSrc, 'utf8'));
-    manifest.background.service_worker = 'service-worker.min.js';
-    manifest.devtools_page = 'devtools.html';
-    // Patch icon paths
-    if (manifest.icons) {
-        for (const key of Object.keys(manifest.icons)) {
-            manifest.icons[key] = `icons/icon${key}.png`;
-        }
-    }
-    await fs.writeFile(manifestDest, JSON.stringify(manifest, null, 2));
-    console.log('✅ Copied and patched manifest.json');
-    // Copy minified JS
-    await fs.copy(path.join(config.sourceDir, 'js/devtools.min.js'), path.join(extDir, 'devtools.min.js'));
-    await fs.copy(path.join(config.sourceDir, 'js/service-worker.min.js'), path.join(extDir, 'service-worker.min.js'));
-    // Copy minified CSS
-    await fs.copy(path.join(config.sourceDir, 'frontend/devtools.min.css'), path.join(extDir, 'devtools.min.css'));
-    // Copy and patch HTML
-    const htmlSrc = path.join(config.sourceDir, config.html);
-    const htmlDest = path.join(extDir, 'devtools.html');
-    let html = await fs.readFile(htmlSrc, 'utf8');
-    // Patch CSS and JS references
-    html = html.replace(/<link rel="stylesheet"[^>]*href=["'][^"']*devtools(\.min)?\.css["'][^>]*>/, '<link rel="stylesheet" href="devtools.min.css">');
-    html = html.replace(/<script[^>]*src=["'][^"']*devtools(\.min)?\.js["'][^>]*><\/script>/, '<script src="devtools.min.js"></script>');
-    await fs.writeFile(htmlDest, html);
-    console.log('✅ Copied and patched devtools.html');
-}
+// ── Main build ────────────────────────────────────────────────────
 
-// Main build function
 async function build() {
-    console.log('🔨 Starting enhanced build process...\n');
+  console.log('🔨 Starting esbuild-powered build...\n');
+  const startTime = Date.now();
 
-    const startTime = Date.now();
+  await fs.ensureDir(config.extDir);
 
-    // Process all files
-    for (const file of config.files) {
-        await processFile(file);
-    }
+  // Bundle all JS entry points in parallel
+  await Promise.all(config.js.map(({ entry, outfile }) => bundleJS(entry, outfile)));
 
-    // Copy everything to extension_build/
-    await copyToExt();
+  // Minify CSS
+  await minifyCSS();
 
-    const endTime = Date.now();
-    const duration = ((endTime - startTime) / 1000).toFixed(2);
+  // Copy static assets
+  await copyAssets();
 
-    console.log(`🎉 Build completed in ${duration}s!`);
-    console.log('📦 Extension files are ready in the extension_build/ folder.');
+  const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+  console.log(`\n🎉 Build completed in ${duration}s!`);
+  console.log('📦 Extension files are ready in the extension_build/ folder.');
 }
 
-// Watch mode for development
+// ── Watch mode ────────────────────────────────────────────────────
+
 async function watch() {
-    console.log('👀 Starting watch mode...\n');
+  console.log('👀 Starting watch mode...\n');
 
-    const watcher = chokidar.watch([
-        'js/*.js',
-        'frontend/*.css',
-        'frontend/devtools.html',
-        'manifest.json',
-        'icons/*'
-    ], {
-        ignored: /\.min\.(js|css)$/,
-        persistent: true
-    });
+  // Run an initial full build
+  await build();
 
-    watcher.on('change', async (filePath) => {
-        const relativePath = path.relative(config.sourceDir, filePath);
-        console.log(`📝 File changed: ${relativePath}`);
+  const watcher = chokidar.watch([
+    'js/**/*.js',
+    'frontend/*.css',
+    'frontend/devtools.html',
+    'manifest.json',
+    'icons/*',
+  ], {
+    ignored: [/\.min\.(js|css)$/, /node_modules/, /extension_build/],
+    persistent: true,
+  });
 
-        // Find matching file config
-        const file = config.files.find(f => f.input === relativePath);
-        if (file) {
-            await processFile(file);
-        }
+  watcher.on('change', async (filePath) => {
+    const relativePath = path.relative(config.sourceDir, filePath);
+    console.log(`\n📝 File changed: ${relativePath}`);
+    await build();
+  });
 
-        await copyToExt();
-    });
-
-    console.log('Watching for changes... (Press Ctrl+C to stop)');
+  console.log('Watching for changes... (Press Ctrl+C to stop)\n');
 }
 
-// CLI argument parsing
-const args = process.argv.slice(2);
-const isWatch = args.includes('--watch');
-const isDev = args.includes('--dev');
+// ── CLI entry point ───────────────────────────────────────────────
 
 if (isWatch) {
-    watch();
+  watch();
 } else {
-    build();
+  build();
 }
 
-module.exports = { build, watch, processFile, copyToExt }; 
+module.exports = { build, watch };

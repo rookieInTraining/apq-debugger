@@ -1,0 +1,5 @@
+node_modules/
+extension_build/
+coverage/
+*.min.js
+package-lock.json

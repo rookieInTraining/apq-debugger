@@ -11,19 +11,20 @@
 <body>
     <div class="app">
         <!-- Header Bar -->
-        <header class="header">
+        <header class="header" role="banner">
             <div class="header-left">
                 <img src="../icons/icon32.png" alt="APQ" class="header-logo">
                 <span class="header-title">APQ Debugger</span>
             </div>
             <div class="header-center">
-                <div class="status-badge" id="debugger-status">
-                    <span class="status-dot"></span>
+                <div class="status-badge" id="debugger-status" role="status" aria-live="polite">
+                    <span class="status-dot" aria-hidden="true"></span>
                     <span class="status-text">Ready</span>
                 </div>
             </div>
             <div class="header-right">
-                <span class="request-count" id="request-count">
+                <span class="request-count" id="request-count" role="status" aria-live="polite"
+                    aria-label="Intercepted request count">
                     <span class="count-number" id="interception-counter">0</span>
                     <span class="count-label">requests</span>
                 </span>
@@ -33,60 +34,82 @@
         <!-- Main Content -->
         <div class="main-content">
             <!-- Left Sidebar - Patterns -->
-            <aside class="sidebar" id="patterns-sidebar">
+            <aside class="sidebar" id="patterns-sidebar" role="complementary" aria-label="URL Patterns">
                 <div class="sidebar-header">
                     <h2 class="sidebar-title">🔗 Patterns</h2>
                 </div>
-                <div class="patterns-list" id="patterns-list">
-                    <form id="myForm">
-                        <div class="pattern-item">
-                            <input type="text" class="urlPattern" data-pattern-index="1" placeholder="*graphql*">
+                <div class="patterns-list" id="patterns-list" role="list" aria-label="URL pattern list">
+                    <form id="myForm" role="group" aria-label="URL pattern inputs">
+                        <div class="pattern-item" role="listitem">
+                            <input type="text" class="urlPattern" data-pattern-index="1" placeholder="*graphql*"
+                                aria-label="URL pattern 1">
                             <button type="button" class="btn-icon btn-remove" title="Remove pattern"
-                                style="display: none;">×</button>
+                                aria-label="Remove pattern" style="display: none;">×</button>
                         </div>
                     </form>
                 </div>
-                <button type="button" class="btn-add-pattern" id="add">
-                    <span class="btn-icon-plus">+</span> Add Pattern
+                <button type="button" class="btn-add-pattern" id="add" aria-label="Add URL pattern">
+                    <span class="btn-icon-plus" aria-hidden="true">+</span> Add Pattern
                 </button>
                 <div class="sidebar-actions">
-                    <button id="form-submit" class="btn btn-primary btn-block">
-                        <span class="btn-icon-play">▶</span> Start
+                    <button id="form-submit" class="btn btn-primary btn-block"
+                        aria-label="Start debugger (Ctrl+Shift+D)">
+                        <span class="btn-icon-play" aria-hidden="true">▶</span> Start
                     </button>
                 </div>
-                <div class="status-banner hidden" id="status-banner">
+                <div class="status-banner hidden" id="status-banner" role="alert" aria-live="assertive">
                     <span class="status-banner-text" id="status-banner-text"></span>
                 </div>
             </aside>
 
+            <!-- Resize handle: sidebar / request panel -->
+            <div class="resize-handle resize-handle-left" id="resize-handle-left" role="separator"
+                aria-orientation="vertical" aria-label="Resize patterns panel" tabindex="0"></div>
+
             <!-- Center Panel - Request List -->
-            <main class="request-panel">
+            <main class="request-panel" aria-label="Intercepted requests">
                 <div class="panel-header">
                     <h2 class="panel-title">📊 Intercepted Requests</h2>
+                    <div class="panel-toolbar">
+                        <button class="btn btn-toolbar" id="btn-clear-history" title="Clear request history"
+                            aria-label="Clear request history" disabled>
+                            <span aria-hidden="true">🗑</span> Clear
+                        </button>
+                        <button class="btn btn-toolbar" id="btn-export-history" title="Export history as JSON"
+                            aria-label="Export history as JSON" disabled>
+                            <span aria-hidden="true">📥</span> Export
+                        </button>
+                    </div>
                     <div class="filter-bar">
                         <input type="text" class="filter-input" id="filter-input"
-                            placeholder="Filter by operation name...">
-                        <div class="filter-chips">
-                            <button class="chip active" data-filter="all">All</button>
-                            <button class="chip" data-filter="apq">APQ</button>
-                            <button class="chip" data-filter="full">Full</button>
+                            placeholder="Filter by operation name..." aria-label="Filter requests by operation name">
+                        <div class="filter-chips" role="group" aria-label="Filter by request type">
+                            <button class="chip active" data-filter="all" role="radio" aria-checked="true">All</button>
+                            <button class="chip" data-filter="apq" role="radio" aria-checked="false">APQ</button>
+                            <button class="chip" data-filter="full" role="radio" aria-checked="false">Full</button>
                         </div>
                     </div>
                 </div>
-                <div class="request-list" id="request-list">
-                    <div class="empty-state" id="empty-state">
-                        <div class="empty-icon">📡</div>
-                        <p class="empty-title">No requests intercepted yet</p>
-                        <p class="empty-desc">Add URL patterns and start debugging to capture GraphQL requests</p>
+                <div class="request-list" id="request-list" role="listbox" aria-label="Request list"
+                    tabindex="0">
+                    <div class="empty-state" id="empty-state" role="status">
+                        <div class="empty-icon" aria-hidden="true">📡</div>
+                        <p class="empty-title" id="empty-title">No requests intercepted yet</p>
+                        <p class="empty-desc" id="empty-desc">Start debugging to capture GraphQL requests</p>
                     </div>
                 </div>
             </main>
 
+            <!-- Resize handle: request panel / detail panel -->
+            <div class="resize-handle resize-handle-right" id="resize-handle-right" role="separator"
+                aria-orientation="vertical" aria-label="Resize detail panel" tabindex="0"></div>
+
             <!-- Right Panel - Request Details -->
-            <aside class="detail-panel" id="detail-panel">
+            <aside class="detail-panel" id="detail-panel" aria-label="Request details">
                 <div class="panel-header">
                     <h2 class="panel-title">🔍 Request Details</h2>
-                    <button class="btn-icon btn-close" id="close-detail" title="Close">×</button>
+                    <button class="btn-icon btn-close" id="close-detail" title="Close (Escape)"
+                        aria-label="Close detail panel">×</button>
                 </div>
                 <div class="detail-content" id="detail-content">
                     <div class="detail-placeholder">
