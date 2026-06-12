@@ -5,7 +5,19 @@
 
 import { digestMessage } from './hash.js';
 import { isPassiveMode, lookupHash, registerHash } from './hash-registry.js';
+import { recordEndpoint } from './endpoint-tracker.js';
 import { BOGUS_HASH_SEED, BASE64_CHUNK_SIZE, DEFAULT_OPERATION_NAME } from '../shared/constants.js';
+
+/**
+ * Check whether a parsed request body looks like a GraphQL operation.
+ * @param {*} body
+ * @returns {boolean}
+ */
+function looksLikeGraphQL(body) {
+  if (Array.isArray(body)) return body.some(looksLikeGraphQL);
+  if (!body || typeof body !== 'object') return false;
+  return body.query !== undefined || !!(body.extensions && body.extensions.persistedQuery);
+}
 
 /** Cached bogus hash to avoid recomputing SHA-256 on every APQ request. */
 let cachedBogusHash = null;
@@ -199,6 +211,11 @@ export function handleFetchRequestPaused(source, params) {
     try {
       const requestUrl = params.request.url || '';
       let modified = false;
+
+      // Remember GraphQL endpoints to speed up schema auto-detection
+      if (looksLikeGraphQL(reqBody)) {
+        recordEndpoint(source.tabId, requestUrl);
+      }
 
       if (Array.isArray(reqBody)) {
         console.log('Request payload is an array');

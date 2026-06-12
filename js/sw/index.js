@@ -9,6 +9,7 @@ import { removeTabFromStorage, getStoredTabs } from './storage.js';
 import { handleFetchRequestPaused } from './interceptor.js';
 import { handleMessage, toggleDebuggerFromAction } from './messaging.js';
 import { initRegistry } from './hash-registry.js';
+import { clearObservedEndpoints } from './endpoint-tracker.js';
 
 const ACTION_MENU_ID = 'apq-toggle-debugger';
 
@@ -50,6 +51,7 @@ chrome.debugger.onDetach.addListener((source, reason) => {
   chrome.action.setBadgeBackgroundColor({ color: '#d9534f', tabId: source.tabId });
 
   if (reason === 'target_closed') {
+    clearObservedEndpoints(source.tabId);
     console.log('The target tab was closed.');
   } else if (reason === 'canceled_by_user') {
     console.log('The debugging session was manually detached by the user.');

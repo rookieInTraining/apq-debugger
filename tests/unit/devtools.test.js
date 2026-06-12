@@ -27,6 +27,11 @@ import {
   handleStopSuccess,
   handleStopWarning,
 } from '../../js/ui/debugger-controls.js';
+import { applySettings, initSettings } from '../../js/ui/settings.js';
+import { initToolbar, updateToolbarState } from '../../js/ui/toolbar.js';
+import { initKeyboard } from '../../js/ui/keyboard.js';
+import { setSchema, showDetailTab, initSchemaViewer } from '../../js/ui/schema-viewer.js';
+import { initRequestList } from '../../js/ui/request-list.js';
 
 function setupDOM() {
   document.body.innerHTML = `
@@ -448,6 +453,296 @@ describe('DevTools Panel Logic', () => {
       expect(state.isDebuggerActive).toBe(false);
       const badge = document.getElementById('debugger-status');
       expect(badge.querySelector('.status-text').textContent).toBe('Warning');
+    });
+  });
+
+  // ── Settings ───────────────────────────────────────────────────
+
+  describe('Settings', () => {
+    afterEach(() => {
+      document.documentElement.removeAttribute('data-theme');
+      document.documentElement.removeAttribute('data-density');
+    });
+
+    test('applySettings should set data attributes for explicit theme/density', () => {
+      applySettings({ theme: 'dark', density: 'compact' });
+      expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
+      expect(document.documentElement.getAttribute('data-density')).toBe('compact');
+    });
+
+    test('applySettings should remove attributes for system/comfortable', () => {
+      applySettings({ theme: 'dark', density: 'compact' });
+      applySettings({ theme: 'system', density: 'comfortable' });
+      expect(document.documentElement.hasAttribute('data-theme')).toBe(false);
+      expect(document.documentElement.hasAttribute('data-density')).toBe(false);
+    });
+
+    test('initSettings should restore persisted settings from storage', () => {
+      document.body.innerHTML += `
+        <button id="btn-settings" aria-expanded="false"></button>
+        <div id="settings-popover" class="hidden">
+          <input type="radio" name="theme" value="system" checked>
+          <input type="radio" name="theme" value="dark">
+          <input type="radio" name="density" value="comfortable" checked>
+          <input type="radio" name="density" value="compact">
+        </div>
+      `;
+
+      chrome.storage.local.get.mockImplementationOnce((_keys, cb) => {
+        chrome.runtime.lastError = null;
+        cb({ apqUiSettings: { theme: 'dark', density: 'compact' } });
+      });
+
+      initSettings();
+
+      expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
+      expect(document.documentElement.getAttribute('data-density')).toBe('compact');
+      expect(document.querySelector('input[value="dark"]').checked).toBe(true);
+      expect(document.querySelector('input[value="compact"]').checked).toBe(true);
+    });
+
+    test('changing a setting should apply and persist it', () => {
+      document.body.innerHTML += `
+        <button id="btn-settings" aria-expanded="false"></button>
+        <div id="settings-popover" class="hidden">
+          <input type="radio" name="theme" value="system" checked>
+          <input type="radio" name="theme" value="light">
+        </div>
+      `;
+
+      initSettings();
+
+      const lightRadio = document.querySelector('input[value="light"]');
+      lightRadio.checked = true;
+      lightRadio.dispatchEvent(new Event('change', { bubbles: true }));
+
+      expect(document.documentElement.getAttribute('data-theme')).toBe('light');
+      expect(chrome.storage.local.set).toHaveBeenCalledWith(
+        expect.objectContaining({
+          apqUiSettings: expect.objectContaining({ theme: 'light' }),
+        }),
+        expect.any(Function)
+      );
+    });
+  });
+
+  // ── Toolbar (Clear / Export) ───────────────────────────────────
+
+  describe('Toolbar', () => {
+    beforeEach(() => {
+      document.body.innerHTML += `
+        <button id="btn-clear-history" disabled></button>
+        <button id="btn-export-history" disabled></button>
+      `;
+    });
+
+    test('updateToolbarState should enable buttons when history exists', () => {
+      updateToolbarState();
+      expect(document.getElementById('btn-clear-history').disabled).toBe(true);
+
+      addRequest({ operationName: 'Test' });
+      expect(document.getElementById('btn-clear-history').disabled).toBe(false);
+      expect(document.getElementById('btn-export-history').disabled).toBe(false);
+    });
+
+    test('clear button should empty history and reset UI', () => {
+      addRequest({ operationName: 'Test' });
+      initToolbar();
+
+      document.getElementById('btn-clear-history').click();
+
+      expect(state.requestHistory).toHaveLength(0);
+      expect(state.selectedRequestId).toBeNull();
+      expect(document.getElementById('interception-counter').textContent).toBe('0');
+      expect(document.getElementById('btn-clear-history').disabled).toBe(true);
+      expect(document.getElementById('detail-content').innerHTML).toContain('Select a request');
+    });
+
+    test('export button should download history as JSON', () => {
+      addRequest({ operationName: 'GetUsers', url: 'https://x.com/graphql' });
+      initToolbar();
+
+      const objectUrlSpy = jest.fn().mockReturnValue('blob:mock');
+      const revokeSpy = jest.fn();
+      global.URL.createObjectURL = objectUrlSpy;
+      global.URL.revokeObjectURL = revokeSpy;
+      const clickSpy = jest
+        .spyOn(HTMLAnchorElement.prototype, 'click')
+        .mockImplementation(() => {});
+
+      document.getElementById('btn-export-history').click();
+
+      expect(objectUrlSpy).toHaveBeenCalledWith(expect.any(Blob));
+      expect(clickSpy).toHaveBeenCalled();
+      expect(revokeSpy).toHaveBeenCalledWith('blob:mock');
+
+      clickSpy.mockRestore();
+      delete global.URL.createObjectURL;
+      delete global.URL.revokeObjectURL;
+    });
+  });
+
+  // ── Keyboard Navigation & ARIA ─────────────────────────────────
+
+  describe('Keyboard & ARIA', () => {
+    test('request items should carry option role and aria-selected', () => {
+      addRequest({ operationName: 'A' });
+      renderRequestList();
+
+      const item = document.querySelector('.request-item');
+      expect(item.getAttribute('role')).toBe('option');
+      expect(item.getAttribute('aria-selected')).toBe('false');
+      expect(item.getAttribute('tabindex')).toBe('-1');
+    });
+
+    test('clicking a chip should update aria-checked', () => {
+      initRequestList();
+
+      const apqChip = document.querySelector('.chip[data-filter="apq"]');
+      apqChip.click();
+
+      expect(apqChip.getAttribute('aria-checked')).toBe('true');
+      expect(apqChip.classList.contains('active')).toBe(true);
+      const allChip = document.querySelector('.chip[data-filter="all"]');
+      expect(allChip.getAttribute('aria-checked')).toBe('false');
+    });
+
+    test('ArrowDown should move focus through request items', () => {
+      addRequest({ operationName: 'A' });
+      addRequest({ operationName: 'B' });
+      renderRequestList();
+      initKeyboard();
+
+      const list = document.getElementById('request-list');
+      const items = document.querySelectorAll('.request-item');
+
+      list.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+      expect(document.activeElement).toBe(items[0]);
+      expect(items[0].getAttribute('tabindex')).toBe('0');
+
+      list.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+      expect(document.activeElement).toBe(items[1]);
+    });
+
+    test('End and Home should jump to last/first item', () => {
+      addRequest({ operationName: 'A' });
+      addRequest({ operationName: 'B' });
+      addRequest({ operationName: 'C' });
+      renderRequestList();
+      initKeyboard();
+
+      const list = document.getElementById('request-list');
+      const items = document.querySelectorAll('.request-item');
+
+      list.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+      expect(document.activeElement).toBe(items[2]);
+
+      list.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
+      expect(document.activeElement).toBe(items[0]);
+    });
+
+    test('Ctrl+Shift+D should trigger the start/stop button', () => {
+      initKeyboard();
+      const submitButton = document.getElementById('form-submit');
+      const clickSpy = jest.spyOn(submitButton, 'click').mockImplementation(() => {});
+
+      document.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'D', ctrlKey: true, shiftKey: true, bubbles: true })
+      );
+
+      expect(clickSpy).toHaveBeenCalled();
+      clickSpy.mockRestore();
+    });
+
+    test('Escape should close the detail panel', () => {
+      initKeyboard();
+      const detailPanel = document.getElementById('detail-panel');
+      detailPanel.classList.remove('hidden');
+      const closeBtn = document.getElementById('close-detail');
+      const clickSpy = jest.spyOn(closeBtn, 'click').mockImplementation(() => {});
+
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+
+      expect(clickSpy).toHaveBeenCalled();
+      clickSpy.mockRestore();
+    });
+  });
+
+  // ── Schema Viewer ──────────────────────────────────────────────
+
+  describe('Schema Viewer', () => {
+    const SAMPLE_SDL =
+      'type Query {\n  users: [User]\n}\n\ntype User {\n  id: ID\n  name: String\n}';
+
+    beforeEach(() => {
+      document.body.innerHTML += `
+        <button id="tab-request" aria-selected="true"></button>
+        <button id="tab-schema" aria-selected="false" disabled></button>
+        <div id="schema-content" class="hidden">
+          <div id="schema-meta"></div>
+          <input id="schema-search">
+          <div id="schema-types"></div>
+        </div>
+      `;
+    });
+
+    test('setSchema should render type blocks and enable the tab', () => {
+      setSchema(SAMPLE_SDL, {
+        endpoint: 'https://x.com/graphql',
+        typeCount: 2,
+        fetchedAt: Date.now(),
+      });
+
+      const blocks = document.querySelectorAll('.schema-type-block');
+      expect(blocks).toHaveLength(2);
+      expect(document.getElementById('tab-schema').disabled).toBe(false);
+      expect(document.getElementById('schema-meta').textContent).toContain('2 types');
+      expect(document.getElementById('schema-meta').textContent).toContain(
+        'https://x.com/graphql'
+      );
+    });
+
+    test('setSchema should escape and highlight SDL', () => {
+      setSchema('type Query {\n  name: String\n}', {
+        endpoint: 'https://x.com/graphql',
+        typeCount: 1,
+        fetchedAt: Date.now(),
+      });
+
+      const html = document.getElementById('schema-types').innerHTML;
+      expect(html).toContain('<span class="keyword">type</span>');
+      expect(html).toContain('<span class="type">String</span>');
+    });
+
+    test('search should filter type blocks', () => {
+      initSchemaViewer();
+      setSchema(SAMPLE_SDL, {
+        endpoint: 'https://x.com/graphql',
+        typeCount: 2,
+        fetchedAt: Date.now(),
+      });
+
+      const search = document.getElementById('schema-search');
+      search.value = 'users';
+      search.dispatchEvent(new Event('input', { bubbles: true }));
+
+      expect(document.querySelectorAll('.schema-type-block')).toHaveLength(1);
+
+      search.value = 'no-such-type';
+      search.dispatchEvent(new Event('input', { bubbles: true }));
+      expect(document.querySelector('.schema-empty').textContent).toContain('No types match');
+    });
+
+    test('showDetailTab should toggle panels and aria-selected', () => {
+      showDetailTab('schema');
+      expect(document.getElementById('tab-schema').getAttribute('aria-selected')).toBe('true');
+      expect(document.getElementById('tab-request').getAttribute('aria-selected')).toBe('false');
+      expect(document.getElementById('schema-content').classList.contains('hidden')).toBe(false);
+      expect(document.getElementById('detail-content').classList.contains('hidden')).toBe(true);
+
+      showDetailTab('request');
+      expect(document.getElementById('tab-request').getAttribute('aria-selected')).toBe('true');
+      expect(document.getElementById('detail-content').classList.contains('hidden')).toBe(false);
     });
   });
 });

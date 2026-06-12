@@ -6,6 +6,14 @@
 import { getElement, escapeHtml, truncateUrl } from './dom-helpers.js';
 import { state, MAX_HISTORY } from './state.js';
 import { selectRequest } from './request-detail.js';
+import { updateToolbarState } from './toolbar.js';
+
+function prefersReducedMotion() {
+  return (
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
+}
 
 /**
  * Animate the request counter badge with the current history size.
@@ -14,10 +22,12 @@ export function updateRequestCount() {
   const counter = getElement('interception-counter');
   if (counter) {
     counter.textContent = state.requestHistory.length;
-    counter.style.transform = 'scale(1.2)';
-    setTimeout(() => {
-      counter.style.transform = 'scale(1)';
-    }, 200);
+    if (!prefersReducedMotion()) {
+      counter.style.transform = 'scale(1.2)';
+      setTimeout(() => {
+        counter.style.transform = 'scale(1)';
+      }, 200);
+    }
   }
 }
 
@@ -45,6 +55,7 @@ export function addRequest(requestData) {
     state.requestHistory.length = MAX_HISTORY;
   }
   updateRequestCount();
+  updateToolbarState();
 
   // Incremental update: prepend the new item if it passes the current filter,
   // instead of clearing and re-rendering the entire list.
@@ -157,9 +168,13 @@ export function renderRequestList() {
 function createRequestItem(request) {
   const item = document.createElement('div');
   item.className = 'request-item';
-  if (request.id === state.selectedRequestId) {
+  item.setAttribute('role', 'option');
+  item.setAttribute('tabindex', '-1');
+  const isSelected = request.id === state.selectedRequestId;
+  if (isSelected) {
     item.classList.add('selected');
   }
+  item.setAttribute('aria-selected', String(isSelected));
   item.dataset.requestId = request.id;
 
   const timeStr = request.timestamp.toLocaleTimeString('en-US', {
@@ -199,8 +214,12 @@ export function initRequestList() {
 
   document.querySelectorAll('.chip').forEach((chip) => {
     chip.addEventListener('click', () => {
-      document.querySelectorAll('.chip').forEach((c) => c.classList.remove('active'));
+      document.querySelectorAll('.chip').forEach((c) => {
+        c.classList.remove('active');
+        c.setAttribute('aria-checked', 'false');
+      });
       chip.classList.add('active');
+      chip.setAttribute('aria-checked', 'true');
       state.activeFilter = chip.dataset.filter;
       renderRequestList();
     });

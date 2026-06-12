@@ -729,6 +729,73 @@ describe('Service Worker Logic', () => {
       );
       expect(lookupHash('h1')).toBeNull();
     });
+
+    test('should return error for loadSchema without tabId', async () => {
+      const sendResponse = jest.fn();
+      handleMessage({ loadSchema: true }, {}, sendResponse);
+
+      await new Promise((r) => setTimeout(r, 50));
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'ERROR',
+          error: expect.stringContaining('tabId'),
+        })
+      );
+    });
+
+    test('should reject non-boolean loadSchema', () => {
+      const sendResponse = jest.fn();
+      handleMessage({ loadSchema: 'yes' }, {}, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'ERROR',
+          error: expect.stringContaining('loadSchema'),
+        })
+      );
+    });
+
+    test('should handle loadSchema with explicit URL', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        json: () => Promise.resolve({ data: { __schema: { types: [] } } }),
+      });
+
+      const sendResponse = jest.fn();
+      handleMessage(
+        { loadSchema: true, tabId: 42, url: 'https://api.test.com/graphql' },
+        {},
+        sendResponse
+      );
+
+      await new Promise((r) => setTimeout(r, 100));
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'SUCCESS',
+          endpoint: 'https://api.test.com/graphql',
+          introspection: { __schema: { types: [] } },
+        })
+      );
+      delete global.fetch;
+    });
+
+    test('should return error when schema detection fails', async () => {
+      global.fetch = jest.fn().mockRejectedValue(new Error('refused'));
+
+      const sendResponse = jest.fn();
+      handleMessage({ loadSchema: true, tabId: 42 }, {}, sendResponse);
+
+      await new Promise((r) => setTimeout(r, 200));
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'ERROR',
+          error: expect.stringContaining('No GraphQL endpoint detected'),
+        })
+      );
+      delete global.fetch;
+    });
   });
 
   // ── toggleDebuggerFromAction ───────────────────────────────────

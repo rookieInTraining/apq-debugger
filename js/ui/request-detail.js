@@ -5,6 +5,7 @@
 
 import { getElement, escapeHtml } from './dom-helpers.js';
 import { state } from './state.js';
+import { showDetailTab } from './schema-viewer.js';
 
 /**
  * Mark a request as selected and show the detail panel.
@@ -13,13 +14,18 @@ import { state } from './state.js';
 export function selectRequest(requestId) {
   state.selectedRequestId = requestId;
 
-  // Update visual selection in the list
+  // Update visual + ARIA selection in the list
   document.querySelectorAll('.request-item').forEach((item) => {
-    item.classList.toggle('selected', parseInt(item.dataset.requestId) === requestId);
+    const isSelected = parseInt(item.dataset.requestId) === requestId;
+    item.classList.toggle('selected', isSelected);
+    item.setAttribute('aria-selected', String(isSelected));
   });
 
   const detailPanel = getElement('detail-panel');
   if (detailPanel) detailPanel.classList.remove('hidden');
+
+  // Selecting a request always brings the Request tab forward
+  showDetailTab('request');
 
   renderRequestDetail(requestId);
 }
@@ -154,9 +160,10 @@ export function initRequestDetail() {
       const detailPanel = getElement('detail-panel');
       if (detailPanel) detailPanel.classList.add('hidden');
       state.selectedRequestId = null;
-      document
-        .querySelectorAll('.request-item.selected')
-        .forEach((el) => el.classList.remove('selected'));
+      document.querySelectorAll('.request-item.selected').forEach((el) => {
+        el.classList.remove('selected');
+        el.setAttribute('aria-selected', 'false');
+      });
     });
   }
 }

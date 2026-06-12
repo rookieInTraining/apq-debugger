@@ -16,6 +16,13 @@ import {
   handleStopSuccess,
 } from './debugger-controls.js';
 import { initRegistryControls, updateRegistryUI } from './registry-controls.js';
+import { initSettings } from './settings.js';
+import { initResize } from './resize.js';
+import { initToolbar } from './toolbar.js';
+import { initLayout } from './layout.js';
+import { initKeyboard } from './keyboard.js';
+import { initSchemaControls, updateSchemaProgress } from './schema-controls.js';
+import { initSchemaViewer } from './schema-viewer.js';
 
 // ── Panel registration ────────────────────────────────────────────
 
@@ -37,6 +44,13 @@ document.addEventListener('DOMContentLoaded', function () {
   initRequestDetail();
   initDebuggerControls();
   initRegistryControls();
+  initSettings();
+  initResize();
+  initToolbar();
+  initLayout();
+  initKeyboard();
+  initSchemaViewer();
+  initSchemaControls();
 
   // ── Message listeners ─────────────────────────────────────────
 
@@ -70,6 +84,8 @@ document.addEventListener('DOMContentLoaded', function () {
         }
       } else if (message.status === 'REGISTRY_UPDATED') {
         updateRegistryUI(message);
+      } else if (message.status === 'SCHEMA_PROGRESS') {
+        updateSchemaProgress(message.message || '');
       } else if (message.status === 'ACTION_TOGGLE') {
         if (message.error) {
           handleStartError(message.error);
