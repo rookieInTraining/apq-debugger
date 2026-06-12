@@ -60,6 +60,47 @@
                 <div class="status-banner hidden" id="status-banner" role="alert" aria-live="assertive">
                     <span class="status-banner-text" id="status-banner-text"></span>
                 </div>
+
+                <!-- Passive Mode -->
+                <div class="sidebar-section" id="passive-mode-section">
+                    <div class="sidebar-section-header">
+                        <h3 class="sidebar-section-title">Passive Mode</h3>
+                        <label class="toggle-switch" title="Resolve APQ hashes from the registry without contaminating requests">
+                            <input type="checkbox" id="passive-mode-toggle" aria-label="Toggle passive mode">
+                            <span class="toggle-slider" aria-hidden="true"></span>
+                        </label>
+                    </div>
+                    <p class="sidebar-section-desc">
+                        Look up hashes locally instead of contaminating requests.
+                    </p>
+                    <div class="registry-info">
+                        <span class="registry-count">
+                            <strong id="registry-size">0</strong> hashes known
+                        </span>
+                        <button type="button" class="btn-link" id="btn-clear-registry"
+                            aria-label="Clear hash registry" disabled>Clear</button>
+                    </div>
+                </div>
+
+                <!-- Schema -->
+                <div class="sidebar-section" id="schema-section">
+                    <div class="sidebar-section-header">
+                        <h3 class="sidebar-section-title">Schema</h3>
+                    </div>
+                    <p class="sidebar-section-desc">
+                        Load a schema for query validation, deprecation warnings, and type info on hover.
+                    </p>
+                    <div class="schema-form">
+                        <input type="url" class="schema-url-input" id="schema-url-input"
+                            placeholder="https://api.example.com/graphql"
+                            aria-label="GraphQL endpoint URL">
+                        <button type="button" class="btn btn-primary btn-block" id="btn-load-schema"
+                            aria-label="Load schema via introspection">Load Schema</button>
+                    </div>
+                    <div class="schema-status" id="schema-status" role="status" aria-live="polite">
+                        No schema loaded
+                    </div>
+                </div>
             </aside>
 
             <!-- Resize handle: sidebar / request panel -->

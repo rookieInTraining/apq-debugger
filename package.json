@@ -1,6 +1,6 @@
 {
   "name": "apq-debugger",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Chrome DevTools extension for intercepting Apollo Persisted Queries",
   "main": "build-enhanced.js",
   "scripts": {
@@ -46,5 +46,8 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/rookieInTraining/apq-debugger.git"
+  },
+  "dependencies": {
+    "graphql": "^16.14.0"
   }
 }

@@ -15,6 +15,7 @@ import {
   handleStartError,
   handleStopSuccess,
 } from './debugger-controls.js';
+import { initRegistryControls, updateRegistryUI } from './registry-controls.js';
 
 // ── Panel registration ────────────────────────────────────────────
 
@@ -35,6 +36,7 @@ document.addEventListener('DOMContentLoaded', function () {
   initRequestList();
   initRequestDetail();
   initDebuggerControls();
+  initRegistryControls();
 
   // ── Message listeners ─────────────────────────────────────────
 
@@ -66,6 +68,8 @@ document.addEventListener('DOMContentLoaded', function () {
         } catch (_) {
           /* port may be closed */
         }
+      } else if (message.status === 'REGISTRY_UPDATED') {
+        updateRegistryUI(message);
       } else if (message.status === 'ACTION_TOGGLE') {
         if (message.error) {
           handleStartError(message.error);

@@ -8,8 +8,13 @@ import { attachedTabs, restoreDebuggerState } from './debugger-manager.js';
 import { removeTabFromStorage, getStoredTabs } from './storage.js';
 import { handleFetchRequestPaused } from './interceptor.js';
 import { handleMessage, toggleDebuggerFromAction } from './messaging.js';
+import { initRegistry } from './hash-registry.js';
 
 const ACTION_MENU_ID = 'apq-toggle-debugger';
+
+// Load the persisted hash registry and passive-mode flag on every SW start
+// (MV3 service workers are terminated and restarted frequently).
+initRegistry();
 
 // ── Global error handling ─────────────────────────────────────────
 
