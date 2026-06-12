@@ -48,6 +48,7 @@ export function addRequest(requestData) {
     query: requestData.query || '',
     variables: requestData.variables || null,
     responseTime: requestData.responseTime || null,
+    headers: requestData.headers || [],
   };
 
   state.requestHistory.unshift(request);
@@ -119,19 +120,7 @@ function prependRequestItem(request) {
  * @returns {object[]}
  */
 export function getFilteredRequests() {
-  return state.requestHistory.filter((req) => {
-    if (state.activeFilter !== 'all' && req.type !== state.activeFilter) {
-      return false;
-    }
-    if (state.filterText) {
-      const searchText = state.filterText.toLowerCase();
-      return (
-        req.operationName.toLowerCase().includes(searchText) ||
-        req.url.toLowerCase().includes(searchText)
-      );
-    }
-    return true;
-  });
+  return state.requestHistory.filter(requestPassesFilter);
 }
 
 /**

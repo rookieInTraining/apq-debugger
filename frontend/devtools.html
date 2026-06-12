@@ -249,6 +249,30 @@
         <div id="response-container" style="display: none;">
             <div class="response" id="response"></div>
         </div>
+
+        <!-- Copy as cURL modal -->
+        <div class="modal hidden" id="curl-modal" role="dialog" aria-modal="true"
+            aria-labelledby="curl-modal-title">
+            <div class="modal-backdrop" aria-hidden="true"></div>
+            <div class="modal-panel">
+                <div class="modal-header">
+                    <h3 class="modal-title" id="curl-modal-title">Copy as cURL</h3>
+                    <button type="button" class="btn-icon btn-close" id="curl-modal-close"
+                        aria-label="Close">×</button>
+                </div>
+                <p class="modal-desc">Includes captured request headers (cookies, client headers, etc.) when available.</p>
+                <div class="modal-options" role="group" aria-label="Shell format">
+                    <button type="button" class="curl-shell-option active" data-shell="bash"
+                        aria-pressed="true">Bash</button>
+                    <button type="button" class="curl-shell-option" data-shell="powershell"
+                        aria-pressed="false">PowerShell</button>
+                </div>
+                <pre class="modal-preview" id="curl-preview" aria-label="Generated cURL command"></pre>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" id="curl-copy-btn">Copy</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="../js/devtools.min.js"></script>

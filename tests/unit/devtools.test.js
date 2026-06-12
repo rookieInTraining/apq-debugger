@@ -697,9 +697,7 @@ describe('DevTools Panel Logic', () => {
       expect(blocks).toHaveLength(2);
       expect(document.getElementById('tab-schema').disabled).toBe(false);
       expect(document.getElementById('schema-meta').textContent).toContain('2 types');
-      expect(document.getElementById('schema-meta').textContent).toContain(
-        'https://x.com/graphql'
-      );
+      expect(document.getElementById('schema-meta').textContent).toContain('https://x.com/graphql');
     });
 
     test('setSchema should escape and highlight SDL', () => {

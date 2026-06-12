@@ -23,6 +23,7 @@ import { initLayout } from './layout.js';
 import { initKeyboard } from './keyboard.js';
 import { initSchemaControls, updateSchemaProgress } from './schema-controls.js';
 import { initSchemaViewer } from './schema-viewer.js';
+import { initCurlCopy } from './curl-copy.js';
 
 // ── Panel registration ────────────────────────────────────────────
 
@@ -51,6 +52,7 @@ document.addEventListener('DOMContentLoaded', function () {
   initKeyboard();
   initSchemaViewer();
   initSchemaControls();
+  initCurlCopy();
 
   // ── Message listeners ─────────────────────────────────────────
 
@@ -75,6 +77,7 @@ document.addEventListener('DOMContentLoaded', function () {
           query: message.query || '',
           variables: message.variables || null,
           responseTime: message.responseTime || null,
+          headers: message.headers || [],
         });
 
         try {

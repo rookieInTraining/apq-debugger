@@ -14,14 +14,18 @@
 - **DevTools Integration**: Seamless integration with Chrome DevTools
 - **APQ Fallback Visualization**: See both the hash-only and full-query phases of APQ requests
 - **Request History**: Browse, filter, and inspect intercepted requests with syntax highlighting
+- **Passive Mode**: Resolve APQ hashes from a persisted hash registry without modifying any traffic
+- **Schema Explorer**: Auto-detect the GraphQL endpoint and browse its introspected schema
+- **Copy as cURL**: Replay any captured request from Bash or PowerShell, including captured request headers
 
 ## Installation
 
 1. Clone this repository
-2. Open Chrome and go to `chrome://extensions/`
-3. Enable "Developer mode"
-4. Click "Load unpacked" and select the project folder (or `extension_build/` after building)
-5. Open DevTools and look for the "APQ Debugger" panel
+2. Run `npm install` and `npm run build` to produce the `extension_build/` folder
+3. Open Chrome and go to `chrome://extensions/`
+4. Enable "Developer mode"
+5. Click "Load unpacked" and select the `extension_build/` folder
+6. Open DevTools and look for the "APQ Debugger" panel
 
 ## Usage
 
@@ -41,6 +45,7 @@ apq-debugger/
 │   ├── devtools.html              # Main DevTools panel HTML
 │   └── devtools.css               # Panel styles (dark/light theme)
 ├── js/
+│   ├── shared/                    # Constants & logger shared by both bundles
 │   ├── sw/                        # Service worker modules
 │   │   ├── index.js               # Entry point – event wiring
 │   │   ├── chrome-api.js          # Promise wrappers for Chrome APIs
@@ -48,7 +53,10 @@ apq-debugger/
 │   │   ├── interceptor.js         # Fetch.requestPaused handler
 │   │   ├── messaging.js           # onMessage router & action toggle
 │   │   ├── storage.js             # chrome.storage.local helpers
-│   │   └── hash.js                # SHA-256 digest utility
+│   │   ├── hash.js                # SHA-256 digest utility
+│   │   ├── hash-registry.js       # Persisted hash → query registry (passive mode)
+│   │   ├── endpoint-tracker.js    # GraphQL endpoints observed per tab
+│   │   └── schema-loader.js       # Endpoint auto-detection & introspection
 │   ├── ui/                        # DevTools panel modules
 │   │   ├── index.js               # Entry point – panel creation
 │   │   ├── state.js               # Shared reactive state
@@ -56,10 +64,17 @@ apq-debugger/
 │   │   ├── patterns.js            # URL pattern CRUD & storage sync
 │   │   ├── request-list.js        # Request list rendering & filtering
 │   │   ├── request-detail.js      # Detail panel & copy-to-clipboard
+│   │   ├── curl-copy.js           # Copy-as-cURL generators & modal
 │   │   ├── status.js              # Status badge & banner management
-│   │   └── debugger-controls.js   # Start/stop button orchestration
-│   ├── devtools.js                # Legacy monolithic panel script
-│   └── service-worker.js          # Legacy monolithic service worker
+│   │   ├── debugger-controls.js   # Start/stop button orchestration
+│   │   ├── registry-controls.js   # Hash registry & passive mode controls
+│   │   ├── schema-controls.js     # Schema loading controls & progress
+│   │   ├── schema-viewer.js       # Introspected schema explorer
+│   │   ├── settings.js            # Panel settings
+│   │   ├── toolbar.js             # Toolbar actions
+│   │   ├── keyboard.js            # Keyboard navigation
+│   │   ├── layout.js              # Panel layout management
+│   │   └── resize.js              # Resizable panel dividers
 ├── scripts/
 │   ├── sync-version.js            # Sync package.json → manifest.json version
 │   └── package-extension.js       # Zip extension_build/ for Web Store upload
@@ -140,6 +155,13 @@ The GitHub Actions [release workflow](.github/workflows/release.yml) will automa
 - **DevTools Panel** (`js/ui/`): User interface for configuration and live request monitoring
 - **Message Passing**: Bidirectional communication between the panel and service worker via `chrome.runtime.sendMessage`
 - **Persistent State**: URL patterns and attached-tab state are persisted in `chrome.storage.local` to survive service worker restarts
+
+### Privacy Note
+
+The **Copy as cURL** feature includes the captured request headers — which may contain
+cookies and authorization tokens — in the generated command so the request can be
+replayed as-is. This data never leaves your browser; it is only written to your
+clipboard when you click **Copy**.
 
 ## Contributing
 

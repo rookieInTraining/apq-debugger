@@ -34,10 +34,6 @@ export function validateUrlPattern(pattern) {
     throw new Error('Invalid URL pattern: too long (max 1000 characters)');
   }
 
-  if (trimmed.includes('<script') || trimmed.includes('javascript:')) {
-    throw new Error('Invalid URL pattern: contains potentially dangerous content');
-  }
-
   return trimmed;
 }
 

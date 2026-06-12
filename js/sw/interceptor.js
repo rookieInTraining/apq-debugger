@@ -19,6 +19,35 @@ function looksLikeGraphQL(body) {
   return body.query !== undefined || !!(body.extensions && body.extensions.persistedQuery);
 }
 
+/** Headers set explicitly by the curl generators or derived from the URL. */
+const CURL_SKIP_HEADERS = new Set([
+  'content-length',
+  'host',
+  'connection',
+  'accept-encoding',
+  'content-type',
+  'accept',
+]);
+
+/**
+ * Normalize CDP Fetch request headers for replay in curl/PowerShell.
+ * @param {object|undefined} headers - CDP headers dictionary (name -> value).
+ * @returns {{name: string, value: string}[]}
+ */
+export function normalizeRequestHeaders(headers) {
+  if (!headers || typeof headers !== 'object') return [];
+
+  const result = [];
+  for (const [name, value] of Object.entries(headers)) {
+    if (!name || value === undefined || value === null) continue;
+    if (CURL_SKIP_HEADERS.has(name.toLowerCase())) continue;
+    result.push({ name, value: String(value) });
+  }
+
+  result.sort((a, b) => a.name.localeCompare(b.name));
+  return result;
+}
+
 /** Cached bogus hash to avoid recomputing SHA-256 on every APQ request. */
 let cachedBogusHash = null;
 
@@ -66,9 +95,10 @@ function sendIntercepted(fields) {
  * @param {object} payload - Parsed request body (single GraphQL operation).
  * @param {string} requestUrl - The original request URL.
  * @param {number} tabId - The source tab ID.
+ * @param {{name: string, value: string}[]} [requestHeaders] - Captured HTTP headers.
  * @returns {Promise<boolean>} True if the payload was modified.
  */
-export async function contaminatePayload(payload, requestUrl, tabId) {
+export async function contaminatePayload(payload, requestUrl, tabId, requestHeaders = []) {
   try {
     if (!payload || typeof payload !== 'object') {
       console.log('Invalid payload format:', payload);
@@ -93,6 +123,7 @@ export async function contaminatePayload(payload, requestUrl, tabId) {
           hash: originalHash,
           isAPQ: true,
           tabId,
+          headers: requestHeaders,
         });
         return false;
       }
@@ -110,6 +141,7 @@ export async function contaminatePayload(payload, requestUrl, tabId) {
           hash: originalHash,
           isAPQ: true,
           tabId,
+          headers: requestHeaders,
         });
         return true;
       }
@@ -137,6 +169,7 @@ export async function contaminatePayload(payload, requestUrl, tabId) {
         hash: requestHash,
         isAPQ: false,
         tabId,
+        headers: requestHeaders,
       });
       return false;
     } else {
@@ -210,21 +243,23 @@ export function handleFetchRequestPaused(source, params) {
 
     try {
       const requestUrl = params.request.url || '';
+      const requestHeaders = normalizeRequestHeaders(params.request.headers);
       let modified = false;
 
-      // Remember GraphQL endpoints to speed up schema auto-detection
+      // Remember GraphQL endpoints (with their headers) for schema loading
       if (looksLikeGraphQL(reqBody)) {
-        recordEndpoint(source.tabId, requestUrl);
+        recordEndpoint(source.tabId, requestUrl, requestHeaders);
       }
 
       if (Array.isArray(reqBody)) {
         console.log('Request payload is an array');
         for (const req of reqBody) {
-          modified = (await contaminatePayload(req, requestUrl, source.tabId)) || modified;
+          modified =
+            (await contaminatePayload(req, requestUrl, source.tabId, requestHeaders)) || modified;
         }
       } else {
         console.log('Request payload is a JSON element');
-        modified = await contaminatePayload(reqBody, requestUrl, source.tabId);
+        modified = await contaminatePayload(reqBody, requestUrl, source.tabId, requestHeaders);
       }
 
       if (!modified) {

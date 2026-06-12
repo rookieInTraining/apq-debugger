@@ -1,13 +1,15 @@
 /**
  * GraphQL schema loading with endpoint auto-detection.
- * Probes candidate endpoints (observed traffic first, then common paths
- * on the inspected tab's origin) and fetches the introspection result.
+ * Endpoints observed by the interceptor are known to speak GraphQL, so they
+ * are introspected directly with their captured request headers (production
+ * gateways often reject bare requests). Only origin-based guesses at common
+ * GraphQL paths are probed first.
  * Runs in the service worker, which has <all_urls> host permissions,
  * so cross-origin fetches are allowed.
  * @module sw/schema-loader
  */
 
-import { getObservedEndpoints } from './endpoint-tracker.js';
+import { ensureEndpointsLoaded, getObservedEndpointEntries } from './endpoint-tracker.js';
 import {
   COMMON_GRAPHQL_PATHS,
   INTROSPECTION_QUERY,
@@ -16,33 +18,24 @@ import {
 } from '../shared/constants.js';
 
 /**
- * Build the prioritised candidate endpoint list for a tab.
- * @param {number} tabId
+ * Build candidate endpoints from common GraphQL paths on the page's origin.
  * @param {string} tabUrl - URL of the inspected page.
+ * @param {string[]} [excludeUrls] - URLs already tried (observed endpoints).
  * @returns {string[]}
  */
-export function buildCandidates(tabId, tabUrl) {
+export function buildOriginCandidates(tabUrl, excludeUrls = []) {
   const candidates = [];
-  const seen = new Set();
+  const seen = new Set(excludeUrls);
 
-  const push = (url) => {
-    if (url && !seen.has(url) && candidates.length < SCHEMA_MAX_CANDIDATES) {
-      seen.add(url);
-      candidates.push(url);
-    }
-  };
-
-  // 1. Endpoints actually observed by the interceptor on this tab
-  for (const url of getObservedEndpoints(tabId)) {
-    push(url);
-  }
-
-  // 2. Common GraphQL paths on the inspected page's origin
   try {
     const parsed = new URL(tabUrl);
     if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
       for (const path of COMMON_GRAPHQL_PATHS) {
-        push(parsed.origin + path);
+        const url = parsed.origin + path;
+        if (!seen.has(url) && candidates.length < SCHEMA_MAX_CANDIDATES) {
+          seen.add(url);
+          candidates.push(url);
+        }
       }
     }
   } catch (_) {
@@ -52,7 +45,15 @@ export function buildCandidates(tabId, tabUrl) {
   return candidates;
 }
 
-async function postJson(url, body, timeoutMs) {
+async function postJson(url, body, timeoutMs, headers = []) {
+  const requestHeaders = { 'Content-Type': 'application/json', Accept: 'application/json' };
+  for (const header of headers) {
+    // Cookies ride along via credentials: 'include'; fetch forbids setting them
+    if (header && header.name && header.name.toLowerCase() !== 'cookie') {
+      requestHeaders[header.name] = header.value;
+    }
+  }
+
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -60,7 +61,7 @@ async function postJson(url, body, timeoutMs) {
     const response = await fetch(url, {
       method: 'POST',
       credentials: 'include',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      headers: requestHeaders,
       body: JSON.stringify(body),
       signal: controller.signal,
     });
@@ -96,13 +97,20 @@ export async function probeEndpoint(url) {
 /**
  * Fetch the introspection result from a GraphQL endpoint.
  * @param {string} url
+ * @param {{name: string, value: string}[]} [headers] - Captured request headers
+ *   replayed so gateways that require client headers accept the request.
  * @returns {Promise<object>} The introspection data (`{ __schema: ... }`).
  * @throws {Error} If the request fails or introspection is disabled.
  */
-export async function fetchIntrospection(url) {
+export async function fetchIntrospection(url, headers = []) {
   let json;
   try {
-    json = await postJson(url, { query: INTROSPECTION_QUERY }, SCHEMA_PROBE_TIMEOUT_MS * 3);
+    json = await postJson(
+      url,
+      { query: INTROSPECTION_QUERY },
+      SCHEMA_PROBE_TIMEOUT_MS * 3,
+      headers
+    );
   } catch (error) {
     throw new Error(`Failed to reach ${url}: ${error.message || 'network error'}`);
   }
@@ -124,7 +132,8 @@ export async function fetchIntrospection(url) {
 
 /**
  * Detect a GraphQL endpoint for a tab and load its schema.
- * Probes all candidates in parallel and picks the highest-priority hit.
+ * Observed endpoints are introspected directly (they are known GraphQL
+ * endpoints); origin-based guesses are probed in parallel as a fallback.
  * @param {object} options
  * @param {number} options.tabId
  * @param {string} options.tabUrl - URL of the inspected page.
@@ -140,19 +149,50 @@ export async function loadSchema({ tabId, tabUrl, url, onProgress = () => {} }) 
     return { endpoint: url, introspection };
   }
 
-  const candidates = buildCandidates(tabId, tabUrl);
-  if (candidates.length === 0) {
+  // Observations usually live only in storage at this point: the loadSchema
+  // message tends to wake a fresh service worker with an empty in-memory map.
+  await ensureEndpointsLoaded();
+
+  const observed = getObservedEndpointEntries(tabId);
+  const observedErrors = [];
+
+  for (const { url: endpoint, headers } of observed) {
+    onProgress(`Loading schema from captured endpoint ${endpoint}...`);
+    try {
+      const introspection = await fetchIntrospection(endpoint, headers);
+      return { endpoint, introspection };
+    } catch (error) {
+      observedErrors.push(`${endpoint} — ${error.message}`);
+    }
+  }
+
+  const candidates = buildOriginCandidates(
+    tabUrl,
+    observed.map((entry) => entry.url)
+  );
+
+  if (candidates.length === 0 && observedErrors.length === 0) {
     throw new Error('No candidate endpoints. Enter the GraphQL endpoint URL manually.');
   }
 
-  onProgress(
-    `Probing ${candidates.length} candidate endpoint${candidates.length > 1 ? 's' : ''}...`
-  );
-
-  const results = await Promise.all(candidates.map((candidate) => probeEndpoint(candidate)));
-  const endpoint = candidates.find((_, i) => results[i]);
+  let endpoint = null;
+  if (candidates.length > 0) {
+    onProgress(
+      `Probing ${candidates.length} candidate endpoint${candidates.length > 1 ? 's' : ''}...`
+    );
+    const results = await Promise.all(candidates.map((candidate) => probeEndpoint(candidate)));
+    endpoint = candidates.find((_, i) => results[i]);
+  }
 
   if (!endpoint) {
+    if (observedErrors.length > 0) {
+      // The captured endpoints are the real ones — report why they failed
+      // instead of pretending no endpoint exists.
+      throw new Error(
+        `Could not introspect the captured endpoint${observedErrors.length > 1 ? 's' : ''}: ` +
+          observedErrors.join('; ')
+      );
+    }
     throw new Error(
       'No GraphQL endpoint detected. Capture some traffic first or enter the URL manually.'
     );

@@ -82,11 +82,6 @@ describe('Service Worker Logic', () => {
       expect(() => validateUrlPattern(123)).toThrow('non-empty string');
     });
 
-    test('should throw error for dangerous content', () => {
-      expect(() => validateUrlPattern('javascript:alert(1)')).toThrow('potentially dangerous');
-      expect(() => validateUrlPattern('<script>')).toThrow('potentially dangerous');
-    });
-
     test('should throw error for pattern exceeding max length', () => {
       expect(() => validateUrlPattern('a'.repeat(1001))).toThrow('too long');
     });
@@ -192,8 +187,9 @@ describe('Service Worker Logic', () => {
         operationName: 'GetUsers',
         variables: { limit: 10 },
       };
+      const headers = [{ name: 'Cookie', value: 'session=abc' }];
 
-      await contaminatePayload(payload, 'http://example.com/graphql', 42);
+      await contaminatePayload(payload, 'http://example.com/graphql', 42, headers);
 
       expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -201,6 +197,7 @@ describe('Service Worker Logic', () => {
           operationName: 'GetUsers',
           query: '{ users { id } }',
           tabId: 42,
+          headers,
         }),
         expect.any(Function)
       );

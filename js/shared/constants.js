@@ -13,9 +13,12 @@ export const DEFAULT_OPERATION_NAME = 'Anonymous Query';
 
 export const HASH_REGISTRY_STORAGE_KEY = 'apqHashRegistry';
 export const PASSIVE_MODE_STORAGE_KEY = 'apqPassiveMode';
+/** Maximum hashes retained in the registry; least recently registered evicted first. */
+export const HASH_REGISTRY_MAX_ENTRIES = 500;
 
 // ── Schema ────────────────────────────────────────────────────────
 
+export const OBSERVED_ENDPOINTS_STORAGE_KEY = 'apqObservedEndpoints';
 export const SCHEMA_STORAGE_KEY = 'apqSchemaUrl';
 export const SCHEMA_CACHE_STORAGE_KEY = 'apqSchemaCache';
 /** Maximum SDL size (bytes) persisted to chrome.storage.local. */
@@ -123,4 +126,3 @@ export const INTROSPECTION_QUERY = `
 // ── UI Settings ───────────────────────────────────────────────────
 export const UI_SETTINGS_STORAGE_KEY = 'apqUiSettings';
 export const PANEL_WIDTHS_STORAGE_KEY = 'apqPanelWidths';
-

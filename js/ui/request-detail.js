@@ -6,6 +6,7 @@
 import { getElement, escapeHtml } from './dom-helpers.js';
 import { state } from './state.js';
 import { showDetailTab } from './schema-viewer.js';
+import { openCurlModal } from './curl-copy.js';
 
 /**
  * Mark a request as selected and show the detail panel.
@@ -76,6 +77,18 @@ export function renderRequestDetail(requestId) {
         <div class="detail-label">URL</div>
         <div class="detail-value" style="font-family: var(--font-mono); font-size: 11px; word-break: break-all;">${escapeHtml(request.url)}</div>
     </div>
+
+    ${
+      request.url
+        ? `
+    <div class="detail-section detail-actions">
+        <button type="button" class="btn btn-toolbar" id="btn-copy-curl" aria-label="Copy request as cURL">
+            Copy as cURL
+        </button>
+    </div>
+    `
+        : ''
+    }
     
     <div class="detail-section">
         <div class="code-block">
@@ -116,6 +129,11 @@ export function renderRequestDetail(requestId) {
       }
     });
   });
+
+  const curlBtn = detailContent.querySelector('#btn-copy-curl');
+  if (curlBtn) {
+    curlBtn.addEventListener('click', () => openCurlModal(request));
+  }
 }
 
 /**

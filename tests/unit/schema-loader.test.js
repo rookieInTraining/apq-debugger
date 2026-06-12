@@ -1,5 +1,5 @@
 import {
-  buildCandidates,
+  buildOriginCandidates,
   probeEndpoint,
   fetchIntrospection,
   loadSchema,
@@ -62,25 +62,23 @@ describe('Schema Loader', () => {
     delete global.fetch;
   });
 
-  describe('buildCandidates', () => {
-    test('should put observed endpoints before origin-based guesses', () => {
-      recordEndpoint(1, 'https://api.other.com/v2/gql');
-      const candidates = buildCandidates(1, 'https://app.test.com/dashboard');
-
-      expect(candidates[0]).toBe('https://api.other.com/v2/gql');
+  describe('buildOriginCandidates', () => {
+    test('should guess common GraphQL paths on the page origin', () => {
+      const candidates = buildOriginCandidates('https://app.test.com/dashboard');
       expect(candidates).toContain('https://app.test.com/graphql');
       expect(candidates).toContain('https://app.test.com/api/graphql');
     });
 
     test('should skip origin guesses for invalid tab URLs', () => {
-      const candidates = buildCandidates(1, 'chrome://extensions');
-      expect(candidates).toEqual([]);
+      expect(buildOriginCandidates('chrome://extensions')).toEqual([]);
     });
 
-    test('should deduplicate observed and guessed endpoints', () => {
-      recordEndpoint(1, 'https://app.test.com/graphql');
-      const candidates = buildCandidates(1, 'https://app.test.com/');
-      expect(candidates.filter((c) => c === 'https://app.test.com/graphql')).toHaveLength(1);
+    test('should exclude endpoints that were already tried', () => {
+      const candidates = buildOriginCandidates('https://app.test.com/', [
+        'https://app.test.com/graphql',
+      ]);
+      expect(candidates).not.toContain('https://app.test.com/graphql');
+      expect(candidates).toContain('https://app.test.com/api/graphql');
     });
   });
 
@@ -163,20 +161,12 @@ describe('Schema Loader', () => {
       expect(global.fetch).toHaveBeenCalledTimes(1);
     });
 
-    test('should pick the highest-priority working endpoint', async () => {
-      recordEndpoint(1, 'https://api.test.com/gql-observed');
+    test('should introspect observed endpoints directly with their captured headers', async () => {
+      recordEndpoint(1, 'https://api.test.com/gql-observed', [
+        { name: 'client-info', value: 'web' },
+      ]);
       const data = { __schema: { types: [] } };
-
-      global.fetch.mockImplementation((url, options) => {
-        const body = JSON.parse(options.body);
-        if (body.query === '{__typename}') {
-          if (url === 'https://api.test.com/gql-observed' || url.endsWith('/graphql')) {
-            return jsonResponse({ data: { __typename: 'Query' } });
-          }
-          return jsonResponse({ message: 'not found' });
-        }
-        return jsonResponse({ data });
-      });
+      global.fetch.mockReturnValue(jsonResponse({ data }));
 
       const progress = [];
       const result = await loadSchema({
@@ -187,7 +177,54 @@ describe('Schema Loader', () => {
 
       expect(result.endpoint).toBe('https://api.test.com/gql-observed');
       expect(result.introspection).toEqual(data);
-      expect(progress.some((m) => m.includes('Probing'))).toBe(true);
+      // Observed endpoints are known GraphQL endpoints — no probing round trip
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://api.test.com/gql-observed',
+        expect.objectContaining({
+          headers: expect.objectContaining({ 'client-info': 'web' }),
+        })
+      );
+      expect(progress.some((m) => m.includes('captured endpoint'))).toBe(true);
+    });
+
+    test('should fall back to probing origin guesses when captured endpoints fail', async () => {
+      recordEndpoint(1, 'https://api.test.com/gql-observed');
+      const data = { __schema: { types: [] } };
+
+      global.fetch.mockImplementation((url, options) => {
+        if (url === 'https://api.test.com/gql-observed') {
+          return Promise.reject(new Error('403 Forbidden'));
+        }
+        const body = JSON.parse(options.body);
+        if (body.query === '{__typename}') {
+          return url === 'https://app.test.com/graphql'
+            ? jsonResponse({ data: { __typename: 'Query' } })
+            : jsonResponse({ message: 'not found' });
+        }
+        return jsonResponse({ data });
+      });
+
+      const result = await loadSchema({ tabId: 1, tabUrl: 'https://app.test.com/' });
+
+      expect(result.endpoint).toBe('https://app.test.com/graphql');
+      expect(result.introspection).toEqual(data);
+    });
+
+    test('should report why captured endpoints failed instead of a generic error', async () => {
+      recordEndpoint(1, 'https://api.test.com/graphql');
+
+      global.fetch.mockImplementation((url, options) => {
+        const body = JSON.parse(options.body);
+        if (body.query === '{__typename}') {
+          return jsonResponse({ message: 'not found' });
+        }
+        return jsonResponse({ errors: [{ message: 'GraphQL introspection is not allowed' }] });
+      });
+
+      await expect(loadSchema({ tabId: 1, tabUrl: 'https://app.test.com/' })).rejects.toThrow(
+        /captured endpoint.*Introspection is disabled/
+      );
     });
 
     test('should fail when no endpoint responds', async () => {

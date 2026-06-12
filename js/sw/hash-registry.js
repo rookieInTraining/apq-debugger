@@ -5,7 +5,11 @@
  */
 
 import { storageGet, storageSet } from './chrome-api.js';
-import { HASH_REGISTRY_STORAGE_KEY, PASSIVE_MODE_STORAGE_KEY } from '../shared/constants.js';
+import {
+  HASH_REGISTRY_STORAGE_KEY,
+  HASH_REGISTRY_MAX_ENTRIES,
+  PASSIVE_MODE_STORAGE_KEY,
+} from '../shared/constants.js';
 import { log } from '../shared/logger.js';
 
 const registry = new Map();
@@ -20,6 +24,10 @@ export async function initRegistry() {
       for (const [hash, entry] of Object.entries(stored)) {
         registry.set(hash, entry);
       }
+      // Registries persisted before the size cap existed may exceed it
+      if (evictOldest()) {
+        persistRegistry();
+      }
       log.info(`Loaded ${registry.size} entries from hash registry`);
     }
 
@@ -32,12 +40,17 @@ export async function initRegistry() {
 export function registerHash(hash, data) {
   if (!hash || typeof hash !== 'string') return;
   const wasNew = !registry.has(hash);
+  // Delete before set: Map.set on an existing key keeps its original position,
+  // so re-registering must move the hash to the end to keep insertion order
+  // usable as recency order for eviction.
+  registry.delete(hash);
   registry.set(hash, {
     query: data.query || '',
     operationName: data.operationName || '',
     variables: data.variables || null,
     registeredAt: Date.now(),
   });
+  evictOldest();
   persistRegistry();
   if (wasNew) broadcastRegistryUpdate();
 }
@@ -76,6 +89,19 @@ export async function setPassiveMode(enabled) {
     log.error('Failed to persist passive mode:', error);
   }
   broadcastRegistryUpdate();
+}
+
+/**
+ * Drop the least recently registered hashes until the registry fits the cap.
+ * @returns {boolean} True if any entries were evicted.
+ */
+function evictOldest() {
+  let evicted = false;
+  while (registry.size > HASH_REGISTRY_MAX_ENTRIES) {
+    registry.delete(registry.keys().next().value);
+    evicted = true;
+  }
+  return evicted;
 }
 
 async function persistRegistry() {

@@ -8,6 +8,7 @@ import {
   isPassiveMode,
   setPassiveMode,
 } from '../../js/sw/hash-registry.js';
+import { HASH_REGISTRY_MAX_ENTRIES } from '../../js/shared/constants.js';
 
 describe('Hash Registry', () => {
   beforeEach(async () => {
@@ -80,6 +81,57 @@ describe('Hash Registry', () => {
       jest.clearAllMocks();
       registerHash('abc123', { query: '{ me }' }); // re-register same hash
       expect(chrome.runtime.sendMessage).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('size cap', () => {
+    const fillRegistry = () => {
+      for (let i = 0; i < HASH_REGISTRY_MAX_ENTRIES; i++) {
+        registerHash(`hash-${i}`, { query: `{ q${i} }` });
+      }
+    };
+
+    test('should evict the oldest hash once the cap is exceeded', () => {
+      fillRegistry();
+      expect(getRegistrySize()).toBe(HASH_REGISTRY_MAX_ENTRIES);
+
+      registerHash('one-more', { query: '{ extra }' });
+
+      expect(getRegistrySize()).toBe(HASH_REGISTRY_MAX_ENTRIES);
+      expect(lookupHash('hash-0')).toBeNull();
+      expect(lookupHash('one-more')).not.toBeNull();
+    });
+
+    test('should refresh recency when a hash is re-registered', () => {
+      fillRegistry();
+      registerHash('hash-0', { query: '{ q0 }' }); // refresh the oldest entry
+
+      registerHash('one-more', { query: '{ extra }' });
+
+      expect(lookupHash('hash-0')).not.toBeNull();
+      expect(lookupHash('hash-1')).toBeNull();
+    });
+
+    test('initRegistry should trim oversized persisted registries', async () => {
+      const stored = {};
+      for (let i = 0; i < HASH_REGISTRY_MAX_ENTRIES + 5; i++) {
+        stored[`hash-${i}`] = {
+          query: `{ q${i} }`,
+          operationName: '',
+          variables: null,
+          registeredAt: i,
+        };
+      }
+      chrome.storage.local.get.mockImplementation((_keys, cb) => {
+        chrome.runtime.lastError = null;
+        cb({ apqHashRegistry: stored });
+      });
+
+      await initRegistry();
+
+      expect(getRegistrySize()).toBe(HASH_REGISTRY_MAX_ENTRIES);
+      expect(lookupHash('hash-0')).toBeNull();
+      expect(lookupHash(`hash-${HASH_REGISTRY_MAX_ENTRIES + 4}`)).not.toBeNull();
     });
   });
 
