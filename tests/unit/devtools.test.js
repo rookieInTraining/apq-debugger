@@ -27,6 +27,18 @@ import {
   handleStopSuccess,
   handleStopWarning,
 } from '../../js/ui/debugger-controls.js';
+import { applySettings, initSettings } from '../../js/ui/settings.js';
+import { initToolbar, updateToolbarState } from '../../js/ui/toolbar.js';
+import { initKeyboard } from '../../js/ui/keyboard.js';
+import {
+  setSchema,
+  showMainTab,
+  initSchemaViewer,
+  isSchemaLoaded,
+} from '../../js/ui/schema-viewer.js';
+import { initSchemaControls } from '../../js/ui/schema-controls.js';
+import { SCHEMA_STORAGE_KEY, SCHEMA_CACHE_STORAGE_KEY } from '../../js/shared/constants.js';
+import { initRequestList } from '../../js/ui/request-list.js';
 
 function setupDOM() {
   document.body.innerHTML = `
@@ -448,6 +460,438 @@ describe('DevTools Panel Logic', () => {
       expect(state.isDebuggerActive).toBe(false);
       const badge = document.getElementById('debugger-status');
       expect(badge.querySelector('.status-text').textContent).toBe('Warning');
+    });
+  });
+
+  // ── Settings ───────────────────────────────────────────────────
+
+  describe('Settings', () => {
+    afterEach(() => {
+      document.documentElement.removeAttribute('data-theme');
+      document.documentElement.removeAttribute('data-density');
+    });
+
+    test('applySettings should set data attributes for explicit theme/density', () => {
+      applySettings({ theme: 'dark', density: 'compact' });
+      expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
+      expect(document.documentElement.getAttribute('data-density')).toBe('compact');
+    });
+
+    test('applySettings should remove attributes for system/comfortable', () => {
+      applySettings({ theme: 'dark', density: 'compact' });
+      applySettings({ theme: 'system', density: 'comfortable' });
+      expect(document.documentElement.hasAttribute('data-theme')).toBe(false);
+      expect(document.documentElement.hasAttribute('data-density')).toBe(false);
+    });
+
+    test('initSettings should restore persisted settings from storage', () => {
+      document.body.innerHTML += `
+        <button id="btn-settings" aria-expanded="false"></button>
+        <div id="settings-popover" class="hidden">
+          <input type="radio" name="theme" value="system" checked>
+          <input type="radio" name="theme" value="dark">
+          <input type="radio" name="density" value="comfortable" checked>
+          <input type="radio" name="density" value="compact">
+        </div>
+      `;
+
+      chrome.storage.local.get.mockImplementationOnce((_keys, cb) => {
+        chrome.runtime.lastError = null;
+        cb({ apqUiSettings: { theme: 'dark', density: 'compact' } });
+      });
+
+      initSettings();
+
+      expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
+      expect(document.documentElement.getAttribute('data-density')).toBe('compact');
+      expect(document.querySelector('input[value="dark"]').checked).toBe(true);
+      expect(document.querySelector('input[value="compact"]').checked).toBe(true);
+    });
+
+    test('changing a setting should apply and persist it', () => {
+      document.body.innerHTML += `
+        <button id="btn-settings" aria-expanded="false"></button>
+        <div id="settings-popover" class="hidden">
+          <input type="radio" name="theme" value="system" checked>
+          <input type="radio" name="theme" value="light">
+        </div>
+      `;
+
+      initSettings();
+
+      const lightRadio = document.querySelector('input[value="light"]');
+      lightRadio.checked = true;
+      lightRadio.dispatchEvent(new Event('change', { bubbles: true }));
+
+      expect(document.documentElement.getAttribute('data-theme')).toBe('light');
+      expect(chrome.storage.local.set).toHaveBeenCalledWith(
+        expect.objectContaining({
+          apqUiSettings: expect.objectContaining({ theme: 'light' }),
+        }),
+        expect.any(Function)
+      );
+    });
+  });
+
+  // ── Toolbar (Clear / Export) ───────────────────────────────────
+
+  describe('Toolbar', () => {
+    beforeEach(() => {
+      document.body.innerHTML += `
+        <button id="btn-clear-history" disabled></button>
+        <button id="btn-export-history" disabled></button>
+      `;
+    });
+
+    test('updateToolbarState should enable buttons when history exists', () => {
+      updateToolbarState();
+      expect(document.getElementById('btn-clear-history').disabled).toBe(true);
+
+      addRequest({ operationName: 'Test' });
+      expect(document.getElementById('btn-clear-history').disabled).toBe(false);
+      expect(document.getElementById('btn-export-history').disabled).toBe(false);
+    });
+
+    test('clear button should empty history and reset UI', () => {
+      addRequest({ operationName: 'Test' });
+      initToolbar();
+
+      document.getElementById('btn-clear-history').click();
+
+      expect(state.requestHistory).toHaveLength(0);
+      expect(state.selectedRequestId).toBeNull();
+      expect(document.getElementById('interception-counter').textContent).toBe('0');
+      expect(document.getElementById('btn-clear-history').disabled).toBe(true);
+      expect(document.getElementById('detail-content').innerHTML).toContain('Select a request');
+    });
+
+    test('export button should download history as JSON', () => {
+      addRequest({ operationName: 'GetUsers', url: 'https://x.com/graphql' });
+      initToolbar();
+
+      const objectUrlSpy = jest.fn().mockReturnValue('blob:mock');
+      const revokeSpy = jest.fn();
+      global.URL.createObjectURL = objectUrlSpy;
+      global.URL.revokeObjectURL = revokeSpy;
+      const clickSpy = jest
+        .spyOn(HTMLAnchorElement.prototype, 'click')
+        .mockImplementation(() => {});
+
+      document.getElementById('btn-export-history').click();
+
+      expect(objectUrlSpy).toHaveBeenCalledWith(expect.any(Blob));
+      expect(clickSpy).toHaveBeenCalled();
+      expect(revokeSpy).toHaveBeenCalledWith('blob:mock');
+
+      clickSpy.mockRestore();
+      delete global.URL.createObjectURL;
+      delete global.URL.revokeObjectURL;
+    });
+  });
+
+  // ── Keyboard Navigation & ARIA ─────────────────────────────────
+
+  describe('Keyboard & ARIA', () => {
+    test('request items should carry option role and aria-selected', () => {
+      addRequest({ operationName: 'A' });
+      renderRequestList();
+
+      const item = document.querySelector('.request-item');
+      expect(item.getAttribute('role')).toBe('option');
+      expect(item.getAttribute('aria-selected')).toBe('false');
+      expect(item.getAttribute('tabindex')).toBe('-1');
+    });
+
+    test('clicking a chip should update aria-checked', () => {
+      initRequestList();
+
+      const apqChip = document.querySelector('.chip[data-filter="apq"]');
+      apqChip.click();
+
+      expect(apqChip.getAttribute('aria-checked')).toBe('true');
+      expect(apqChip.classList.contains('active')).toBe(true);
+      const allChip = document.querySelector('.chip[data-filter="all"]');
+      expect(allChip.getAttribute('aria-checked')).toBe('false');
+    });
+
+    test('ArrowDown should move focus through request items', () => {
+      addRequest({ operationName: 'A' });
+      addRequest({ operationName: 'B' });
+      renderRequestList();
+      initKeyboard();
+
+      const list = document.getElementById('request-list');
+      const items = document.querySelectorAll('.request-item');
+
+      list.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+      expect(document.activeElement).toBe(items[0]);
+      expect(items[0].getAttribute('tabindex')).toBe('0');
+
+      list.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+      expect(document.activeElement).toBe(items[1]);
+    });
+
+    test('End and Home should jump to last/first item', () => {
+      addRequest({ operationName: 'A' });
+      addRequest({ operationName: 'B' });
+      addRequest({ operationName: 'C' });
+      renderRequestList();
+      initKeyboard();
+
+      const list = document.getElementById('request-list');
+      const items = document.querySelectorAll('.request-item');
+
+      list.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+      expect(document.activeElement).toBe(items[2]);
+
+      list.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
+      expect(document.activeElement).toBe(items[0]);
+    });
+
+    test('Escape should close the detail panel', () => {
+      initKeyboard();
+      const detailPanel = document.getElementById('detail-panel');
+      detailPanel.classList.remove('hidden');
+      const closeBtn = document.getElementById('close-detail');
+      const clickSpy = jest.spyOn(closeBtn, 'click').mockImplementation(() => {});
+
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+
+      expect(clickSpy).toHaveBeenCalled();
+      clickSpy.mockRestore();
+    });
+  });
+
+  // ── Schema Viewer ──────────────────────────────────────────────
+
+  describe('Schema Viewer', () => {
+    const SAMPLE_SDL =
+      'type Query {\n  users: [User]\n}\n\ntype User {\n  id: ID\n  name: String\n}';
+
+    /** @returns {Promise<void>} */
+    async function flushSchemaIndex() {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    beforeEach(() => {
+      document.body.innerHTML += `
+        <button id="tab-requests" aria-selected="true"></button>
+        <button id="tab-schema" aria-selected="false"></button>
+        <div id="requests-toolbar"></div>
+        <div id="requests-content"></div>
+        <div id="schema-content" class="hidden">
+          <div id="schema-explorer" class="hidden">
+            <div id="schema-meta"></div>
+            <input id="schema-search">
+            <div id="schema-type-list" role="listbox" tabindex="0"></div>
+            <pre id="schema-sdl-view"></pre>
+          </div>
+        </div>
+        <input id="schema-url-input">
+        <button id="btn-load-schema"></button>
+        <button id="btn-clear-schema" disabled></button>
+        <div id="schema-status"></div>
+      `;
+    });
+
+    test('setSchema should index types and show the explorer', async () => {
+      setSchema(SAMPLE_SDL, {
+        endpoint: 'https://x.com/graphql',
+        typeCount: 2,
+        fetchedAt: Date.now(),
+      });
+
+      await flushSchemaIndex();
+
+      expect(document.getElementById('schema-explorer').classList.contains('hidden')).toBe(false);
+      expect(document.querySelectorAll('.schema-type-item')).toHaveLength(2);
+      expect(document.getElementById('schema-sdl-view').textContent).toContain('type Query');
+      expect(document.getElementById('schema-meta').textContent).toContain('2 types');
+      expect(document.getElementById('schema-meta').textContent).toContain('https://x.com/graphql');
+    });
+
+    test('setSchema should escape and highlight the selected type', async () => {
+      setSchema('type Query {\n  name: String\n}', {
+        endpoint: 'https://x.com/graphql',
+        typeCount: 1,
+        fetchedAt: Date.now(),
+      });
+
+      await flushSchemaIndex();
+
+      const html = document.getElementById('schema-sdl-view').innerHTML;
+      expect(html).toContain('<span class="keyword">type</span>');
+      expect(html).toContain('<span class="field">name</span>');
+      expect(html).toContain('<span class="builtin">String</span>');
+    });
+
+    test('search should filter the type list', () => {
+      jest.useFakeTimers();
+      initSchemaViewer();
+      setSchema(SAMPLE_SDL, {
+        endpoint: 'https://x.com/graphql',
+        typeCount: 2,
+        fetchedAt: Date.now(),
+      });
+      jest.advanceTimersByTime(0);
+
+      const search = document.getElementById('schema-search');
+      search.value = 'User';
+      search.dispatchEvent(new Event('input', { bubbles: true }));
+      jest.advanceTimersByTime(150);
+
+      expect(document.querySelectorAll('.schema-type-item')).toHaveLength(1);
+      expect(document.getElementById('schema-sdl-view').textContent).toContain('type User');
+
+      search.value = 'no-such-type';
+      search.dispatchEvent(new Event('input', { bubbles: true }));
+      jest.advanceTimersByTime(150);
+      expect(document.querySelector('.schema-type-list-empty').textContent).toContain(
+        'No types match'
+      );
+      jest.useRealTimers();
+    });
+
+    test('setSchema should preserve types with blank lines in descriptions', async () => {
+      const sdl = `"""
+An organization in Apollo Studio.
+
+Can have multiple members.
+"""
+type Account {
+  """Used by Studio to show the Change Plan button"""
+  canChangePlan: Boolean!
+}
+
+type User {
+  id: ID
+}`;
+
+      setSchema(sdl, {
+        endpoint: 'https://x.com/graphql',
+        typeCount: 2,
+        fetchedAt: Date.now(),
+      });
+
+      await flushSchemaIndex();
+
+      const accountItem = [...document.querySelectorAll('.schema-type-item')].find(
+        (item) => item.dataset.typeName === 'Account'
+      );
+      expect(accountItem).toBeTruthy();
+      accountItem.click();
+
+      const rendered = document.getElementById('schema-sdl-view').textContent;
+      expect(rendered).toContain('Can have multiple members.');
+      expect(rendered).toContain('canChangePlan: Boolean!');
+      expect(rendered.indexOf('type Account')).toBeLessThan(rendered.indexOf('canChangePlan'));
+    });
+
+    test('setSchema should label custom directives by name', async () => {
+      const sdl = `enum CacheControlScope {
+  PUBLIC
+  PRIVATE
+}
+
+directive @cacheControl(maxAge: Int, scope: CacheControlScope) on FIELD_DEFINITION | OBJECT
+
+type Query {
+  characters: [Character]
+}`;
+
+      setSchema(sdl, {
+        endpoint: 'https://rickandmortyapi.com/graphql',
+        typeCount: 3,
+        fetchedAt: Date.now(),
+      });
+
+      await flushSchemaIndex();
+
+      const names = [...document.querySelectorAll('.schema-type-item')].map(
+        (item) => item.dataset.typeName
+      );
+      expect(names).toContain('cacheControl');
+      expect(names).not.toContain('Unknown');
+
+      const directiveItem = document.querySelector(
+        '.schema-type-item[data-type-name="cacheControl"]'
+      );
+      expect(directiveItem?.querySelector('.kind')?.textContent).toBe('directive');
+    });
+
+    test('showMainTab should toggle panels and aria-selected', () => {
+      showMainTab('schema');
+      expect(document.getElementById('tab-schema').getAttribute('aria-selected')).toBe('true');
+      expect(document.getElementById('tab-requests').getAttribute('aria-selected')).toBe('false');
+      expect(document.getElementById('schema-content').classList.contains('hidden')).toBe(false);
+      expect(document.getElementById('requests-content').classList.contains('hidden')).toBe(true);
+
+      showMainTab('requests');
+      expect(document.getElementById('tab-requests').getAttribute('aria-selected')).toBe('true');
+      expect(document.getElementById('requests-content').classList.contains('hidden')).toBe(false);
+    });
+
+    test('ArrowDown should move focus and selection through schema type items', async () => {
+      initSchemaViewer();
+      initKeyboard();
+      setSchema(SAMPLE_SDL, {
+        endpoint: 'https://x.com/graphql',
+        typeCount: 2,
+        fetchedAt: Date.now(),
+      });
+
+      await flushSchemaIndex();
+
+      const list = document.getElementById('schema-type-list');
+      const items = document.querySelectorAll('.schema-type-item');
+      expect(items).toHaveLength(2);
+
+      list.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+      expect(document.activeElement).toBe(items[0]);
+      expect(items[0].getAttribute('aria-selected')).toBe('true');
+      expect(document.getElementById('schema-sdl-view').textContent).toContain(
+        items[0].dataset.typeName
+      );
+
+      list.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+      expect(document.activeElement).toBe(items[1]);
+      expect(items[1].getAttribute('aria-selected')).toBe('true');
+      expect(document.getElementById('schema-sdl-view').textContent).toContain(
+        items[1].dataset.typeName
+      );
+    });
+
+    test('clear should reset the viewer and remove cached schema', async () => {
+      initSchemaControls();
+      setSchema(SAMPLE_SDL, {
+        endpoint: 'https://x.com/graphql',
+        typeCount: 2,
+        fetchedAt: Date.now(),
+      });
+
+      await flushSchemaIndex();
+
+      const clearBtn = document.getElementById('btn-clear-schema');
+      expect(clearBtn.disabled).toBe(false);
+      expect(isSchemaLoaded()).toBe(true);
+
+      clearBtn.click();
+
+      expect(document.getElementById('schema-explorer').classList.contains('hidden')).toBe(true);
+      expect(document.querySelectorAll('.schema-type-item')).toHaveLength(0);
+      expect(document.getElementById('schema-sdl-view').textContent).toBe('');
+      expect(document.getElementById('schema-meta').textContent).toBe('');
+      expect(document.getElementById('schema-search').value).toBe('');
+      expect(document.getElementById('schema-status').textContent).toBe('No schema loaded');
+      expect(clearBtn.disabled).toBe(true);
+      expect(chrome.storage.local.remove).toHaveBeenCalledWith(
+        [SCHEMA_STORAGE_KEY, SCHEMA_CACHE_STORAGE_KEY],
+        expect.any(Function)
+      );
     });
   });
 });

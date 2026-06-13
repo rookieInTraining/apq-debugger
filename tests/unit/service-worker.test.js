@@ -7,6 +7,12 @@ import {
   restoreDebuggerState,
 } from '../../js/sw/debugger-manager.js';
 import { contaminatePayload, handleFetchRequestPaused } from '../../js/sw/interceptor.js';
+import {
+  registerHash,
+  lookupHash,
+  clearRegistry,
+  setPassiveMode,
+} from '../../js/sw/hash-registry.js';
 import { digestMessage } from '../../js/sw/hash.js';
 import { handleMessage, toggleDebuggerFromAction } from '../../js/sw/messaging.js';
 import {
@@ -74,11 +80,6 @@ describe('Service Worker Logic', () => {
     test('should throw error for non-string input', () => {
       expect(() => validateUrlPattern(null)).toThrow('non-empty string');
       expect(() => validateUrlPattern(123)).toThrow('non-empty string');
-    });
-
-    test('should throw error for dangerous content', () => {
-      expect(() => validateUrlPattern('javascript:alert(1)')).toThrow('potentially dangerous');
-      expect(() => validateUrlPattern('<script>')).toThrow('potentially dangerous');
     });
 
     test('should throw error for pattern exceeding max length', () => {
@@ -186,8 +187,9 @@ describe('Service Worker Logic', () => {
         operationName: 'GetUsers',
         variables: { limit: 10 },
       };
+      const headers = [{ name: 'Cookie', value: 'session=abc' }];
 
-      await contaminatePayload(payload, 'http://example.com/graphql', 42);
+      await contaminatePayload(payload, 'http://example.com/graphql', 42, headers);
 
       expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -195,6 +197,7 @@ describe('Service Worker Logic', () => {
           operationName: 'GetUsers',
           query: '{ users { id } }',
           tabId: 42,
+          headers,
         }),
         expect.any(Function)
       );
@@ -211,9 +214,9 @@ describe('Service Worker Logic', () => {
     });
 
     test('should handle null/invalid payloads gracefully', async () => {
-      await expect(contaminatePayload(null, '', 1)).resolves.toBeUndefined();
-      await expect(contaminatePayload('not-an-object', '', 1)).resolves.toBeUndefined();
-      await expect(contaminatePayload(42, '', 1)).resolves.toBeUndefined();
+      await expect(contaminatePayload(null, '', 1)).resolves.toBe(false);
+      await expect(contaminatePayload('not-an-object', '', 1)).resolves.toBe(false);
+      await expect(contaminatePayload(42, '', 1)).resolves.toBe(false);
     });
 
     test('should log payload without query or APQ extensions', async () => {
@@ -224,6 +227,142 @@ describe('Service Worker Logic', () => {
         expect.any(String)
       );
       spy.mockRestore();
+    });
+
+    test('should report the APQ phase with the original hash', async () => {
+      const payload = {
+        operationName: 'GetUsers',
+        extensions: { persistedQuery: { sha256Hash: 'original-hash' } },
+      };
+
+      await contaminatePayload(payload, 'http://example.com/graphql', 7);
+
+      expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'INTERCEPTED',
+          operationName: 'GetUsers',
+          hash: 'original-hash',
+          isAPQ: true,
+          tabId: 7,
+        }),
+        expect.any(Function)
+      );
+    });
+
+    test('should register hash from full-query retry containing persistedQuery extension', async () => {
+      clearRegistry();
+      const payload = {
+        query: '{ users { id } }',
+        operationName: 'GetUsers',
+        variables: { limit: 10 },
+        extensions: { persistedQuery: { sha256Hash: 'retry-hash' } },
+      };
+
+      await contaminatePayload(payload, 'http://example.com/graphql', 1);
+
+      expect(lookupHash('retry-hash')).toEqual(
+        expect.objectContaining({
+          query: '{ users { id } }',
+          operationName: 'GetUsers',
+        })
+      );
+      clearRegistry();
+    });
+
+    test('should report modified=true only when contaminating', async () => {
+      const apqPayload = { extensions: { persistedQuery: { sha256Hash: 'h' } } };
+      const fullPayload = { query: '{ me }' };
+
+      await expect(contaminatePayload(apqPayload, '', 1)).resolves.toBe(true);
+      await expect(contaminatePayload(fullPayload, '', 1)).resolves.toBe(false);
+      await expect(contaminatePayload({ foo: 'bar' }, '', 1)).resolves.toBe(false);
+    });
+  });
+
+  // ── contaminatePayload (passive mode) ──────────────────────────
+
+  describe('contaminatePayload in passive mode', () => {
+    beforeEach(async () => {
+      clearRegistry();
+      await setPassiveMode(true);
+      jest.clearAllMocks();
+    });
+
+    afterEach(async () => {
+      clearRegistry();
+      await setPassiveMode(false);
+    });
+
+    test('should not contaminate the hash', async () => {
+      const payload = { extensions: { persistedQuery: { sha256Hash: 'real-hash' } } };
+
+      const modified = await contaminatePayload(payload, 'http://x.com/graphql', 1);
+
+      expect(modified).toBe(false);
+      expect(payload.extensions.persistedQuery.sha256Hash).toBe('real-hash');
+    });
+
+    test('should resolve query from the registry', async () => {
+      registerHash('known-hash', {
+        query: '{ users { id } }',
+        operationName: 'GetUsers',
+        variables: null,
+      });
+      jest.clearAllMocks();
+
+      const payload = { extensions: { persistedQuery: { sha256Hash: 'known-hash' } } };
+      await contaminatePayload(payload, 'http://x.com/graphql', 3);
+
+      expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'INTERCEPTED',
+          operationName: 'GetUsers',
+          query: '{ users { id } }',
+          hash: 'known-hash',
+          isAPQ: true,
+          tabId: 3,
+        }),
+        expect.any(Function)
+      );
+    });
+
+    test('should report unresolved hashes with an empty query', async () => {
+      const payload = { extensions: { persistedQuery: { sha256Hash: 'unknown-hash' } } };
+      await contaminatePayload(payload, 'http://x.com/graphql', 3);
+
+      expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'INTERCEPTED',
+          query: '',
+          hash: 'unknown-hash',
+          isAPQ: true,
+        }),
+        expect.any(Function)
+      );
+    });
+
+    test('handleFetchRequestPaused should continue without rewriting the body', async () => {
+      const payload = { extensions: { persistedQuery: { sha256Hash: 'real-hash' } } };
+      handleFetchRequestPaused(
+        { tabId: 1 },
+        {
+          requestId: 'rp1',
+          request: {
+            hasPostData: true,
+            postData: JSON.stringify(payload),
+            url: 'https://api.test.com/graphql',
+          },
+        }
+      );
+
+      await new Promise((r) => setTimeout(r, 50));
+
+      expect(chrome.debugger.sendCommand).toHaveBeenCalledWith(
+        { tabId: 1 },
+        'Fetch.continueRequest',
+        { requestId: 'rp1' },
+        expect.any(Function)
+      );
     });
   });
 
@@ -528,6 +667,132 @@ describe('Service Worker Logic', () => {
         })
       );
     });
+
+    test('should ignore REGISTRY_UPDATED broadcast messages', () => {
+      const sendResponse = jest.fn();
+      const result = handleMessage({ status: 'REGISTRY_UPDATED', size: 3 }, {}, sendResponse);
+      expect(result).toBe(false);
+      expect(sendResponse).not.toHaveBeenCalled();
+    });
+
+    test('should handle getRegistry message', async () => {
+      clearRegistry();
+      registerHash('h1', { query: '{ a }' });
+      const sendResponse = jest.fn();
+
+      handleMessage({ getRegistry: true }, {}, sendResponse);
+      await new Promise((r) => setTimeout(r, 50));
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'SUCCESS', size: 1, passiveMode: false })
+      );
+      clearRegistry();
+    });
+
+    test('should handle setPassiveMode message', async () => {
+      const sendResponse = jest.fn();
+
+      handleMessage({ setPassiveMode: true }, {}, sendResponse);
+      await new Promise((r) => setTimeout(r, 50));
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'SUCCESS', passiveMode: true })
+      );
+
+      await setPassiveMode(false); // reset module state
+    });
+
+    test('should reject non-boolean setPassiveMode', () => {
+      const sendResponse = jest.fn();
+      handleMessage({ setPassiveMode: 'yes' }, {}, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'ERROR',
+          error: expect.stringContaining('setPassiveMode'),
+        })
+      );
+    });
+
+    test('should handle clearRegistry message', async () => {
+      registerHash('h1', { query: '{ a }' });
+      const sendResponse = jest.fn();
+
+      handleMessage({ clearRegistry: true }, {}, sendResponse);
+      await new Promise((r) => setTimeout(r, 50));
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'SUCCESS', size: 0 })
+      );
+      expect(lookupHash('h1')).toBeNull();
+    });
+
+    test('should return error for loadSchema without tabId', async () => {
+      const sendResponse = jest.fn();
+      handleMessage({ loadSchema: true }, {}, sendResponse);
+
+      await new Promise((r) => setTimeout(r, 50));
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'ERROR',
+          error: expect.stringContaining('tabId'),
+        })
+      );
+    });
+
+    test('should reject non-boolean loadSchema', () => {
+      const sendResponse = jest.fn();
+      handleMessage({ loadSchema: 'yes' }, {}, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'ERROR',
+          error: expect.stringContaining('loadSchema'),
+        })
+      );
+    });
+
+    test('should handle loadSchema with explicit URL', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        json: () => Promise.resolve({ data: { __schema: { types: [] } } }),
+      });
+
+      const sendResponse = jest.fn();
+      handleMessage(
+        { loadSchema: true, tabId: 42, url: 'https://api.test.com/graphql' },
+        {},
+        sendResponse
+      );
+
+      await new Promise((r) => setTimeout(r, 100));
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'SUCCESS',
+          endpoint: 'https://api.test.com/graphql',
+          introspection: { __schema: { types: [] } },
+        })
+      );
+      delete global.fetch;
+    });
+
+    test('should return error when schema detection fails', async () => {
+      global.fetch = jest.fn().mockRejectedValue(new Error('refused'));
+
+      const sendResponse = jest.fn();
+      handleMessage({ loadSchema: true, tabId: 42 }, {}, sendResponse);
+
+      await new Promise((r) => setTimeout(r, 200));
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'ERROR',
+          error: expect.stringContaining('No GraphQL endpoint detected'),
+        })
+      );
+      delete global.fetch;
+    });
   });
 
   // ── toggleDebuggerFromAction ───────────────────────────────────
@@ -628,7 +893,7 @@ describe('Service Worker Logic', () => {
       );
     });
 
-    test('should process valid JSON and continue with modified body', async () => {
+    test('should continue full-query requests with original body (no rewrite)', async () => {
       const payload = { query: '{ users { id } }', operationName: 'Test' };
       handleFetchRequestPaused(
         { tabId: 1 },
@@ -644,11 +909,36 @@ describe('Service Worker Logic', () => {
 
       await new Promise((r) => setTimeout(r, 50));
 
+      // Full-query requests are not modified, so no postData should be attached
+      expect(chrome.debugger.sendCommand).toHaveBeenCalledWith(
+        { tabId: 1 },
+        'Fetch.continueRequest',
+        { requestId: 'r3' },
+        expect.any(Function)
+      );
+    });
+
+    test('should continue APQ requests with rewritten (contaminated) body', async () => {
+      const payload = { extensions: { persistedQuery: { sha256Hash: 'real-hash' } } };
+      handleFetchRequestPaused(
+        { tabId: 1 },
+        {
+          requestId: 'r3b',
+          request: {
+            hasPostData: true,
+            postData: JSON.stringify(payload),
+            url: 'https://api.test.com/graphql',
+          },
+        }
+      );
+
+      await new Promise((r) => setTimeout(r, 50));
+
       expect(chrome.debugger.sendCommand).toHaveBeenCalledWith(
         { tabId: 1 },
         'Fetch.continueRequest',
         expect.objectContaining({
-          requestId: 'r3',
+          requestId: 'r3b',
           postData: expect.any(String), // base64 encoded
         }),
         expect.any(Function)

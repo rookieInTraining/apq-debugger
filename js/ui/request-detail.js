@@ -5,6 +5,7 @@
 
 import { getElement, escapeHtml } from './dom-helpers.js';
 import { state } from './state.js';
+import { openCurlModal } from './curl-copy.js';
 
 /**
  * Mark a request as selected and show the detail panel.
@@ -13,9 +14,11 @@ import { state } from './state.js';
 export function selectRequest(requestId) {
   state.selectedRequestId = requestId;
 
-  // Update visual selection in the list
+  // Update visual + ARIA selection in the list
   document.querySelectorAll('.request-item').forEach((item) => {
-    item.classList.toggle('selected', parseInt(item.dataset.requestId) === requestId);
+    const isSelected = parseInt(item.dataset.requestId) === requestId;
+    item.classList.toggle('selected', isSelected);
+    item.setAttribute('aria-selected', String(isSelected));
   });
 
   const detailPanel = getElement('detail-panel');
@@ -70,6 +73,18 @@ export function renderRequestDetail(requestId) {
         <div class="detail-label">URL</div>
         <div class="detail-value" style="font-family: var(--font-mono); font-size: 11px; word-break: break-all;">${escapeHtml(request.url)}</div>
     </div>
+
+    ${
+      request.url
+        ? `
+    <div class="detail-section detail-actions">
+        <button type="button" class="btn btn-toolbar" id="btn-copy-curl" aria-label="Copy request as cURL">
+            Copy as cURL
+        </button>
+    </div>
+    `
+        : ''
+    }
     
     <div class="detail-section">
         <div class="code-block">
@@ -110,6 +125,11 @@ export function renderRequestDetail(requestId) {
       }
     });
   });
+
+  const curlBtn = detailContent.querySelector('#btn-copy-curl');
+  if (curlBtn) {
+    curlBtn.addEventListener('click', () => openCurlModal(request));
+  }
 }
 
 /**
@@ -154,9 +174,10 @@ export function initRequestDetail() {
       const detailPanel = getElement('detail-panel');
       if (detailPanel) detailPanel.classList.add('hidden');
       state.selectedRequestId = null;
-      document
-        .querySelectorAll('.request-item.selected')
-        .forEach((el) => el.classList.remove('selected'));
+      document.querySelectorAll('.request-item.selected').forEach((el) => {
+        el.classList.remove('selected');
+        el.setAttribute('aria-selected', 'false');
+      });
     });
   }
 }

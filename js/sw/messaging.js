@@ -12,6 +12,8 @@ import {
   attachDebuggerToTab,
   detachDebuggerFromTab,
 } from './debugger-manager.js';
+import { getRegistrySize, clearRegistry, isPassiveMode, setPassiveMode } from './hash-registry.js';
+import { loadSchema } from './schema-loader.js';
 
 /**
  * Broadcast a status update to all listeners (DevTools panel, popup, etc.).
@@ -132,6 +134,25 @@ function validateMessage(message) {
     return '"getStatus" must be a boolean';
   }
 
+  // Validate registry message shapes
+  if (message.getRegistry !== undefined && typeof message.getRegistry !== 'boolean') {
+    return '"getRegistry" must be a boolean';
+  }
+  if (message.setPassiveMode !== undefined && typeof message.setPassiveMode !== 'boolean') {
+    return '"setPassiveMode" must be a boolean';
+  }
+  if (message.clearRegistry !== undefined && typeof message.clearRegistry !== 'boolean') {
+    return '"clearRegistry" must be a boolean';
+  }
+
+  // Validate loadSchema message shape
+  if (message.loadSchema !== undefined && typeof message.loadSchema !== 'boolean') {
+    return '"loadSchema" must be a boolean';
+  }
+  if (message.url !== undefined && typeof message.url !== 'string') {
+    return '"url" must be a string';
+  }
+
   // Validate tabId when present
   if (message.tabId !== undefined && typeof message.tabId !== 'number') {
     return '"tabId" must be a number';
@@ -146,7 +167,13 @@ function validateMessage(message) {
  */
 export function handleMessage(message, sender, sendResponse) {
   // Ignore internal broadcast messages
-  if (message && (message.status === 'INTERCEPTED' || message.status === 'ACTION_TOGGLE')) {
+  if (
+    message &&
+    (message.status === 'INTERCEPTED' ||
+      message.status === 'ACTION_TOGGLE' ||
+      message.status === 'REGISTRY_UPDATED' ||
+      message.status === 'SCHEMA_PROGRESS')
+  ) {
     return false;
   }
 
@@ -172,6 +199,28 @@ export function handleMessage(message, sender, sendResponse) {
         await handleDisconnectMessage(message, sendResponse);
       } else if (message.getStatus === true) {
         await handleStatusMessage(message, sendResponse);
+      } else if (message.getRegistry === true) {
+        sendResponse({
+          status: 'SUCCESS',
+          size: getRegistrySize(),
+          passiveMode: isPassiveMode(),
+        });
+      } else if (message.setPassiveMode !== undefined) {
+        await setPassiveMode(message.setPassiveMode);
+        sendResponse({
+          status: 'SUCCESS',
+          size: getRegistrySize(),
+          passiveMode: isPassiveMode(),
+        });
+      } else if (message.clearRegistry === true) {
+        clearRegistry();
+        sendResponse({
+          status: 'SUCCESS',
+          size: 0,
+          passiveMode: isPassiveMode(),
+        });
+      } else if (message.loadSchema === true) {
+        await handleLoadSchemaMessage(message, sendResponse);
       } else {
         sendResponse({ status: 'ERROR', error: 'Invalid message format or empty patterns' });
       }
@@ -255,6 +304,49 @@ async function handleDisconnectMessage(message, sendResponse) {
     } catch (error) {
       sendResponse({ status: 'WARNING', message: 'No tab specified' });
     }
+  }
+}
+
+async function handleLoadSchemaMessage(message, sendResponse) {
+  const tabId = message.tabId;
+  if (tabId === undefined) {
+    sendResponse({ status: 'ERROR', error: 'No tabId provided for schema load' });
+    return;
+  }
+
+  let tabUrl = '';
+  try {
+    const tab = await getTab(tabId);
+    tabUrl = tab.url || '';
+  } catch (_) {
+    // Tab lookup failed — detection falls back to observed endpoints only
+  }
+
+  const onProgress = (progressMessage) => {
+    chrome.runtime.sendMessage(
+      { status: 'SCHEMA_PROGRESS', message: progressMessage, tabId },
+      () => {
+        if (chrome.runtime.lastError) {
+          // Panel may have closed mid-load
+        }
+      }
+    );
+  };
+
+  try {
+    const result = await loadSchema({
+      tabId,
+      tabUrl,
+      url: message.url ? message.url.trim() : undefined,
+      onProgress,
+    });
+    sendResponse({
+      status: 'SUCCESS',
+      endpoint: result.endpoint,
+      introspection: result.introspection,
+    });
+  } catch (error) {
+    sendResponse({ status: 'ERROR', error: error.message || 'Schema load failed' });
   }
 }
 

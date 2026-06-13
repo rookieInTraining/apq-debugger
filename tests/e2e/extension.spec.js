@@ -1,12 +1,13 @@
 const { test, expect, chromium } = require('@playwright/test');
 const path = require('path');
 
+// NOTE: run `npm run build` first — the extension is loaded from extension_build/
 test.describe('APQ Debugger Extension', () => {
   let context;
   let extensionId;
 
   test.beforeEach(async () => {
-    const pathToExtension = path.join(__dirname, '../../');
+    const pathToExtension = path.join(__dirname, '../../extension_build');
     context = await chromium.launchPersistentContext('', {
       headless: false, // Extensions only work in headless=false or new headless with flags
       args: [
@@ -36,7 +37,7 @@ test.describe('APQ Debugger Extension', () => {
         panels: { create: () => {} },
       };
     });
-    await page.goto(`chrome-extension://${extensionId}/frontend/devtools.html`);
+    await page.goto(`chrome-extension://${extensionId}/devtools.html`);
     await page.waitForLoadState('domcontentloaded');
     // Allow time for JS initialization (DOMContentLoaded handler)
     await page.waitForTimeout(500);
@@ -219,5 +220,64 @@ test.describe('APQ Debugger Extension', () => {
     const filterInput = page.locator('#filter-input');
     await filterInput.fill('GetUsers');
     await expect(filterInput).toHaveValue('GetUsers');
+  });
+
+  // ── Settings popover ───────────────────────────────────────────
+
+  test('should open settings popover and switch theme', async () => {
+    const page = await openDevToolsPage();
+
+    const settingsBtn = page.locator('#btn-settings');
+    await expect(settingsBtn).toBeVisible();
+
+    await settingsBtn.click();
+    await expect(page.locator('#settings-popover')).toBeVisible();
+    await expect(settingsBtn).toHaveAttribute('aria-expanded', 'true');
+
+    await page.locator('.settings-option:has(input[name="theme"][value="dark"])').click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+
+    await page.locator('.settings-option:has(input[name="density"][value="compact"])').click();
+    await expect(page.locator('html')).toHaveAttribute('data-density', 'compact');
+
+    await page.waitForTimeout(300);
+    await page.reload();
+    await page.waitForTimeout(500);
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  });
+
+  test('should toggle sidebar via header button', async () => {
+    const page = await openDevToolsPage();
+
+    const toggleBtn = page.locator('#btn-toggle-sidebar');
+    await expect(toggleBtn).toBeVisible();
+
+    await toggleBtn.click();
+    await expect(page.locator('.app')).toHaveClass(/sidebar-collapsed/);
+
+    await toggleBtn.click();
+    await expect(page.locator('.app')).not.toHaveClass(/sidebar-collapsed/);
+  });
+
+  // ── Schema tab ─────────────────────────────────────────────────
+
+  test('should show schema tab with load controls', async () => {
+    const page = await openDevToolsPage();
+
+    await page.locator('#tab-schema').click();
+    await expect(page.locator('#schema-content')).toBeVisible();
+    await expect(page.locator('#btn-load-schema')).toContainText('Load Schema');
+    await expect(page.locator('#schema-status')).toContainText('No schema loaded');
+    await expect(page.locator('#schema-url-input')).toBeVisible();
+  });
+
+  // ── Main panel tabs ────────────────────────────────────────────
+
+  test('should show requests tab selected by default', async () => {
+    const page = await openDevToolsPage();
+
+    await expect(page.locator('#tab-requests')).toHaveAttribute('aria-selected', 'true');
+    await expect(page.locator('#tab-schema')).toHaveAttribute('aria-selected', 'false');
+    await expect(page.locator('#requests-content')).toBeVisible();
   });
 });

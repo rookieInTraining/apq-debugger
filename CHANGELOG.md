@@ -5,6 +5,25 @@ All notable changes to the APQ Debugger extension will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2026-06-13
+
+### Added
+- Passive mode: resolve APQ hashes from the registry without contaminating live traffic
+- GraphQL schema introspection and SDL viewer in a dedicated Schema tab
+- Copy as cURL for captured requests
+- Keyboard navigation and shortcuts across the DevTools panel
+- Responsive layout for narrower DevTools dock sizes
+- Bundle size budget check in CI (`npm run check:bundle`)
+
+### Changed
+- **Major UI redesign** — tabbed layout separating requests, schema, and settings
+- Schema moved from inline controls to its own tab and viewer
+- Optimized production bundle sizes for the service worker and DevTools panel
+
+### Fixed
+- Schema endpoint detection when multiple GraphQL endpoints are observed
+- Prettier formatting violations that failed the CI lint job
+
 ## [2.0.0] - 2026-02-07
 
 ### Added
@@ -83,6 +102,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Commit | Date |
 |---------|--------|------|
+| 3.0.0 | — | 2026-06-13 |
 | 2.0.0 | — | 2026-02-07 |
 | 1.1.0 | `5b035ba` | 2026-01-30 |
 | 1.0.0 | `96f5ff3` | 2026-01-26 |
