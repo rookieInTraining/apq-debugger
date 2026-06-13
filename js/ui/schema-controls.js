@@ -1,15 +1,15 @@
 /**
  * Schema sidebar section: Load Schema button with endpoint auto-detection,
  * progress display, and per-endpoint caching in chrome.storage.local.
- * The service worker does the network work; this module builds the client
- * schema from the introspection result and feeds the viewer.
+ * The service worker does the network work; this module converts the
+ * introspection result to SDL and feeds the viewer.
  * @module ui/schema-controls
  */
 
-import { buildClientSchema, printSchema } from 'graphql';
+import { introspectionToSDL, countIntrospectionTypes } from '../shared/introspection-to-sdl.js';
 import { getElement } from './dom-helpers.js';
 import { inspectedTabId } from './state.js';
-import { setSchema, showMainTab } from './schema-viewer.js';
+import { setSchema, showMainTab, isSchemaLoaded } from './schema-viewer.js';
 import {
   SCHEMA_STORAGE_KEY,
   SCHEMA_CACHE_STORAGE_KEY,
@@ -35,14 +35,16 @@ export function updateSchemaProgress(message) {
   }
 }
 
-function countTypes(schema) {
-  return Object.keys(schema.getTypeMap()).filter((name) => !name.startsWith('__')).length;
+function updateClearButton() {
+  const clearBtn = getElement('btn-clear-schema');
+  if (clearBtn) clearBtn.disabled = !isSchemaLoaded() || isLoading;
 }
 
 function applySchema(sdl, meta) {
   setSchema(sdl, meta);
   const when = meta.fetchedAt ? new Date(meta.fetchedAt).toLocaleString() : '';
   setStatus(`${meta.typeCount} types loaded${when ? ` (${when})` : ''}`);
+  updateClearButton();
 }
 
 function cacheSchema(endpoint, sdl, typeCount, fetchedAt) {
@@ -71,6 +73,7 @@ function handleLoadClick() {
   const url = input ? input.value.trim() : '';
 
   isLoading = true;
+  updateClearButton();
   if (button) {
     button.disabled = true;
     button.textContent = 'Loading...';
@@ -82,6 +85,7 @@ function handleLoadClick() {
 
   chrome.runtime.sendMessage(message, (response) => {
     isLoading = false;
+    updateClearButton();
     if (button) {
       button.disabled = false;
       button.textContent = 'Load Schema';
@@ -98,9 +102,8 @@ function handleLoadClick() {
     }
 
     try {
-      const schema = buildClientSchema(response.introspection);
-      const sdl = printSchema(schema);
-      const typeCount = countTypes(schema);
+      const sdl = introspectionToSDL(response.introspection);
+      const typeCount = countIntrospectionTypes(response.introspection);
       const fetchedAt = Date.now();
 
       if (input) input.value = response.endpoint;
@@ -110,6 +113,20 @@ function handleLoadClick() {
     } catch (error) {
       console.error('Failed to build schema:', error);
       setStatus(`Invalid introspection result: ${error.message}`, true);
+    }
+  });
+}
+
+function handleClearClick() {
+  if (isLoading || !isSchemaLoaded()) return;
+
+  setSchema(null);
+  setStatus('No schema loaded');
+  updateClearButton();
+
+  chrome.storage.local.remove([SCHEMA_STORAGE_KEY, SCHEMA_CACHE_STORAGE_KEY], () => {
+    if (chrome.runtime.lastError) {
+      console.warn('Failed to clear cached schema:', chrome.runtime.lastError);
     }
   });
 }
@@ -144,6 +161,11 @@ export function initSchemaControls() {
     button.addEventListener('click', handleLoadClick);
   }
 
+  const clearBtn = getElement('btn-clear-schema');
+  if (clearBtn) {
+    clearBtn.addEventListener('click', handleClearClick);
+  }
+
   const input = getElement('schema-url-input');
   if (input) {
     input.addEventListener('keydown', (e) => {
@@ -155,4 +177,5 @@ export function initSchemaControls() {
   }
 
   restoreFromCache();
+  updateClearButton();
 }

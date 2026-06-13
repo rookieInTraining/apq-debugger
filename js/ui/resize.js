@@ -1,7 +1,7 @@
 /**
  * Draggable + keyboard-resizable panel widths with persistence.
- * Wires the two separator handles between sidebar / request panel
- * and request panel / detail panel.
+ * Wires the separator handles between sidebar / request panel,
+ * request panel / detail panel, and schema type list / SDL view.
  * @module ui/resize
  */
 
@@ -11,6 +11,7 @@ import { PANEL_WIDTHS_STORAGE_KEY } from '../shared/constants.js';
 const LIMITS = {
   sidebar: { min: 150, max: 420 },
   detail: { min: 240, max: 560 },
+  schemaList: { min: 140, max: 480 },
 };
 
 const KEYBOARD_STEP = 16;
@@ -45,7 +46,7 @@ function applyWidth(panel, key, value) {
  * Wire one resize handle.
  * @param {HTMLElement} handle - The separator element.
  * @param {HTMLElement} panel - The panel whose width changes.
- * @param {'sidebar'|'detail'} key - Storage key / limits entry.
+ * @param {'sidebar'|'detail'|'schemaList'} key - Storage key / limits entry.
  * @param {1|-1} direction - +1 if dragging right grows the panel.
  */
 function wireHandle(handle, panel, key, direction) {
@@ -98,19 +99,24 @@ function wireHandle(handle, panel, key, direction) {
 }
 
 /**
- * Initialise both resize handles and restore persisted widths.
+ * Initialise resize handles and restore persisted widths.
  */
 export function initResize() {
   const sidebar = getElement('patterns-sidebar');
   const detailPanel = getElement('detail-panel');
   const leftHandle = getElement('resize-handle-left');
   const rightHandle = getElement('resize-handle-right');
+  const schemaList = getElement('schema-type-list');
+  const schemaHandle = getElement('resize-handle-schema');
 
   if (sidebar && leftHandle) {
     wireHandle(leftHandle, sidebar, 'sidebar', 1);
   }
   if (detailPanel && rightHandle) {
     wireHandle(rightHandle, detailPanel, 'detail', -1);
+  }
+  if (schemaList && schemaHandle) {
+    wireHandle(schemaHandle, schemaList, 'schemaList', 1);
   }
 
   chrome.storage.local.get([PANEL_WIDTHS_STORAGE_KEY], (result) => {
@@ -123,6 +129,9 @@ export function initResize() {
     }
     if (typeof stored.detail === 'number' && detailPanel) {
       applyWidth(detailPanel, 'detail', stored.detail);
+    }
+    if (typeof stored.schemaList === 'number' && schemaList) {
+      applyWidth(schemaList, 'schemaList', stored.schemaList);
     }
   });
 }

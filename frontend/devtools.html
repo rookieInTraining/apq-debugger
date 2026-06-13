@@ -198,12 +198,16 @@
                 </div>
                 <div class="main-tab-content hidden" id="schema-content" role="tabpanel" aria-labelledby="tab-schema">
                     <div class="schema-load-bar">
-                        <div class="schema-form">
-                            <input type="url" class="schema-url-input" id="schema-url-input"
-                                placeholder="https://api.example.com/graphql"
-                                aria-label="GraphQL endpoint URL">
+                        <input type="url" class="schema-url-input" id="schema-url-input"
+                            placeholder="https://api.example.com/graphql"
+                            aria-label="GraphQL endpoint URL">
+                        <div class="schema-actions">
+                            <input type="text" class="schema-search" id="schema-search" placeholder="Filter types..."
+                                aria-label="Filter schema types">
                             <button type="button" class="btn btn-primary" id="btn-load-schema"
                                 aria-label="Load schema via introspection">Load Schema</button>
+                            <button type="button" class="btn btn-toolbar" id="btn-clear-schema"
+                                aria-label="Clear loaded schema" disabled>Clear</button>
                         </div>
                         <div class="schema-status" id="schema-status" role="status" aria-live="polite">
                             No schema loaded
@@ -211,13 +215,11 @@
                     </div>
                     <div class="schema-explorer hidden" id="schema-explorer">
                         <div class="schema-meta" id="schema-meta"></div>
-                        <div class="schema-toolbar">
-                            <input type="text" class="schema-search" id="schema-search" placeholder="Filter types..."
-                                aria-label="Filter schema types">
-                        </div>
                         <div class="schema-body">
                             <div class="schema-type-list" id="schema-type-list" role="listbox"
                                 aria-label="Schema types" tabindex="0"></div>
+                            <div class="resize-handle resize-handle-schema" id="resize-handle-schema" role="separator"
+                                aria-orientation="vertical" aria-label="Resize schema type list" tabindex="0"></div>
                             <pre class="schema-sdl" id="schema-sdl-view" aria-label="Selected type definition"></pre>
                         </div>
                     </div>

@@ -30,7 +30,12 @@ import {
 import { applySettings, initSettings } from '../../js/ui/settings.js';
 import { initToolbar, updateToolbarState } from '../../js/ui/toolbar.js';
 import { initKeyboard } from '../../js/ui/keyboard.js';
-import { setSchema, showMainTab, initSchemaViewer } from '../../js/ui/schema-viewer.js';
+import { setSchema, showMainTab, initSchemaViewer, isSchemaLoaded } from '../../js/ui/schema-viewer.js';
+import { initSchemaControls } from '../../js/ui/schema-controls.js';
+import {
+  SCHEMA_STORAGE_KEY,
+  SCHEMA_CACHE_STORAGE_KEY,
+} from '../../js/shared/constants.js';
 import { initRequestList } from '../../js/ui/request-list.js';
 
 function setupDOM() {
@@ -693,10 +698,14 @@ describe('DevTools Panel Logic', () => {
           <div id="schema-explorer" class="hidden">
             <div id="schema-meta"></div>
             <input id="schema-search">
-            <div id="schema-type-list"></div>
+            <div id="schema-type-list" role="listbox" tabindex="0"></div>
             <pre id="schema-sdl-view"></pre>
           </div>
         </div>
+        <input id="schema-url-input">
+        <button id="btn-load-schema"></button>
+        <button id="btn-clear-schema" disabled></button>
+        <div id="schema-status"></div>
       `;
     });
 
@@ -793,6 +802,36 @@ type User {
       expect(rendered.indexOf('type Account')).toBeLessThan(rendered.indexOf('canChangePlan'));
     });
 
+    test('setSchema should label custom directives by name', async () => {
+      const sdl = `enum CacheControlScope {
+  PUBLIC
+  PRIVATE
+}
+
+directive @cacheControl(maxAge: Int, scope: CacheControlScope) on FIELD_DEFINITION | OBJECT
+
+type Query {
+  characters: [Character]
+}`;
+
+      setSchema(sdl, {
+        endpoint: 'https://rickandmortyapi.com/graphql',
+        typeCount: 3,
+        fetchedAt: Date.now(),
+      });
+
+      await flushSchemaIndex();
+
+      const names = [...document.querySelectorAll('.schema-type-item')].map(
+        (item) => item.dataset.typeName
+      );
+      expect(names).toContain('cacheControl');
+      expect(names).not.toContain('Unknown');
+
+      const directiveItem = document.querySelector('.schema-type-item[data-type-name="cacheControl"]');
+      expect(directiveItem?.querySelector('.kind')?.textContent).toBe('directive');
+    });
+
     test('showMainTab should toggle panels and aria-selected', () => {
       showMainTab('schema');
       expect(document.getElementById('tab-schema').getAttribute('aria-selected')).toBe('true');
@@ -803,6 +842,61 @@ type User {
       showMainTab('requests');
       expect(document.getElementById('tab-requests').getAttribute('aria-selected')).toBe('true');
       expect(document.getElementById('requests-content').classList.contains('hidden')).toBe(false);
+    });
+
+    test('ArrowDown should move focus and selection through schema type items', async () => {
+      initSchemaViewer();
+      initKeyboard();
+      setSchema(SAMPLE_SDL, {
+        endpoint: 'https://x.com/graphql',
+        typeCount: 2,
+        fetchedAt: Date.now(),
+      });
+
+      await flushSchemaIndex();
+
+      const list = document.getElementById('schema-type-list');
+      const items = document.querySelectorAll('.schema-type-item');
+      expect(items).toHaveLength(2);
+
+      list.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+      expect(document.activeElement).toBe(items[0]);
+      expect(items[0].getAttribute('aria-selected')).toBe('true');
+      expect(document.getElementById('schema-sdl-view').textContent).toContain(items[0].dataset.typeName);
+
+      list.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+      expect(document.activeElement).toBe(items[1]);
+      expect(items[1].getAttribute('aria-selected')).toBe('true');
+      expect(document.getElementById('schema-sdl-view').textContent).toContain(items[1].dataset.typeName);
+    });
+
+    test('clear should reset the viewer and remove cached schema', async () => {
+      initSchemaControls();
+      setSchema(SAMPLE_SDL, {
+        endpoint: 'https://x.com/graphql',
+        typeCount: 2,
+        fetchedAt: Date.now(),
+      });
+
+      await flushSchemaIndex();
+
+      const clearBtn = document.getElementById('btn-clear-schema');
+      expect(clearBtn.disabled).toBe(false);
+      expect(isSchemaLoaded()).toBe(true);
+
+      clearBtn.click();
+
+      expect(document.getElementById('schema-explorer').classList.contains('hidden')).toBe(true);
+      expect(document.querySelectorAll('.schema-type-item')).toHaveLength(0);
+      expect(document.getElementById('schema-sdl-view').textContent).toBe('');
+      expect(document.getElementById('schema-meta').textContent).toBe('');
+      expect(document.getElementById('schema-search').value).toBe('');
+      expect(document.getElementById('schema-status').textContent).toBe('No schema loaded');
+      expect(clearBtn.disabled).toBe(true);
+      expect(chrome.storage.local.remove).toHaveBeenCalledWith(
+        [SCHEMA_STORAGE_KEY, SCHEMA_CACHE_STORAGE_KEY],
+        expect.any(Function)
+      );
     });
   });
 });

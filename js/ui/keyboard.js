@@ -3,6 +3,7 @@
  * - Ctrl+Shift+D toggles the debugger (matches the Start button aria-label)
  * - Escape closes the detail panel
  * - Arrow/Home/End navigation within the request list (roving focus)
+ * - Arrow/Home/End navigation within the schema type list (roving focus)
  * - Arrow navigation within the filter chip radio group
  * @module ui/keyboard
  */
@@ -20,6 +21,14 @@ function getRequestItems() {
   return Array.from(document.querySelectorAll('#request-list .request-item'));
 }
 
+function getSchemaTypeItems() {
+  return Array.from(document.querySelectorAll('#schema-type-list .schema-type-item'));
+}
+
+/**
+ * @param {HTMLElement[]} items
+ * @param {number} index
+ */
 function focusItem(items, index) {
   if (index < 0 || index >= items.length) return;
   items.forEach((item, i) => item.setAttribute('tabindex', i === index ? '0' : '-1'));
@@ -59,6 +68,51 @@ function handleListKeydown(e) {
   }
 }
 
+function handleSchemaListKeydown(e) {
+  const items = getSchemaTypeItems();
+  if (items.length === 0) return;
+
+  const currentIndex = items.indexOf(document.activeElement);
+
+  switch (e.key) {
+    case 'ArrowDown':
+      e.preventDefault();
+      focusSchemaItem(items, currentIndex < 0 ? 0 : Math.min(currentIndex + 1, items.length - 1));
+      break;
+    case 'ArrowUp':
+      e.preventDefault();
+      focusSchemaItem(items, currentIndex < 0 ? 0 : Math.max(currentIndex - 1, 0));
+      break;
+    case 'Home':
+      e.preventDefault();
+      focusSchemaItem(items, 0);
+      break;
+    case 'End':
+      e.preventDefault();
+      focusSchemaItem(items, items.length - 1);
+      break;
+    case 'Enter':
+    case ' ':
+      if (currentIndex >= 0) {
+        e.preventDefault();
+        items[currentIndex].click();
+      }
+      break;
+  }
+}
+
+/**
+ * Focus a schema type option and update the SDL panel (single-select listbox).
+ * @param {HTMLElement[]} items
+ * @param {number} index
+ */
+function focusSchemaItem(items, index) {
+  if (index < 0 || index >= items.length) return;
+  focusItem(items, index);
+  items[index].click();
+  items[index].scrollIntoView?.({ block: 'nearest' });
+}
+
 function handleChipKeydown(e) {
   if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
 
@@ -88,6 +142,18 @@ export function initKeyboard() {
       const selectedIndex = items.findIndex(
         (item) => parseInt(item.dataset.requestId) === state.selectedRequestId
       );
+      focusItem(items, selectedIndex >= 0 ? selectedIndex : 0);
+    });
+  }
+
+  const schemaTypeList = getElement('schema-type-list');
+  if (schemaTypeList) {
+    schemaTypeList.addEventListener('keydown', handleSchemaListKeydown);
+
+    schemaTypeList.addEventListener('focus', () => {
+      const items = getSchemaTypeItems();
+      if (items.length === 0) return;
+      const selectedIndex = items.findIndex((item) => item.getAttribute('aria-selected') === 'true');
       focusItem(items, selectedIndex >= 0 ? selectedIndex : 0);
     });
   }

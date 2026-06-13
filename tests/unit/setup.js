@@ -30,6 +30,7 @@ global.chrome = {
     local: {
       get: jest.fn((keys, cb) => cb && cb({})),
       set: jest.fn((items, cb) => cb && cb()),
+      remove: jest.fn((keys, cb) => cb && cb()),
     },
   },
   notifications: {

@@ -76,6 +76,7 @@ async function bundleJS(entry, outfile) {
     sourcemap: isDev ? 'inline' : false,
     drop: isDev ? [] : ['debugger'],
     pure: isDev ? [] : ['console.info', 'console.debug'],
+    legalComments: 'none',
     logLevel: 'warning',
     metafile: true,
   });

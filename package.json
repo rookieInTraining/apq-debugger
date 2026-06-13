@@ -16,7 +16,8 @@
     "format:check": "prettier --check \"js/**/*.js\" \"tests/**/*.js\" \"*.js\" \"*.json\"",
     "version": "node scripts/sync-version.js && git add manifest.json",
     "package": "node scripts/package-extension.js",
-    "release": "npm run build && npm run package"
+    "release": "npm run build && npm run package",
+    "check:bundle": "node scripts/check-bundle-size.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.1",
@@ -46,8 +47,5 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/rookieInTraining/apq-debugger.git"
-  },
-  "dependencies": {
-    "graphql": "^16.14.0"
   }
 }

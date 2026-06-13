@@ -93,6 +93,8 @@ function extractDefinitionName(block) {
   for (const line of block.split('\n')) {
     if (/^\s/.test(line)) continue;
     const trimmed = line.trim();
+    const directiveMatch = trimmed.match(/^(?:extend\s+)?directive\s+@(\w+)/);
+    if (directiveMatch) return { name: directiveMatch[1], kind: 'directive' };
     const match = trimmed.match(DEFINITION_NAME);
     if (!match) continue;
     if (match[2] === 'schema') return { name: 'schema', kind: 'schema' };
@@ -149,6 +151,17 @@ function scheduleIdle(fn) {
   }
 }
 
+/** @type {boolean} */
+let schemaLoaded = false;
+
+/**
+ * Whether a schema is currently loaded in the viewer.
+ * @returns {boolean}
+ */
+export function isSchemaLoaded() {
+  return schemaLoaded;
+}
+
 /**
  * Switch the visible main-panel tab.
  * @param {'requests'|'schema'} tab
@@ -199,6 +212,7 @@ function selectType(name) {
     const selected = item.dataset.typeName === name;
     item.classList.toggle('selected', selected);
     item.setAttribute('aria-selected', String(selected));
+    item.setAttribute('tabindex', selected ? '0' : '-1');
   });
 
   const entry = schemaEntries.find((item) => item.name === name);
@@ -242,7 +256,8 @@ function renderTypeList(filterText) {
     button.className = 'schema-type-item';
     button.dataset.typeName = entry.name;
     button.setAttribute('role', 'option');
-    button.innerHTML = `<span class="kind">${escapeHtml(entry.kind)}</span>${escapeHtml(entry.name)}`;
+    button.setAttribute('tabindex', '-1');
+    button.innerHTML = `<span class="kind">${escapeHtml(entry.kind)}</span><span class="name">${escapeHtml(entry.name)}</span>`;
     if (entry.name === selectedName) {
       button.classList.add('selected');
       button.setAttribute('aria-selected', 'true');
@@ -279,24 +294,39 @@ function indexSchema(sdl) {
 
 /**
  * Render a loaded schema in the viewer.
- * @param {string} sdl - Printed schema SDL.
- * @param {{endpoint: string, typeCount: number, fetchedAt: number}} meta
+ * @param {string | null | undefined} sdl - Printed schema SDL; falsy clears the viewer.
+ * @param {{endpoint: string, typeCount: number, fetchedAt: number}} [meta]
  */
 export function setSchema(sdl, meta) {
   const metaEl = getElement('schema-meta');
-  if (metaEl && meta) {
-    const when = meta.fetchedAt ? new Date(meta.fetchedAt).toLocaleString() : '';
-    metaEl.textContent = `${meta.typeCount} types — ${meta.endpoint}${when ? ` — ${when}` : ''}`;
+  if (metaEl) {
+    if (meta) {
+      const when = meta.fetchedAt ? new Date(meta.fetchedAt).toLocaleString() : '';
+      metaEl.textContent = `${meta.typeCount} types — ${meta.endpoint}${when ? ` — ${when}` : ''}`;
+    } else if (!sdl) {
+      metaEl.textContent = '';
+    }
   }
 
   if (!sdl) {
     parseGeneration += 1;
     schemaEntries = [];
     selectedName = null;
+    schemaLoaded = false;
     setExplorerVisible(false);
+
+    const list = getElement('schema-type-list');
+    if (list) list.replaceChildren();
+
+    const view = getElement('schema-sdl-view');
+    if (view) view.textContent = '';
+
+    const searchInput = getElement('schema-search');
+    if (searchInput) searchInput.value = '';
     return;
   }
 
+  schemaLoaded = true;
   indexSchema(sdl);
 }
 

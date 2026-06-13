@@ -40,8 +40,8 @@ export const SCHEMA_PROBE_TIMEOUT_MS = 4000;
 export const SCHEMA_MAX_CANDIDATES = 10;
 /**
  * Standard GraphQL introspection query (classic graphql-js form, compatible
- * with `buildClientSchema`). Kept as a string literal so the service worker
- * bundle does not need to include the `graphql` package.
+ * with {@link module:shared/introspection-to-sdl}). Kept as a string literal
+ * so bundles do not need the `graphql` npm package.
  */
 export const INTROSPECTION_QUERY = `
   query IntrospectionQuery {
