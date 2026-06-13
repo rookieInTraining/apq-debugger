@@ -51,7 +51,9 @@ const MINIMAL_INTROSPECTION = {
       {
         name: 'include',
         locations: ['FIELD', 'FRAGMENT_SPREAD', 'INLINE_FRAGMENT'],
-        args: [{ name: 'if', type: { kind: 'NON_NULL', ofType: { kind: 'SCALAR', name: 'Boolean' } } }],
+        args: [
+          { name: 'if', type: { kind: 'NON_NULL', ofType: { kind: 'SCALAR', name: 'Boolean' } } },
+        ],
       },
       {
         name: 'cacheControl',
@@ -106,13 +108,25 @@ describe('introspection-to-sdl', () => {
             kind: 'INTERFACE',
             name: 'Node',
             interfaces: [],
-            fields: [{ name: 'id', args: [], type: { kind: 'NON_NULL', ofType: { kind: 'SCALAR', name: 'ID' } } }],
+            fields: [
+              {
+                name: 'id',
+                args: [],
+                type: { kind: 'NON_NULL', ofType: { kind: 'SCALAR', name: 'ID' } },
+              },
+            ],
           },
           {
             kind: 'OBJECT',
             name: 'User',
             interfaces: [{ name: 'Node' }],
-            fields: [{ name: 'id', args: [], type: { kind: 'NON_NULL', ofType: { kind: 'SCALAR', name: 'ID' } } }],
+            fields: [
+              {
+                name: 'id',
+                args: [],
+                type: { kind: 'NON_NULL', ofType: { kind: 'SCALAR', name: 'ID' } },
+              },
+            ],
           },
           {
             kind: 'UNION',
@@ -122,13 +136,19 @@ describe('introspection-to-sdl', () => {
           {
             kind: 'ENUM',
             name: 'Role',
-            enumValues: [{ name: 'ADMIN' }, { name: 'USER', deprecationReason: 'No longer supported' }],
+            enumValues: [
+              { name: 'ADMIN' },
+              { name: 'USER', deprecationReason: 'No longer supported' },
+            ],
           },
           {
             kind: 'INPUT_OBJECT',
             name: 'UserInput',
             inputFields: [
-              { name: 'name', type: { kind: 'NON_NULL', ofType: { kind: 'SCALAR', name: 'String' } } },
+              {
+                name: 'name',
+                type: { kind: 'NON_NULL', ofType: { kind: 'SCALAR', name: 'String' } },
+              },
             ],
           },
           { kind: 'SCALAR', name: 'String' },

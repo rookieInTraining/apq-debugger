@@ -212,7 +212,8 @@ function printEnum(type) {
  */
 function printInputObject(type) {
   const fields = (type.inputFields || []).map(
-    (field, index) => printDescription(field.description, '  ', index === 0) + `  ${printInputValue(field)}`
+    (field, index) =>
+      printDescription(field.description, '  ', index === 0) + `  ${printInputValue(field)}`
   );
   let header = printDescription(type.description) + `input ${type.name}`;
   if (type.isOneOf) header += ' @oneOf';

@@ -30,12 +30,14 @@ import {
 import { applySettings, initSettings } from '../../js/ui/settings.js';
 import { initToolbar, updateToolbarState } from '../../js/ui/toolbar.js';
 import { initKeyboard } from '../../js/ui/keyboard.js';
-import { setSchema, showMainTab, initSchemaViewer, isSchemaLoaded } from '../../js/ui/schema-viewer.js';
-import { initSchemaControls } from '../../js/ui/schema-controls.js';
 import {
-  SCHEMA_STORAGE_KEY,
-  SCHEMA_CACHE_STORAGE_KEY,
-} from '../../js/shared/constants.js';
+  setSchema,
+  showMainTab,
+  initSchemaViewer,
+  isSchemaLoaded,
+} from '../../js/ui/schema-viewer.js';
+import { initSchemaControls } from '../../js/ui/schema-controls.js';
+import { SCHEMA_STORAGE_KEY, SCHEMA_CACHE_STORAGE_KEY } from '../../js/shared/constants.js';
 import { initRequestList } from '../../js/ui/request-list.js';
 
 function setupDOM() {
@@ -828,7 +830,9 @@ type Query {
       expect(names).toContain('cacheControl');
       expect(names).not.toContain('Unknown');
 
-      const directiveItem = document.querySelector('.schema-type-item[data-type-name="cacheControl"]');
+      const directiveItem = document.querySelector(
+        '.schema-type-item[data-type-name="cacheControl"]'
+      );
       expect(directiveItem?.querySelector('.kind')?.textContent).toBe('directive');
     });
 
@@ -862,12 +866,16 @@ type Query {
       list.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
       expect(document.activeElement).toBe(items[0]);
       expect(items[0].getAttribute('aria-selected')).toBe('true');
-      expect(document.getElementById('schema-sdl-view').textContent).toContain(items[0].dataset.typeName);
+      expect(document.getElementById('schema-sdl-view').textContent).toContain(
+        items[0].dataset.typeName
+      );
 
       list.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
       expect(document.activeElement).toBe(items[1]);
       expect(items[1].getAttribute('aria-selected')).toBe('true');
-      expect(document.getElementById('schema-sdl-view').textContent).toContain(items[1].dataset.typeName);
+      expect(document.getElementById('schema-sdl-view').textContent).toContain(
+        items[1].dataset.typeName
+      );
     });
 
     test('clear should reset the viewer and remove cached schema', async () => {

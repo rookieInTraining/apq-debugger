@@ -241,7 +241,8 @@ function renderTypeList(filterText) {
   if (visible.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'schema-type-list-empty';
-    empty.textContent = schemaEntries.length === 0 ? 'Indexing types…' : 'No types match your filter';
+    empty.textContent =
+      schemaEntries.length === 0 ? 'Indexing types…' : 'No types match your filter';
     list.appendChild(empty);
     const view = getElement('schema-sdl-view');
     if (view) view.textContent = '';

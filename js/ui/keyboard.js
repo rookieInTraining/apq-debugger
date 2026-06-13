@@ -153,7 +153,9 @@ export function initKeyboard() {
     schemaTypeList.addEventListener('focus', () => {
       const items = getSchemaTypeItems();
       if (items.length === 0) return;
-      const selectedIndex = items.findIndex((item) => item.getAttribute('aria-selected') === 'true');
+      const selectedIndex = items.findIndex(
+        (item) => item.getAttribute('aria-selected') === 'true'
+      );
       focusItem(items, selectedIndex >= 0 ? selectedIndex : 0);
     });
   }
