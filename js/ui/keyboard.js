@@ -1,6 +1,5 @@
 /**
- * Keyboard navigation and shortcuts:
- * - Ctrl+Shift+D toggles the debugger (matches the Start button aria-label)
+ * Keyboard navigation:
  * - Escape closes the detail panel
  * - Arrow/Home/End navigation within the request list (roving focus)
  * - Arrow/Home/End navigation within the schema type list (roving focus)
@@ -166,14 +165,6 @@ export function initKeyboard() {
   }
 
   document.addEventListener('keydown', (e) => {
-    // Ctrl+Shift+D: toggle debugger
-    if (e.ctrlKey && e.shiftKey && (e.key === 'D' || e.key === 'd')) {
-      e.preventDefault();
-      const submitButton = getElement('form-submit');
-      if (submitButton) submitButton.click();
-      return;
-    }
-
     // Escape: close the detail panel (unless typing in a field)
     if (e.key === 'Escape' && !isEditableTarget(e.target)) {
       const detailPanel = getElement('detail-panel');

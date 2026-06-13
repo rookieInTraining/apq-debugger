@@ -1136,31 +1136,6 @@ body.resizing * {
     font-size: 36px;
 }
 
-.empty-state .empty-hint {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    margin-top: 12px;
-    padding: 6px 12px;
-    border-radius: var(--radius-full);
-    background: var(--color-surface-alt);
-    border: 1px solid var(--color-border);
-    font-size: 11px;
-    color: var(--color-text-muted);
-}
-
-.empty-state .empty-hint kbd {
-    display: inline-block;
-    padding: 1px 5px;
-    border: 1px solid var(--color-border-strong);
-    border-radius: 3px;
-    background: var(--color-surface);
-    font-family: var(--font-mono);
-    font-size: 10px;
-    color: var(--color-text-secondary);
-    box-shadow: var(--shadow-sm);
-}
-
 /* ================================================
    Scrollbar Styling
    ================================================ */

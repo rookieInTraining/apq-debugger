@@ -648,19 +648,6 @@ describe('DevTools Panel Logic', () => {
       expect(document.activeElement).toBe(items[0]);
     });
 
-    test('Ctrl+Shift+D should trigger the start/stop button', () => {
-      initKeyboard();
-      const submitButton = document.getElementById('form-submit');
-      const clickSpy = jest.spyOn(submitButton, 'click').mockImplementation(() => {});
-
-      document.dispatchEvent(
-        new KeyboardEvent('keydown', { key: 'D', ctrlKey: true, shiftKey: true, bubbles: true })
-      );
-
-      expect(clickSpy).toHaveBeenCalled();
-      clickSpy.mockRestore();
-    });
-
     test('Escape should close the detail panel', () => {
       initKeyboard();
       const detailPanel = document.getElementById('detail-panel');
