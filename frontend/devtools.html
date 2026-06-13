@@ -135,39 +135,22 @@
                             aria-label="Clear hash registry" disabled>Clear</button>
                     </div>
                 </div>
-
-                <!-- Schema -->
-                <div class="sidebar-section" id="schema-section">
-                    <div class="sidebar-section-header">
-                        <h3 class="sidebar-section-title">Schema</h3>
-                    </div>
-                    <p class="sidebar-section-desc">
-                        Load a schema for query validation, deprecation warnings, and type info on hover.
-                    </p>
-                    <div class="schema-form">
-                        <input type="url" class="schema-url-input" id="schema-url-input"
-                            placeholder="https://api.example.com/graphql"
-                            aria-label="GraphQL endpoint URL">
-                        <button type="button" class="btn btn-primary btn-block" id="btn-load-schema"
-                            aria-label="Load schema via introspection">Load Schema</button>
-                    </div>
-                    <div class="schema-status" id="schema-status" role="status" aria-live="polite">
-                        No schema loaded
-                    </div>
-                </div>
             </aside>
 
             <!-- Resize handle: sidebar / request panel -->
             <div class="resize-handle resize-handle-left" id="resize-handle-left" role="separator"
                 aria-orientation="vertical" aria-label="Resize patterns panel" tabindex="0"></div>
 
-            <!-- Center Panel - Request List -->
-            <main class="request-panel" aria-label="Intercepted requests">
-                <div class="panel-header">
-                    <h2 class="panel-title"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-                            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-                        </svg>Intercepted Requests</h2>
-                    <div class="panel-toolbar">
+            <!-- Center Panel - Requests / Schema -->
+            <main class="request-panel" aria-label="Main panel">
+                <div class="panel-header main-panel-header">
+                    <div class="panel-tabs" role="tablist" aria-label="Main panel views">
+                        <button class="panel-tab" id="tab-requests" role="tab" aria-selected="true"
+                            aria-controls="requests-content">Requests</button>
+                        <button class="panel-tab" id="tab-schema" role="tab" aria-selected="false"
+                            aria-controls="schema-content">Schema</button>
+                    </div>
+                    <div class="panel-toolbar" id="requests-toolbar">
                         <button class="btn btn-toolbar" id="btn-clear-history" title="Clear request history"
                             aria-label="Clear request history" disabled>
                             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -184,6 +167,8 @@
                             </svg> Export
                         </button>
                     </div>
+                </div>
+                <div class="main-tab-content" id="requests-content" role="tabpanel" aria-labelledby="tab-requests">
                     <div class="filter-bar">
                         <input type="text" class="filter-input" id="filter-input"
                             placeholder="Filter by operation name..." aria-label="Filter requests by operation name">
@@ -193,22 +178,48 @@
                             <button class="chip" data-filter="full" role="radio" aria-checked="false">Full</button>
                         </div>
                     </div>
-                </div>
-                <div class="request-list" id="request-list" role="listbox" aria-label="Request list"
-                    tabindex="0">
-                    <div class="empty-state" id="empty-state" role="status">
-                        <div class="empty-icon" aria-hidden="true">
-                            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-                                <path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9" />
-                                <path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5" />
-                                <circle cx="12" cy="12" r="2" />
-                                <path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5" />
-                                <path d="M19.1 4.9C23 8.8 23 15.2 19.1 19.1" />
-                            </svg>
+                    <div class="request-list" id="request-list" role="listbox" aria-label="Request list"
+                        tabindex="0">
+                        <div class="empty-state" id="empty-state" role="status">
+                            <div class="empty-icon" aria-hidden="true">
+                                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9" />
+                                    <path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5" />
+                                    <circle cx="12" cy="12" r="2" />
+                                    <path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5" />
+                                    <path d="M19.1 4.9C23 8.8 23 15.2 19.1 19.1" />
+                                </svg>
+                            </div>
+                            <p class="empty-title" id="empty-title">No requests intercepted yet</p>
+                            <p class="empty-desc" id="empty-desc">Start debugging to capture GraphQL requests</p>
+                            <span class="empty-hint"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>D</kbd> to start or stop</span>
                         </div>
-                        <p class="empty-title" id="empty-title">No requests intercepted yet</p>
-                        <p class="empty-desc" id="empty-desc">Start debugging to capture GraphQL requests</p>
-                        <span class="empty-hint"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>D</kbd> to start or stop</span>
+                    </div>
+                </div>
+                <div class="main-tab-content hidden" id="schema-content" role="tabpanel" aria-labelledby="tab-schema">
+                    <div class="schema-load-bar">
+                        <div class="schema-form">
+                            <input type="url" class="schema-url-input" id="schema-url-input"
+                                placeholder="https://api.example.com/graphql"
+                                aria-label="GraphQL endpoint URL">
+                            <button type="button" class="btn btn-primary" id="btn-load-schema"
+                                aria-label="Load schema via introspection">Load Schema</button>
+                        </div>
+                        <div class="schema-status" id="schema-status" role="status" aria-live="polite">
+                            No schema loaded
+                        </div>
+                    </div>
+                    <div class="schema-explorer hidden" id="schema-explorer">
+                        <div class="schema-meta" id="schema-meta"></div>
+                        <div class="schema-toolbar">
+                            <input type="text" class="schema-search" id="schema-search" placeholder="Filter types..."
+                                aria-label="Filter schema types">
+                        </div>
+                        <div class="schema-body">
+                            <div class="schema-type-list" id="schema-type-list" role="listbox"
+                                aria-label="Schema types" tabindex="0"></div>
+                            <pre class="schema-sdl" id="schema-sdl-view" aria-label="Selected type definition"></pre>
+                        </div>
                     </div>
                 </div>
             </main>
@@ -217,30 +228,17 @@
             <div class="resize-handle resize-handle-right" id="resize-handle-right" role="separator"
                 aria-orientation="vertical" aria-label="Resize detail panel" tabindex="0"></div>
 
-            <!-- Right Panel - Request Details / Schema -->
+            <!-- Right Panel - Request Details -->
             <aside class="detail-panel" id="detail-panel" aria-label="Request details">
                 <div class="panel-header">
-                    <div class="detail-tabs" role="tablist" aria-label="Detail panel views">
-                        <button class="detail-tab" id="tab-request" role="tab" aria-selected="true"
-                            aria-controls="detail-content">Request</button>
-                        <button class="detail-tab" id="tab-schema" role="tab" aria-selected="false"
-                            aria-controls="schema-content" disabled>Schema</button>
-                    </div>
+                    <h2 class="panel-title">Request</h2>
                     <button class="btn-icon btn-close" id="close-detail" title="Close (Escape)"
                         aria-label="Close detail panel">×</button>
                 </div>
-                <div class="detail-content" id="detail-content" role="tabpanel" aria-labelledby="tab-request">
+                <div class="detail-content" id="detail-content">
                     <div class="detail-placeholder">
                         <p>Select a request to view details</p>
                     </div>
-                </div>
-                <div class="schema-content hidden" id="schema-content" role="tabpanel" aria-labelledby="tab-schema">
-                    <div class="schema-meta" id="schema-meta"></div>
-                    <div class="schema-toolbar">
-                        <input type="text" class="schema-search" id="schema-search" placeholder="Search types..."
-                            aria-label="Search schema types">
-                    </div>
-                    <div class="schema-types" id="schema-types"></div>
                 </div>
             </aside>
         </div>

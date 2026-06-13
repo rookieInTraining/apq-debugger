@@ -9,7 +9,7 @@
 import { buildClientSchema, printSchema } from 'graphql';
 import { getElement } from './dom-helpers.js';
 import { inspectedTabId } from './state.js';
-import { setSchema, showDetailTab } from './schema-viewer.js';
+import { setSchema, showMainTab } from './schema-viewer.js';
 import {
   SCHEMA_STORAGE_KEY,
   SCHEMA_CACHE_STORAGE_KEY,
@@ -106,7 +106,7 @@ function handleLoadClick() {
       if (input) input.value = response.endpoint;
       cacheSchema(response.endpoint, sdl, typeCount, fetchedAt);
       applySchema(sdl, { endpoint: response.endpoint, typeCount, fetchedAt });
-      showDetailTab('schema');
+      showMainTab('schema');
     } catch (error) {
       console.error('Failed to build schema:', error);
       setStatus(`Invalid introspection result: ${error.message}`, true);

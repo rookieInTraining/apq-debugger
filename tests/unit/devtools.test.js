@@ -30,7 +30,7 @@ import {
 import { applySettings, initSettings } from '../../js/ui/settings.js';
 import { initToolbar, updateToolbarState } from '../../js/ui/toolbar.js';
 import { initKeyboard } from '../../js/ui/keyboard.js';
-import { setSchema, showDetailTab, initSchemaViewer } from '../../js/ui/schema-viewer.js';
+import { setSchema, showMainTab, initSchemaViewer } from '../../js/ui/schema-viewer.js';
 import { initRequestList } from '../../js/ui/request-list.js';
 
 function setupDOM() {
@@ -674,73 +674,135 @@ describe('DevTools Panel Logic', () => {
     const SAMPLE_SDL =
       'type Query {\n  users: [User]\n}\n\ntype User {\n  id: ID\n  name: String\n}';
 
+    /** @returns {Promise<void>} */
+    async function flushSchemaIndex() {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
     beforeEach(() => {
       document.body.innerHTML += `
-        <button id="tab-request" aria-selected="true"></button>
-        <button id="tab-schema" aria-selected="false" disabled></button>
+        <button id="tab-requests" aria-selected="true"></button>
+        <button id="tab-schema" aria-selected="false"></button>
+        <div id="requests-toolbar"></div>
+        <div id="requests-content"></div>
         <div id="schema-content" class="hidden">
-          <div id="schema-meta"></div>
-          <input id="schema-search">
-          <div id="schema-types"></div>
+          <div id="schema-explorer" class="hidden">
+            <div id="schema-meta"></div>
+            <input id="schema-search">
+            <div id="schema-type-list"></div>
+            <pre id="schema-sdl-view"></pre>
+          </div>
         </div>
       `;
     });
 
-    test('setSchema should render type blocks and enable the tab', () => {
+    test('setSchema should index types and show the explorer', async () => {
       setSchema(SAMPLE_SDL, {
         endpoint: 'https://x.com/graphql',
         typeCount: 2,
         fetchedAt: Date.now(),
       });
 
-      const blocks = document.querySelectorAll('.schema-type-block');
-      expect(blocks).toHaveLength(2);
-      expect(document.getElementById('tab-schema').disabled).toBe(false);
+      await flushSchemaIndex();
+
+      expect(document.getElementById('schema-explorer').classList.contains('hidden')).toBe(false);
+      expect(document.querySelectorAll('.schema-type-item')).toHaveLength(2);
+      expect(document.getElementById('schema-sdl-view').textContent).toContain('type Query');
       expect(document.getElementById('schema-meta').textContent).toContain('2 types');
       expect(document.getElementById('schema-meta').textContent).toContain('https://x.com/graphql');
     });
 
-    test('setSchema should escape and highlight SDL', () => {
+    test('setSchema should escape and highlight the selected type', async () => {
       setSchema('type Query {\n  name: String\n}', {
         endpoint: 'https://x.com/graphql',
         typeCount: 1,
         fetchedAt: Date.now(),
       });
 
-      const html = document.getElementById('schema-types').innerHTML;
+      await flushSchemaIndex();
+
+      const html = document.getElementById('schema-sdl-view').innerHTML;
       expect(html).toContain('<span class="keyword">type</span>');
-      expect(html).toContain('<span class="type">String</span>');
+      expect(html).toContain('<span class="field">name</span>');
+      expect(html).toContain('<span class="builtin">String</span>');
     });
 
-    test('search should filter type blocks', () => {
+    test('search should filter the type list', () => {
+      jest.useFakeTimers();
       initSchemaViewer();
       setSchema(SAMPLE_SDL, {
         endpoint: 'https://x.com/graphql',
         typeCount: 2,
         fetchedAt: Date.now(),
       });
+      jest.advanceTimersByTime(0);
 
       const search = document.getElementById('schema-search');
-      search.value = 'users';
+      search.value = 'User';
       search.dispatchEvent(new Event('input', { bubbles: true }));
+      jest.advanceTimersByTime(150);
 
-      expect(document.querySelectorAll('.schema-type-block')).toHaveLength(1);
+      expect(document.querySelectorAll('.schema-type-item')).toHaveLength(1);
+      expect(document.getElementById('schema-sdl-view').textContent).toContain('type User');
 
       search.value = 'no-such-type';
       search.dispatchEvent(new Event('input', { bubbles: true }));
-      expect(document.querySelector('.schema-empty').textContent).toContain('No types match');
+      jest.advanceTimersByTime(150);
+      expect(document.querySelector('.schema-type-list-empty').textContent).toContain(
+        'No types match'
+      );
+      jest.useRealTimers();
     });
 
-    test('showDetailTab should toggle panels and aria-selected', () => {
-      showDetailTab('schema');
-      expect(document.getElementById('tab-schema').getAttribute('aria-selected')).toBe('true');
-      expect(document.getElementById('tab-request').getAttribute('aria-selected')).toBe('false');
-      expect(document.getElementById('schema-content').classList.contains('hidden')).toBe(false);
-      expect(document.getElementById('detail-content').classList.contains('hidden')).toBe(true);
+    test('setSchema should preserve types with blank lines in descriptions', async () => {
+      const sdl = `"""
+An organization in Apollo Studio.
 
-      showDetailTab('request');
-      expect(document.getElementById('tab-request').getAttribute('aria-selected')).toBe('true');
-      expect(document.getElementById('detail-content').classList.contains('hidden')).toBe(false);
+Can have multiple members.
+"""
+type Account {
+  """Used by Studio to show the Change Plan button"""
+  canChangePlan: Boolean!
+}
+
+type User {
+  id: ID
+}`;
+
+      setSchema(sdl, {
+        endpoint: 'https://x.com/graphql',
+        typeCount: 2,
+        fetchedAt: Date.now(),
+      });
+
+      await flushSchemaIndex();
+
+      const accountItem = [...document.querySelectorAll('.schema-type-item')].find(
+        (item) => item.dataset.typeName === 'Account'
+      );
+      expect(accountItem).toBeTruthy();
+      accountItem.click();
+
+      const rendered = document.getElementById('schema-sdl-view').textContent;
+      expect(rendered).toContain('Can have multiple members.');
+      expect(rendered).toContain('canChangePlan: Boolean!');
+      expect(rendered.indexOf('type Account')).toBeLessThan(rendered.indexOf('canChangePlan'));
+    });
+
+    test('showMainTab should toggle panels and aria-selected', () => {
+      showMainTab('schema');
+      expect(document.getElementById('tab-schema').getAttribute('aria-selected')).toBe('true');
+      expect(document.getElementById('tab-requests').getAttribute('aria-selected')).toBe('false');
+      expect(document.getElementById('schema-content').classList.contains('hidden')).toBe(false);
+      expect(document.getElementById('requests-content').classList.contains('hidden')).toBe(true);
+
+      showMainTab('requests');
+      expect(document.getElementById('tab-requests').getAttribute('aria-selected')).toBe('true');
+      expect(document.getElementById('requests-content').classList.contains('hidden')).toBe(false);
     });
   });
 });

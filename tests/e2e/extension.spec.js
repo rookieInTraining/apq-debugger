@@ -259,25 +259,25 @@ test.describe('APQ Debugger Extension', () => {
     await expect(page.locator('.app')).not.toHaveClass(/sidebar-collapsed/);
   });
 
-  // ── Schema section ─────────────────────────────────────────────
+  // ── Schema tab ─────────────────────────────────────────────────
 
-  test('should show schema section with load button', async () => {
+  test('should show schema tab with load controls', async () => {
     const page = await openDevToolsPage();
 
-    await expect(page.locator('#schema-section')).toBeVisible();
+    await page.locator('#tab-schema').click();
+    await expect(page.locator('#schema-content')).toBeVisible();
     await expect(page.locator('#btn-load-schema')).toContainText('Load Schema');
     await expect(page.locator('#schema-status')).toContainText('No schema loaded');
     await expect(page.locator('#schema-url-input')).toBeVisible();
-
-    await expect(page.locator('#tab-schema')).toBeDisabled();
   });
 
-  // ── Detail panel tabs ──────────────────────────────────────────
+  // ── Main panel tabs ────────────────────────────────────────────
 
-  test('should show request/schema tabs in detail panel', async () => {
+  test('should show requests tab selected by default', async () => {
     const page = await openDevToolsPage();
 
-    await expect(page.locator('#tab-request')).toHaveAttribute('aria-selected', 'true');
+    await expect(page.locator('#tab-requests')).toHaveAttribute('aria-selected', 'true');
     await expect(page.locator('#tab-schema')).toHaveAttribute('aria-selected', 'false');
+    await expect(page.locator('#requests-content')).toBeVisible();
   });
 });

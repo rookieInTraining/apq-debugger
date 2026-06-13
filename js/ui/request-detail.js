@@ -5,7 +5,6 @@
 
 import { getElement, escapeHtml } from './dom-helpers.js';
 import { state } from './state.js';
-import { showDetailTab } from './schema-viewer.js';
 import { openCurlModal } from './curl-copy.js';
 
 /**
@@ -24,9 +23,6 @@ export function selectRequest(requestId) {
 
   const detailPanel = getElement('detail-panel');
   if (detailPanel) detailPanel.classList.remove('hidden');
-
-  // Selecting a request always brings the Request tab forward
-  showDetailTab('request');
 
   renderRequestDetail(requestId);
 }
