@@ -171,17 +171,15 @@ export function showMainTab(tab) {
   const schemaTab = getElement('tab-schema');
   const requestsContent = getElement('requests-content');
   const schemaContent = getElement('schema-content');
-  const requestsToolbar = document.getElementById('requests-toolbar');
   if (!requestsTab || !schemaTab || !requestsContent || !schemaContent) return;
 
   const showSchema = tab === 'schema';
   requestsTab.setAttribute('aria-selected', String(!showSchema));
   schemaTab.setAttribute('aria-selected', String(showSchema));
+  requestsTab.setAttribute('tabindex', showSchema ? '-1' : '0');
+  schemaTab.setAttribute('tabindex', showSchema ? '0' : '-1');
   requestsContent.classList.toggle('hidden', showSchema);
   schemaContent.classList.toggle('hidden', !showSchema);
-  if (requestsToolbar) {
-    requestsToolbar.classList.toggle('hidden', showSchema);
-  }
 }
 
 /** @deprecated Use showMainTab('schema') */
@@ -192,6 +190,8 @@ export function showDetailTab(tab) {
 function setExplorerVisible(visible) {
   const explorer = getElement('schema-explorer');
   if (explorer) explorer.classList.toggle('hidden', !visible);
+  const empty = document.getElementById('schema-empty');
+  if (empty) empty.classList.toggle('hidden', visible);
 }
 
 function getSearchValue() {
@@ -303,7 +303,7 @@ export function setSchema(sdl, meta) {
   if (metaEl) {
     if (meta) {
       const when = meta.fetchedAt ? new Date(meta.fetchedAt).toLocaleString() : '';
-      metaEl.textContent = `${meta.typeCount} types — ${meta.endpoint}${when ? ` — ${when}` : ''}`;
+      metaEl.textContent = `${meta.typeCount} types · ${meta.endpoint}${when ? ` · loaded ${when}` : ''}`;
     } else if (!sdl) {
       metaEl.textContent = '';
     }

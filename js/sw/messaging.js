@@ -14,6 +14,7 @@ import {
 } from './debugger-manager.js';
 import { getRegistrySize, clearRegistry, isPassiveMode, setPassiveMode } from './hash-registry.js';
 import { loadSchema } from './schema-loader.js';
+import { ensureEndpointsLoaded, getObservedEndpoints } from './endpoint-tracker.js';
 
 /**
  * Broadcast a status update to all listeners (DevTools panel, popup, etc.).
@@ -149,6 +150,14 @@ function validateMessage(message) {
   if (message.loadSchema !== undefined && typeof message.loadSchema !== 'boolean') {
     return '"loadSchema" must be a boolean';
   }
+
+  // Validate getObservedEndpoints message shape
+  if (
+    message.getObservedEndpoints !== undefined &&
+    typeof message.getObservedEndpoints !== 'boolean'
+  ) {
+    return '"getObservedEndpoints" must be a boolean';
+  }
   if (message.url !== undefined && typeof message.url !== 'string') {
     return '"url" must be a string';
   }
@@ -221,6 +230,16 @@ export function handleMessage(message, sender, sendResponse) {
         });
       } else if (message.loadSchema === true) {
         await handleLoadSchemaMessage(message, sendResponse);
+      } else if (message.getObservedEndpoints === true) {
+        if (message.tabId === undefined) {
+          sendResponse({ status: 'ERROR', error: 'No tabId provided for endpoints query' });
+        } else {
+          await ensureEndpointsLoaded();
+          sendResponse({
+            status: 'SUCCESS',
+            endpoints: getObservedEndpoints(message.tabId),
+          });
+        }
       } else {
         sendResponse({ status: 'ERROR', error: 'Invalid message format or empty patterns' });
       }

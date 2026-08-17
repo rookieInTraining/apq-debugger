@@ -1,0 +1,623 @@
+<!doctype html>
+<html lang="en">
+  <!--
+  Promo stage: a browser window drawn around the real APQ Debugger panel.
+  Copied next to devtools.html in a temporary extension build by
+  scripts/promo/lib.js, so the iframe below loads the real panel.
+  Everything outside the iframe is illustration; all data is synthetic.
+-->
+
+  <head>
+    <meta charset="UTF-8" />
+    <title>APQ Debugger demo stage</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --win: light-dark(#dfe3e8, #1f2023);
+        --tab: light-dark(#ffffff, #35363a);
+        --bar: light-dark(#ffffff, #35363a);
+        --omni: light-dark(#eef1f5, #202124);
+        --ink: light-dark(#1f1f1f, #e3e3e3);
+        --ink-2: light-dark(#5f6368, #a8acb1);
+        --line: light-dark(#dadce0, #4a4b4f);
+        --dt-head: light-dark(#f1f3f4, #292a2d);
+        --dt-blue: light-dark(#0b57d0, #a8c7fa);
+        --page: light-dark(#fbfaf8, #17181a);
+        --card: light-dark(#ffffff, #232427);
+        --infobar: light-dark(#fff8e1, #3a3013);
+        --infobar-ink: light-dark(#3c2c00, #fdecb7);
+        font:
+          13px/1.4 system-ui,
+          -apple-system,
+          'Segoe UI',
+          Roboto,
+          sans-serif;
+      }
+
+      :root.dark {
+        color-scheme: dark;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        background: var(--win);
+        color: var(--ink);
+      }
+
+      .window {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+      }
+
+      /* ---- browser chrome ---- */
+      .tabs {
+        display: flex;
+        align-items: flex-end;
+        gap: 8px;
+        height: 38px;
+        padding: 0 12px;
+      }
+
+      .dots {
+        display: flex;
+        gap: 7px;
+        align-self: center;
+        margin-right: 8px;
+      }
+
+      .dots i {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: light-dark(#c4c7cc, #5f6368);
+      }
+
+      .tab {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 240px;
+        height: 32px;
+        padding: 0 12px;
+        border-radius: 8px 8px 0 0;
+        background: var(--tab);
+        font-size: 12px;
+      }
+
+      .favicon {
+        width: 16px;
+        height: 16px;
+        border-radius: 4px;
+        background: #2f7d5b;
+        color: #fff;
+        font-size: 10px;
+        font-weight: 700;
+        display: grid;
+        place-items: center;
+      }
+
+      .toolbar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        height: 42px;
+        padding: 0 12px;
+        background: var(--bar);
+        border-bottom: 1px solid var(--line);
+      }
+
+      .nav-icon {
+        width: 18px;
+        height: 18px;
+        fill: none;
+        stroke: var(--ink-2);
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .omnibox {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 30px;
+        padding: 0 14px;
+        border-radius: 15px;
+        background: var(--omni);
+        color: var(--ink-2);
+      }
+
+      .omnibox b {
+        color: var(--ink);
+        font-weight: 400;
+      }
+
+      .ext {
+        position: relative;
+        width: 30px;
+        height: 30px;
+        display: grid;
+        place-items: center;
+        border-radius: 50%;
+      }
+
+      .ext.pressed {
+        background: light-dark(#e3e6ea, #4a4b4f);
+      }
+
+      .ext img {
+        width: 18px;
+        height: 18px;
+      }
+
+      .badge {
+        position: absolute;
+        right: -3px;
+        bottom: 0;
+        padding: 0 3px;
+        border-radius: 3px;
+        font:
+          700 9px/12px system-ui,
+          sans-serif;
+        color: #fff;
+        background: #d9534f;
+      }
+
+      .badge.on {
+        background: #5cb85c;
+      }
+
+      .badge[hidden] {
+        display: none;
+      }
+
+      /* Chrome's own infobar while an extension uses chrome.debugger */
+      .chrome-infobar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        height: 36px;
+        padding: 0 16px;
+        background: var(--infobar);
+        color: var(--infobar-ink);
+        border-bottom: 1px solid var(--line);
+      }
+
+      .chrome-infobar[hidden] {
+        display: none;
+      }
+
+      .chrome-infobar button {
+        margin-left: auto;
+        padding: 3px 12px;
+        border: 1px solid currentColor;
+        border-radius: 14px;
+        background: none;
+        color: inherit;
+        font: inherit;
+        opacity: 0.8;
+      }
+
+      /* ---- demo store ---- */
+      .page {
+        flex: none;
+        height: var(--page-h, 270px);
+        overflow: hidden;
+        background: var(--page);
+        padding: 16px 32px;
+      }
+
+      .store-head {
+        display: flex;
+        align-items: center;
+        gap: 28px;
+        margin-bottom: 14px;
+      }
+
+      .store-name {
+        font-size: 18px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+
+      .store-name small {
+        margin-left: 6px;
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--ink-2);
+      }
+
+      .cats {
+        display: flex;
+        gap: 4px;
+      }
+
+      .cats button {
+        padding: 5px 12px;
+        border: 0;
+        border-radius: 14px;
+        background: none;
+        color: var(--ink);
+        font: inherit;
+        cursor: pointer;
+      }
+
+      .cats button.on {
+        background: light-dark(#1f1f1f, #e3e3e3);
+        color: light-dark(#fff, #1f1f1f);
+      }
+
+      .cart {
+        margin-left: auto;
+        padding: 6px 14px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: var(--card);
+        color: var(--ink);
+        font: inherit;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 16px;
+      }
+
+      .product {
+        border-radius: 10px;
+        background: var(--card);
+        border: 1px solid var(--line);
+        overflow: hidden;
+      }
+
+      .swatch {
+        height: clamp(36px, calc(var(--page-h, 270px) - 150px), 120px);
+      }
+
+      .product div.meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 12px;
+      }
+
+      .product button {
+        padding: 3px 10px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: none;
+        color: var(--ink);
+        font:
+          12px system-ui,
+          sans-serif;
+        cursor: pointer;
+      }
+
+      /* ---- DevTools dock ---- */
+      .devtools {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        border-top: 1px solid var(--line);
+      }
+
+      .dt-tabs {
+        display: flex;
+        align-items: stretch;
+        height: 27px;
+        background: var(--dt-head);
+        border-bottom: 1px solid var(--line);
+        font-size: 12px;
+      }
+
+      .dt-tabs span {
+        display: flex;
+        align-items: center;
+        padding: 0 12px;
+        color: var(--ink-2);
+      }
+
+      .dt-tabs span.on {
+        color: var(--dt-blue);
+        box-shadow: inset 0 -2px 0 var(--dt-blue);
+      }
+
+      .dt-tabs .dt-end {
+        margin-left: auto;
+        letter-spacing: 2px;
+      }
+
+      iframe {
+        flex: 1;
+        width: 100%;
+        border: 0;
+        background: light-dark(#fff, #202124);
+      }
+
+      /* ---- presentation overlays (video only) ---- */
+      .caption {
+        position: absolute;
+        left: 50%;
+        bottom: 28px;
+        transform: translateX(-50%);
+        max-width: 940px;
+        padding: 12px 22px;
+        border-radius: 10px;
+        background: rgb(20 21 23 / 0.9);
+        color: #f1f3f4;
+        font-size: 18px;
+        line-height: 1.4;
+        text-align: center;
+        box-shadow: 0 4px 16px rgb(0 0 0 / 0.3);
+        transition: opacity 250ms;
+        z-index: 30;
+        pointer-events: none;
+      }
+
+      /* Lifted clear of the panel when a dialog fills its lower half. */
+      .caption.top {
+        top: 96px;
+        bottom: auto;
+      }
+
+      .caption:empty {
+        opacity: 0;
+      }
+
+      .callout {
+        position: absolute;
+        left: 50%;
+        top: 140px;
+        transform: translateX(-50%);
+        width: 720px;
+        padding: 16px 20px;
+        border-radius: 10px;
+        background: #202124;
+        color: #e3e3e3;
+        box-shadow: 0 8px 28px rgb(0 0 0 / 0.35);
+        z-index: 25;
+      }
+
+      .callout[hidden],
+      .card[hidden],
+      .menu[hidden] {
+        display: none;
+      }
+
+      .callout .label {
+        color: #a8acb1;
+        font-size: 12px;
+        margin-bottom: 8px;
+      }
+
+      .callout pre {
+        margin: 0;
+        font:
+          14px/1.5 ui-monospace,
+          Menlo,
+          Consolas,
+          monospace;
+        white-space: pre-wrap;
+      }
+
+      .callout .k {
+        color: #8ab4f8;
+      }
+
+      .callout .s {
+        color: #f29766;
+      }
+
+      .callout .hl {
+        background: rgb(253 214 99 / 0.25);
+        border-radius: 3px;
+      }
+
+      .card {
+        position: absolute;
+        inset: 0;
+        z-index: 40;
+        display: grid;
+        place-content: center;
+        justify-items: center;
+        gap: 14px;
+        background: rgb(17 18 20 / 0.94);
+        color: #f1f3f4;
+        text-align: center;
+      }
+
+      .card img {
+        width: 96px;
+        height: 96px;
+        border-radius: 20px;
+        image-rendering: auto;
+      }
+
+      .card h1 {
+        margin: 6px 0 0;
+        font-size: 44px;
+        letter-spacing: -0.02em;
+      }
+
+      .card p {
+        margin: 0;
+        font-size: 22px;
+        color: #c4c7cc;
+      }
+
+      .cursor {
+        position: absolute;
+        left: 640px;
+        top: 400px;
+        width: 22px;
+        height: 22px;
+        z-index: 50;
+        pointer-events: none;
+        transition:
+          left 550ms cubic-bezier(0.2, 0, 0, 1),
+          top 550ms cubic-bezier(0.2, 0, 0, 1);
+        filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.4));
+      }
+
+      .cursor[hidden] {
+        display: none;
+      }
+
+      .cursor::after {
+        content: '';
+        position: absolute;
+        left: -9px;
+        top: -9px;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: rgb(11 87 208 / 0.35);
+        transform: scale(0);
+        opacity: 0;
+      }
+
+      .cursor.click::after {
+        animation: ripple 380ms ease-out;
+      }
+
+      @keyframes ripple {
+        from {
+          transform: scale(0.4);
+          opacity: 1;
+        }
+
+        to {
+          transform: scale(2.2);
+          opacity: 0;
+        }
+      }
+
+      /* right-click menu on the extension icon (toolbar screenshot) */
+      .menu {
+        position: absolute;
+        right: 18px;
+        top: 76px;
+        z-index: 35;
+        width: 230px;
+        padding: 6px 0;
+        border-radius: 8px;
+        background: light-dark(#fff, #303134);
+        border: 1px solid var(--line);
+        box-shadow:
+          0 2px 6px rgb(0 0 0 / 0.18),
+          0 8px 24px rgb(0 0 0 / 0.14);
+      }
+
+      .menu div {
+        padding: 7px 16px;
+      }
+
+      .menu div.muted {
+        color: var(--ink-2);
+      }
+
+      .menu div.hi {
+        background: light-dark(#e8f0fe, #3c4043);
+      }
+
+      .menu hr {
+        margin: 6px 0;
+        border: 0;
+        border-top: 1px solid var(--line);
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="window">
+      <div class="tabs">
+        <div class="dots"><i></i><i></i><i></i></div>
+        <div class="tab"><span class="favicon">S</span>Shopfront demo store</div>
+      </div>
+      <div class="toolbar">
+        <svg class="nav-icon" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6" /></svg>
+        <svg class="nav-icon" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" /></svg>
+        <svg class="nav-icon" viewBox="0 0 24 24">
+          <path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5" />
+        </svg>
+        <div class="omnibox">
+          <span>https://<b>shop.example.com</b>/catalog/<span id="omni-path">all</span></span>
+        </div>
+        <div class="ext" id="ext">
+          <img src="icons/icon32.png" alt="" /><span class="badge" id="badge" hidden>OFF</span>
+        </div>
+      </div>
+      <div class="chrome-infobar" id="chrome-infobar" hidden>
+        “APQ Debugger” started debugging this browser
+        <button type="button">Cancel</button>
+      </div>
+      <div class="page" id="page">
+        <div class="store-head">
+          <div class="store-name">Shopfront<small>demo</small></div>
+          <div class="cats" id="cats">
+            <button type="button" class="on" data-cat="all">All</button>
+            <button type="button" data-cat="outerwear">Outerwear</button>
+            <button type="button" data-cat="shoes">Shoes</button>
+            <button type="button" data-cat="accessories">Accessories</button>
+          </div>
+          <button type="button" class="cart" id="cart">
+            Cart · <span id="cart-count">0</span>
+          </button>
+        </div>
+        <div class="grid" id="grid"></div>
+      </div>
+      <div class="devtools">
+        <div class="dt-tabs">
+          <span>Elements</span><span>Console</span><span>Sources</span><span>Network</span
+          ><span>Application</span><span class="on">APQ Debugger</span><span class="dt-end">⋮</span>
+        </div>
+        <iframe id="panel" src="devtools.html" title="APQ Debugger panel"></iframe>
+      </div>
+
+      <div class="callout" id="callout" hidden>
+        <div class="label">Network › Payload · POST https://api.shop.example.com/graphql</div>
+        <pre>{<span class="k">"operationName"</span>: <span class="s">"ProductListing"</span>,
+ <span class="k">"variables"</span>: {<span class="k">"first"</span>: 24, <span class="k">"filter"</span>: {<span class="k">"category"</span>: <span class="s">"outerwear"</span>}},
+ <span class="k">"extensions"</span>: {<span class="k">"persistedQuery"</span>: {<span class="k">"version"</span>: 1,
+   <span class="k">"sha256Hash"</span>: <span class="s hl">"7a1f0c2e9b8d4e6f3a5c1b2d0e9f8a7b…"</span>}}}</pre>
+      </div>
+      <div class="card" id="card" hidden>
+        <img src="icons/icon128.png" alt="" />
+        <h1 id="card-title">APQ Debugger</h1>
+        <p id="card-line"></p>
+      </div>
+      <div class="menu" id="menu" hidden>
+        <div class="muted">APQ Debugger</div>
+        <hr />
+        <div class="hi">Toggle APQ Debugger</div>
+        <hr />
+        <div>Unpin</div>
+        <div>Remove from Chrome…</div>
+        <div>Manage extension</div>
+      </div>
+      <div class="caption" id="caption"></div>
+      <svg class="cursor" id="cursor" viewBox="0 0 22 22" hidden>
+        <path
+          d="M3 2l15 9-6.5 1.3L9 19z"
+          fill="#fff"
+          stroke="#1f1f1f"
+          stroke-width="1.4"
+          stroke-linejoin="round"
+        />
+      </svg>
+    </div>
+
+    <script src="stage.js"></script>
+  </body>
+</html>

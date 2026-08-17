@@ -1,6 +1,8 @@
 /**
- * Regex-based GraphQL SDL syntax highlighting for the schema viewer.
- * Uses placeholder tokens so nested replacements stay well-formed.
+ * GraphQL SDL syntax highlighting for the schema viewer.
+ * A single-pass lexer classifies each token by its grammatical position
+ * (definition name, field, argument, type reference, default value, …), so
+ * nothing is highlighted twice and comments/strings are never re-scanned.
  * @module ui/sdl-highlighter
  */
 
@@ -21,74 +23,265 @@ const KEYWORDS = new Set([
   'repeatable',
 ]);
 
+/** Keywords that open a definition and are followed by its name. */
+const DEFINITION_KEYWORDS = new Set(['type', 'input', 'enum', 'interface', 'union', 'scalar']);
+
 const BUILTINS = new Set(['String', 'Int', 'Float', 'Boolean', 'ID']);
+
+const LITERALS = new Set(['true', 'false', 'null']);
+
+/**
+ * Token patterns, tried in order at each position. The sticky flag anchors
+ * each match at `lastIndex`.
+ * @type {[string, RegExp][]}
+ */
+const LEXEMES = [
+  ['space', /\s+/y],
+  ['comment', /#[^\n\r]*/y],
+  ['block-string', /"""(?:\\"""|[\s\S])*?"""/y],
+  ['string', /"(?:\\.|[^"\\\n\r])*"?/y],
+  ['directive', /@[_A-Za-z]\w*/y],
+  ['number', /-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/y],
+  ['name', /[_A-Za-z]\w*/y],
+  ['punct', /\.\.\.|[!|&=:[\](){},]/y],
+  ['other', /[\s\S]/y],
+];
+
+/**
+ * @typedef {{ kind: string, text: string }} Lexeme
+ */
 
 /**
  * @param {string} text
- * @param {string} className
- * @param {{ key: string, html: string }[]} tokens
- * @param {{ value: number }} id
+ * @returns {Lexeme[]}
+ */
+function lex(text) {
+  /** @type {Lexeme[]} */
+  const out = [];
+  let pos = 0;
+  while (pos < text.length) {
+    for (const [kind, re] of LEXEMES) {
+      re.lastIndex = pos;
+      const match = re.exec(text);
+      if (!match) continue;
+      out.push({ kind, text: match[0] });
+      pos += match[0].length;
+      break;
+    }
+  }
+  return out;
+}
+
+/**
+ * @param {Lexeme[]} tokens
+ * @param {number} index
+ * @returns {Lexeme | undefined} The next token that is not whitespace or a comment.
+ */
+function nextSignificant(tokens, index) {
+  for (let i = index + 1; i < tokens.length; i++) {
+    if (tokens[i].kind !== 'space' && tokens[i].kind !== 'comment') return tokens[i];
+  }
+  return undefined;
+}
+
+/**
+ * @param {string} text
+ * @param {string | null} className
  * @returns {string}
  */
-function tokenize(text, className, tokens, id) {
-  const key = `\uE000${id.value++}\uE001`;
-  tokens.push({ key, html: `<span class="${className}">${text}</span>` });
-  return key;
+function wrap(text, className) {
+  const escaped = escapeHtml(text);
+  return className ? `<span class="${className}">${escaped}</span>` : escaped;
 }
 
 /**
  * Highlight a single SDL definition for display in the schema viewer.
  * @param {string} text
- * @returns {string}
+ * @returns {string} HTML string with <span> wrappers.
  */
 export function highlightSDL(text) {
   if (!text) return '';
 
-  /** @type {{ key: string, html: string }[]} */
-  const tokens = [];
-  const id = { value: 0 };
+  const tokens = lex(text);
+  let html = '';
 
-  /** @param {string} match @param {string} className */
-  const stash = (match, className) => tokenize(match, className, tokens, id);
+  /** Keyword of the definition currently being read (top level). */
+  let definition = '';
+  /** Open `{` blocks; true when the block is a value (object literal), not a body. */
+  const braces = [];
+  /** Open `(` groups; true when they hold directive arguments. */
+  const parens = [];
+  /** Nesting of `[` / `{` inside a value, so commas inside lists don't end it. */
+  let valueDepth = 0;
+  let inValue = false;
+  /** Set after `:` in a field or argument; the next name is a type reference. */
+  let expectType = false;
+  /** Set after a definition keyword, `implements`, `&`, or a union's `=` / `|`. */
+  let expectTypeName = false;
+  /** After `on` in a directive definition: names are locations. */
+  let inLocations = false;
+  /** Whether the last `@name` was a directive usage rather than a definition's name. */
+  let directiveIsUsage = false;
+  /** @type {Lexeme | undefined} */
+  let prev;
 
-  let s = escapeHtml(text);
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i];
+    const { kind } = token;
+    let className = null;
 
-  s = s.replace(/"""[\s\S]*?"""/g, (match) => stash(match, 'string'));
-  s = s.replace(/"(?:\\.|[^"\\])*"/g, (match) => stash(match, 'string'));
-  s = s.replace(/^([ \t]*#.*)$/gm, (match) => stash(match, 'comment'));
-  s = s.replace(/@[A-Za-z_]\w*/g, (match) => stash(match, 'directive'));
+    if (kind === 'space') {
+      if (inValue && valueDepth === 0 && /\n/.test(token.text)) inValue = false;
+      html += wrap(token.text, null);
+      continue;
+    }
+    if (kind === 'comment') {
+      html += wrap(token.text, 'comment');
+      continue;
+    }
 
-  s = s.replace(/^(\s+)([_A-Za-z]\w*)(\s*:)/gm, (line, indent, name, colon) => {
-    if (KEYWORDS.has(name)) return line;
-    return `${indent}${tokenize(name, 'field', tokens, id)}${colon}`;
-  });
+    if (kind === 'block-string' || kind === 'string') {
+      className = 'string';
+    } else if (kind === 'number') {
+      className = 'number';
+    } else if (kind === 'directive') {
+      directiveIsUsage = prev?.text !== 'directive';
+      className = 'directive';
+    } else if (kind === 'punct') {
+      className = handlePunct(token.text);
+    } else if (kind === 'name') {
+      className = classifyName(token.text, i);
+    }
 
-  s = s.replace(/^(\s+)([A-Z][A-Z0-9_]*)(\s*,?\s*)$/gm, (line, indent, name, tail) => {
-    return `${indent}${tokenize(name, 'enum-value', tokens, id)}${tail}`;
-  });
-
-  s = s.replace(/\b(String|Int|Float|Boolean|ID)\b/g, (match) => stash(match, 'builtin'));
-
-  s = s.replace(
-    /\b(type|input|enum|interface|union|scalar|schema|directive|implements|extend|on|repeatable)\b/g,
-    (match) => stash(match, 'keyword')
-  );
-
-  s = s.replace(/\b([A-Z][a-z][A-Za-z0-9_]*)\b/g, (match) => stash(match, 'type-name'));
-
-  s = s.replace(/\b([A-Z][A-Z0-9_]+)\b/g, (match) => {
-    if (BUILTINS.has(match)) return match;
-    return stash(match, 'enum-value');
-  });
-
-  s = s.replace(/!/g, () => tokenize('!', 'punct', tokens, id));
-  s = s.replace(/(\s)\|(\s)/g, (_, before, after) => {
-    return `${before}${tokenize('|', 'punct', tokens, id)}${after}`;
-  });
-
-  for (const { key, html } of tokens) {
-    s = s.split(key).join(html);
+    html += wrap(token.text, className);
+    prev = token;
   }
 
-  return s;
+  return html;
+
+  /**
+   * Update parser state for a punctuator and pick its class.
+   * @param {string} p
+   * @returns {string | null}
+   */
+  function handlePunct(p) {
+    switch (p) {
+      case '{':
+        if (inValue) {
+          valueDepth++;
+          braces.push(true);
+        } else {
+          braces.push(false);
+        }
+        expectTypeName = false;
+        return null;
+      case '}':
+        if (braces.pop() && valueDepth > 0) valueDepth--;
+        if (braces.length === 0) definition = '';
+        return null;
+      case '(':
+        parens.push(prev?.kind === 'directive' && directiveIsUsage);
+        expectTypeName = false;
+        return null;
+      case ')':
+        parens.pop();
+        inValue = false;
+        valueDepth = 0;
+        expectType = false;
+        return null;
+      case '[':
+        if (inValue) valueDepth++;
+        return null;
+      case ']':
+        if (inValue && valueDepth > 0) valueDepth--;
+        return null;
+      case ':':
+        if (parens.at(-1) || inValue) {
+          inValue = true;
+        } else {
+          expectType = true;
+        }
+        return null;
+      case '=':
+        if (definition === 'union' && braces.length === 0 && parens.length === 0) {
+          expectTypeName = true;
+        } else {
+          inValue = true;
+          valueDepth = 0;
+          expectType = false;
+        }
+        return 'punct';
+      case '&':
+        expectTypeName = true;
+        return 'punct';
+      case '|':
+        if (!inLocations) expectTypeName = true;
+        return 'punct';
+      case ',':
+        if (inValue && valueDepth === 0) inValue = false;
+        expectType = false;
+        return null;
+      case '!':
+        return 'punct';
+      default:
+        return null;
+    }
+  }
+
+  /**
+   * Classify a name token by its grammatical position.
+   * @param {string} name
+   * @param {number} index
+   * @returns {string | null}
+   */
+  function classifyName(name, index) {
+    const next = nextSignificant(tokens, index);
+
+    if (inValue) {
+      if (LITERALS.has(name)) return 'keyword';
+      // Object-literal keys inside a default value.
+      if (next?.text === ':') return 'field';
+      return 'enum-value';
+    }
+
+    if (expectType) {
+      expectType = false;
+      return BUILTINS.has(name) ? 'builtin' : 'type-name';
+    }
+
+    const atTopLevel = braces.length === 0 && parens.length === 0;
+
+    if (parens.length > 0) {
+      return next?.text === ':' ? 'field' : null;
+    }
+
+    if (braces.length > 0) {
+      if (next?.text === ':' || next?.text === '(') return 'field';
+      if (definition === 'enum') return 'enum-value';
+      return null;
+    }
+
+    if (atTopLevel && KEYWORDS.has(name) && !expectTypeName) {
+      if (name === 'extend') return 'keyword';
+      if (DEFINITION_KEYWORDS.has(name) || name === 'schema' || name === 'directive') {
+        definition = name;
+        inLocations = false;
+        expectTypeName = DEFINITION_KEYWORDS.has(name);
+      } else if (name === 'implements') {
+        expectTypeName = true;
+      } else if (name === 'on' && definition === 'directive') {
+        inLocations = true;
+      }
+      return 'keyword';
+    }
+
+    if (inLocations) return 'enum-value';
+
+    if (expectTypeName) {
+      expectTypeName = false;
+      return BUILTINS.has(name) ? 'builtin' : 'type-name';
+    }
+
+    return null;
+  }
 }

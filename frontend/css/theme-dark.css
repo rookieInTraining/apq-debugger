@@ -1,0 +1,16 @@
+/* ================================================================
+   Dark theme gates. All dark values live in tokens.css as the second
+   argument of light-dark(); these gates only flip the color scheme.
+   An explicit data-theme wins; the system preference applies
+   otherwise (settings.js removes the attribute for "system").
+   ================================================================ */
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+  }
+}

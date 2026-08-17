@@ -42,12 +42,31 @@ export function buildGraphQLBody(request) {
 }
 
 /**
+ * Captured headers to replay, one per name. Header names are
+ * case-insensitive, so a repeated name keeps its first position and the
+ * last value sent.
  * @param {object} request
  * @returns {{name: string, value: string}[]}
  */
 export function getReplayHeaders(request) {
   if (!request || !Array.isArray(request.headers)) return [];
-  return request.headers.filter((h) => h && h.name && h.value);
+  const byName = new Map(); // Map.set on an existing key keeps its position
+  for (const header of request.headers) {
+    if (!header || !header.name || !header.value) continue;
+    byName.set(header.name.toLowerCase(), { name: header.name, value: header.value });
+  }
+  return Array.from(byName.values());
+}
+
+/**
+ * Find a header by name, ignoring case.
+ * @param {{name: string, value: string}[]} headers
+ * @param {string} name
+ * @returns {{name: string, value: string}|undefined}
+ */
+function findHeader(headers, name) {
+  const wanted = name.toLowerCase();
+  return headers.find((header) => header.name.toLowerCase() === wanted);
 }
 
 /**
@@ -76,12 +95,17 @@ function psSingleQuote(value) {
  */
 export function toBashCurl(url, body, headers = []) {
   const json = JSON.stringify(body);
-  const lines = [
-    `curl ${bashSingleQuote(url)} \\`,
-    `  -X POST \\`,
-    `  -H ${bashSingleQuote('Content-Type: application/json')} \\`,
-    `  -H ${bashSingleQuote('Accept: application/json')} \\`,
-  ];
+  const lines = [`curl ${bashSingleQuote(url)} \\`, `  -X POST \\`];
+
+  // Defaults only where the captured request didn't send its own value
+  for (const [name, value] of [
+    ['Content-Type', 'application/json'],
+    ['Accept', 'application/json'],
+  ]) {
+    if (!findHeader(headers, name)) {
+      lines.push(`  -H ${bashSingleQuote(`${name}: ${value}`)} \\`);
+    }
+  }
 
   for (const header of headers) {
     lines.push(`  -H ${bashSingleQuote(`${header.name}: ${header.value}`)} \\`);
@@ -102,6 +126,12 @@ export function toPowerShellCurl(url, body, headers = []) {
   const escapedUrl = String(url).replace(/"/g, '`"');
   const lines = [`$body = @'`, json, `'@`, ``];
 
+  // Content-Type travels as -ContentType. It must not also appear in
+  // $headers: PowerShell rejects a hashtable literal that repeats a key.
+  const contentType = findHeader(headers, 'Content-Type');
+  const contentTypeValue = String(contentType ? contentType.value : 'application/json');
+  headers = headers.filter((header) => header !== contentType);
+
   if (headers.length > 0) {
     lines.push(`$headers = @{`);
     for (const header of headers) {
@@ -116,7 +146,7 @@ export function toPowerShellCurl(url, body, headers = []) {
   if (headers.length > 0) {
     lines.push(`  -Headers $headers \``);
   }
-  lines.push(`  -ContentType "application/json" \``);
+  lines.push(`  -ContentType "${contentTypeValue.replace(/"/g, '`"')}" \``);
   lines.push(`  -Body $body`);
   return lines.join('\n');
 }
@@ -193,7 +223,7 @@ export function initCurlCopy() {
       navigator.clipboard
         .writeText(preview.textContent)
         .then(() => {
-          copyBtn.textContent = 'Copied!';
+          copyBtn.textContent = 'Copied';
           setTimeout(() => {
             copyBtn.textContent = 'Copy';
           }, 1500);

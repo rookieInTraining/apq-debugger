@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en">
+  <!--
+  Chrome Web Store promo tiles. Each <section> is captured at its exact
+  size by scripts/promo/capture-screens.js. shots/ is filled with the
+  freshly captured store screenshots before this page loads.
+-->
+
+  <head>
+    <meta charset="UTF-8" />
+    <title>APQ Debugger promo tiles</title>
+    <style>
+      :root {
+        --bg: #202124;
+        --bg-2: #292a2d;
+        --line: #3c4043;
+        --text: #e3e3e3;
+        --text-2: #a8acb1;
+        --resolved: #81c995;
+        --pending: #fdd663;
+        --blue: #a8c7fa;
+        --ui: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        --mono: ui-monospace, Menlo, Consolas, 'Cascadia Mono', monospace;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: #111;
+        font-family: var(--ui);
+        color: var(--text);
+      }
+
+      section {
+        position: relative;
+        overflow: hidden;
+        background: var(--bg);
+        margin-bottom: 40px;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+
+      .brand img {
+        border-radius: 18%;
+      }
+
+      .brand h1 {
+        margin: 0;
+        white-space: nowrap;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        line-height: 1.05;
+      }
+
+      .brand small {
+        display: block;
+        margin-top: 4px;
+        font-size: 0.42em;
+        font-weight: 500;
+        letter-spacing: 0;
+        color: var(--text-2);
+      }
+
+      .line {
+        margin: 0;
+        text-wrap: balance;
+        color: #c4c7cc;
+        line-height: 1.35;
+      }
+
+      /* the product's moment: a hash row resolving into its operation */
+      .resolve {
+        display: grid;
+        grid-template-columns: auto auto 1fr auto;
+        align-items: center;
+        gap: 12px;
+        padding: 0 14px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        background: var(--bg-2);
+        font-family: var(--mono);
+      }
+
+      .resolve .hash {
+        color: var(--text-2);
+      }
+
+      .resolve .arrow {
+        color: var(--text-2);
+      }
+
+      .resolve .name {
+        font-family: var(--ui);
+        font-weight: 600;
+      }
+
+      .state {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        font-family: var(--ui);
+        font-weight: 600;
+        color: var(--resolved);
+      }
+
+      .state::before {
+        content: '';
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+
+      .shot {
+        display: block;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        box-shadow: 0 12px 40px rgb(0 0 0 / 0.45);
+      }
+
+      /* ---- small tile 440x280 ---- */
+      #small {
+        width: 440px;
+        height: 280px;
+        padding: 30px 30px 0;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      #small .brand h1 {
+        font-size: 30px;
+      }
+
+      #small .line {
+        font-size: 16px;
+      }
+
+      #small .resolve {
+        height: 40px;
+        margin-top: auto;
+        margin-bottom: 30px;
+        font-size: 13px;
+      }
+
+      /* ---- large tile 920x680 ---- */
+      #large {
+        width: 920px;
+        height: 680px;
+        padding: 44px 48px 0;
+      }
+
+      #large .head {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 32px;
+        margin-bottom: 30px;
+      }
+
+      #large .brand h1 {
+        font-size: 42px;
+      }
+
+      #large .line {
+        max-width: 400px;
+        font-size: 20px;
+      }
+
+      #large .shot {
+        width: 824px;
+      }
+
+      /* ---- marquee 1400x560 ---- */
+      #marquee {
+        width: 1400px;
+        height: 560px;
+        display: grid;
+        grid-template-columns: 560px 1fr;
+      }
+
+      #marquee .copy {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 22px;
+        padding: 0 40px 0 64px;
+      }
+
+      #marquee .brand h1 {
+        font-size: 46px;
+      }
+
+      #marquee .line {
+        font-size: 22px;
+      }
+
+      #marquee ul {
+        margin: 4px 0 0;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        gap: 10px;
+        font-size: 16px;
+        color: #c4c7cc;
+      }
+
+      #marquee li {
+        display: flex;
+        gap: 10px;
+        align-items: baseline;
+      }
+
+      #marquee li::before {
+        content: '';
+        flex: none;
+        width: 7px;
+        height: 7px;
+        margin-top: 7px;
+        border-radius: 50%;
+        background: var(--blue);
+        transform: translateY(-2px);
+      }
+
+      #marquee .resolve {
+        height: 44px;
+        font-size: 14px;
+      }
+
+      #marquee .stage {
+        position: relative;
+      }
+
+      #marquee .shot {
+        position: absolute;
+        left: 0;
+        top: 56px;
+        width: 1020px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <section id="small">
+      <div class="brand">
+        <img src="icons/icon128.png" width="64" height="64" alt="" />
+        <h1>APQ Debugger<small>for Chrome DevTools</small></h1>
+      </div>
+      <p class="line">See the GraphQL behind every Apollo persisted-query hash.</p>
+      <div class="resolve">
+        <span class="hash">7a1f0c2e</span><span class="arrow">→</span
+        ><span class="name">ProductListing</span><span class="state">Resolved</span>
+      </div>
+    </section>
+
+    <section id="large">
+      <div class="head">
+        <div class="brand">
+          <img src="icons/icon128.png" width="84" height="84" alt="" />
+          <h1>APQ Debugger<small>for Chrome DevTools</small></h1>
+        </div>
+        <p class="line">See the full GraphQL query behind every Apollo persisted-query hash.</p>
+      </div>
+      <img class="shot" src="shots/01-requests-dark.png" alt="" />
+    </section>
+
+    <section id="marquee">
+      <div class="copy">
+        <div class="brand">
+          <img src="icons/icon128.png" width="88" height="88" alt="" />
+          <h1>APQ Debugger<small>for Chrome DevTools</small></h1>
+        </div>
+        <p class="line">See the full GraphQL query behind every Apollo persisted-query hash.</p>
+        <ul>
+          <li>Swaps the hash so Apollo retries with the full query</li>
+          <li>Shows each query and its variables, ready to copy or replay as cURL</li>
+          <li>Passive mode resolves known hashes without touching traffic</li>
+        </ul>
+      </div>
+      <div class="stage"><img class="shot" src="shots/01-requests-dark.png" alt="" /></div>
+    </section>
+  </body>
+</html>

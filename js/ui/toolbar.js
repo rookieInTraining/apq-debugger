@@ -7,6 +7,9 @@ import { getElement } from './dom-helpers.js';
 import { state } from './state.js';
 import { renderRequestList, updateRequestCount } from './request-list.js';
 import { showStatusBanner } from './status.js';
+import { confirmAction, whenConfirmed } from './confirm.js';
+import { renderEndpointsView } from './endpoints.js';
+import { closeRequestDetail } from './request-detail.js';
 
 /**
  * Enable/disable the toolbar buttons based on history length.
@@ -21,19 +24,30 @@ export function updateToolbarState() {
 }
 
 function clearHistory() {
-  state.requestHistory = [];
-  state.selectedRequestId = null;
-  renderRequestList();
-  updateRequestCount();
-  updateToolbarState();
+  const count = state.requestHistory.length;
+  whenConfirmed(
+    confirmAction({
+      title: 'Clear captured requests?',
+      body: `Removes ${count === 1 ? '1 captured request' : `${count} captured requests`} from the panel. The hash registry keeps what it learned.`,
+      confirmLabel: 'Clear requests',
+    }),
+    () => {
+      state.requestHistory = [];
+      closeRequestDetail();
+      renderRequestList();
+      updateRequestCount();
+      updateToolbarState();
+      renderEndpointsView();
 
-  const detailContent = getElement('detail-content');
-  if (detailContent) {
-    detailContent.innerHTML =
-      '<div class="detail-placeholder"><p>Select a request to view details</p></div>';
-  }
+      const detailContent = getElement('detail-content');
+      if (detailContent) {
+        detailContent.innerHTML =
+          '<div class="detail-placeholder"><p>Select a request to view details</p></div>';
+      }
 
-  showStatusBanner('Request history cleared', 'success');
+      showStatusBanner('Requests cleared', 'success');
+    }
+  );
 }
 
 function exportHistory() {

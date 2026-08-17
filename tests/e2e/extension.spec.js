@@ -16,9 +16,19 @@ test.describe('APQ Debugger Extension', () => {
       ],
     });
 
-    // Parse extension ID from Service Worker
+    // Parse extension ID from Service Worker. The worker may register
+    // before or after this point, so poll rather than rely on one event.
     let [background] = context.serviceWorkers();
-    if (!background) background = await context.waitForEvent('serviceworker');
+    if (!background) {
+      const deadline = Date.now() + 20000;
+      while (!background && Date.now() < deadline) {
+        background = await Promise.race([
+          context.waitForEvent('serviceworker', { timeout: 1000 }).catch(() => null),
+          new Promise((resolve) => setTimeout(() => resolve(null), 1000)),
+        ]);
+        if (!background) [background] = context.serviceWorkers();
+      }
+    }
 
     extensionId = background.url().split('/')[2];
     expect(extensionId).toBeDefined();
@@ -36,6 +46,15 @@ test.describe('APQ Debugger Extension', () => {
         inspectedWindow: { tabId: 123 },
         panels: { create: () => {} },
       };
+      // Capture the panel's onMessage listeners so tests can deliver
+      // service-worker messages (e.g. INTERCEPTED) directly.
+      const listeners = [];
+      const addListener = chrome.runtime.onMessage.addListener.bind(chrome.runtime.onMessage);
+      chrome.runtime.onMessage.addListener = (fn) => {
+        listeners.push(fn);
+        return addListener(fn);
+      };
+      window.__deliver = (message) => listeners.forEach((fn) => fn(message, {}, () => {}));
     });
     await page.goto(`chrome-extension://${extensionId}/devtools.html`);
     await page.waitForLoadState('domcontentloaded');
@@ -50,7 +69,7 @@ test.describe('APQ Debugger Extension', () => {
     const page = await openDevToolsPage();
 
     await expect(page.locator('#add')).toBeVisible();
-    await expect(page.locator('#debugger-status')).toContainText('Ready');
+    await expect(page.locator('#debugger-status')).toContainText('Off');
     await expect(page.locator('#form-submit')).toContainText('Start');
     await expect(page.locator('#interception-counter')).toContainText('0');
   });
@@ -123,9 +142,9 @@ test.describe('APQ Debugger Extension', () => {
     const startBtn = page.locator('#form-submit');
     await startBtn.click();
 
-    // Button should change state (either show "Starting..." or change to "Stop" on success,
+    // Button should change state (either show "Starting…" or change to "Stop" on success,
     // or show error status since we can't actually attach in this context)
-    await expect(page.locator('#debugger-status')).not.toContainText('Ready');
+    await expect(page.locator('#debugger-status')).not.toContainText('Off');
   });
 
   test('should show error when starting with empty pattern', async () => {
@@ -134,12 +153,11 @@ test.describe('APQ Debugger Extension', () => {
     // Leave pattern empty and click Start
     await page.locator('#form-submit').click();
 
-    // Should show error in status banner
+    // Should show an error toast in the stack
     await page.waitForTimeout(300);
-    const bannerText = page.locator('#status-banner-text');
-    const bannerContent = await bannerText.textContent();
-    // Either the banner shows an error or the status changes from Ready
-    expect(bannerContent.length).toBeGreaterThan(0);
+    const toastText = page.locator('#status-banner .toast .toast-text');
+    const toastContent = await toastText.first().textContent();
+    expect(toastContent.length).toBeGreaterThan(0);
   });
 
   // ── Filter chips ───────────────────────────────────────────────
@@ -176,8 +194,8 @@ test.describe('APQ Debugger Extension', () => {
     const page = await openDevToolsPage();
 
     await expect(page.locator('#empty-state')).toBeVisible();
-    await expect(page.locator('.empty-title')).toContainText('No requests');
-    await expect(page.locator('.empty-desc')).toContainText('Start debugging');
+    await expect(page.locator('#empty-title')).toContainText('No operations captured');
+    await expect(page.locator('#empty-steps')).toContainText('Start');
   });
 
   // ── Detail panel ───────────────────────────────────────────────
@@ -187,6 +205,36 @@ test.describe('APQ Debugger Extension', () => {
 
     const detailContent = page.locator('#detail-content');
     await expect(detailContent).toContainText('Select a request');
+  });
+
+  test('should open Copy as cURL with a reachable Copy button', async () => {
+    const page = await openDevToolsPage();
+
+    // Deliver a captured request the way the service worker does, with a
+    // long single-line query so the cURL preview is much wider than the panel.
+    const longQuery = `query Long { ${Array.from({ length: 80 }, (_, i) => `field${i}`).join(' ')} }`;
+    await page.evaluate(
+      ({ query }) =>
+        window.__deliver({
+          status: 'INTERCEPTED',
+          tabId: 123,
+          operationName: 'Long',
+          url: 'https://api.example.com/graphql',
+          isAPQ: false,
+          query,
+          headers: [{ name: 'content-type', value: 'application/json' }],
+        }),
+      { query: longQuery }
+    );
+
+    await page.locator('.request-item').first().click();
+    await page.locator('#btn-copy-curl').click();
+
+    await expect(page.locator('#curl-modal')).toBeVisible();
+    await expect(page.locator('#curl-preview')).toContainText('curl ');
+    await expect(page.locator('#curl-modal .modal-panel')).toBeInViewport({ ratio: 1 });
+    await expect(page.locator('#curl-copy-btn')).toBeInViewport();
+    await page.locator('#curl-copy-btn').click({ timeout: 5000 });
   });
 
   // ── Accessibility ──────────────────────────────────────────────
@@ -208,8 +256,9 @@ test.describe('APQ Debugger Extension', () => {
     // Request list has role="listbox"
     await expect(page.locator('#request-list')).toHaveAttribute('role', 'listbox');
 
-    // Status banner has role="alert"
-    await expect(page.locator('#status-banner')).toHaveAttribute('role', 'alert');
+    // Toast stack is a polite live region; error toasts get role="alert"
+    await expect(page.locator('#status-banner')).toHaveAttribute('role', 'status');
+    await expect(page.locator('#status-banner')).toHaveAttribute('aria-live', 'polite');
   });
 
   // ── Filter input ───────────────────────────────────────────────
@@ -234,10 +283,10 @@ test.describe('APQ Debugger Extension', () => {
     await expect(page.locator('#settings-popover')).toBeVisible();
     await expect(settingsBtn).toHaveAttribute('aria-expanded', 'true');
 
-    await page.locator('.settings-option:has(input[name="theme"][value="dark"])').click();
+    await page.locator('.menu-option:has(input[name="theme"][value="dark"])').click();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
 
-    await page.locator('.settings-option:has(input[name="density"][value="compact"])').click();
+    await page.locator('.menu-option:has(input[name="density"][value="compact"])').click();
     await expect(page.locator('html')).toHaveAttribute('data-density', 'compact');
 
     await page.waitForTimeout(300);
@@ -246,17 +295,23 @@ test.describe('APQ Debugger Extension', () => {
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   });
 
-  test('should toggle sidebar via header button', async () => {
+  test('should toggle the patterns pane from the toolbar', async () => {
     const page = await openDevToolsPage();
 
-    const toggleBtn = page.locator('#btn-toggle-sidebar');
+    const toggleBtn = page.locator('#btn-toggle-patterns');
+    const pane = page.locator('#patterns-pane');
     await expect(toggleBtn).toBeVisible();
 
-    await toggleBtn.click();
-    await expect(page.locator('.app')).toHaveClass(/sidebar-collapsed/);
+    // First run (no saved patterns): the pane starts open
+    await expect(pane).toBeVisible();
+    await expect(toggleBtn).toHaveAttribute('aria-expanded', 'true');
 
     await toggleBtn.click();
-    await expect(page.locator('.app')).not.toHaveClass(/sidebar-collapsed/);
+    await expect(pane).toBeHidden();
+    await expect(toggleBtn).toHaveAttribute('aria-expanded', 'false');
+
+    await toggleBtn.click();
+    await expect(pane).toBeVisible();
   });
 
   // ── Schema tab ─────────────────────────────────────────────────
@@ -266,7 +321,7 @@ test.describe('APQ Debugger Extension', () => {
 
     await page.locator('#tab-schema').click();
     await expect(page.locator('#schema-content')).toBeVisible();
-    await expect(page.locator('#btn-load-schema')).toContainText('Load Schema');
+    await expect(page.locator('#btn-load-schema')).toContainText('Load schema');
     await expect(page.locator('#schema-status')).toContainText('No schema loaded');
     await expect(page.locator('#schema-url-input')).toBeVisible();
   });

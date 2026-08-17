@@ -1,0 +1,104 @@
+/* ================================================================
+   APQ Debugger — DevTools-native tokens.
+   The panel sits beside Chrome's own Network and Elements panels, so
+   it borrows their system: system UI type at 12px, ui-monospace for
+   code and hashes, white / grey surfaces split by 1px dividers,
+   Google blue for selection, focus and primary actions, record red,
+   a yellow infobar while traffic is being rewritten, and green only
+   for a resolved hash.
+
+   Theming: every color token is defined ONCE via light-dark().
+   theme-dark.css only flips color-scheme. Text pairs are >= 4.5:1
+   on the surface they sit on; indicators and borders >= 3:1 where
+   they carry meaning.
+   ================================================================ */
+
+:root {
+  color-scheme: light;
+
+  /* ---- type ---- */
+  --font-ui: system-ui, -apple-system, 'Segoe UI', Roboto, Ubuntu, Cantarell, sans-serif;
+  --font-mono: ui-monospace, Menlo, Consolas, 'Cascadia Mono', 'DejaVu Sans Mono', monospace;
+
+  /* ---- surfaces ---- */
+  --bg: light-dark(#ffffff, #202124);
+  --bg-chrome: light-dark(#f1f3f4, #292a2d); /* tab strip, toolbars, table head */
+  --bg-raised: light-dark(#ffffff, #303134); /* menus, dialogs */
+  --bg-sunken: light-dark(#f8f9fa, #1b1c1e); /* code blocks */
+  --bg-hover: light-dark(#eef1f6, #2f3236);
+  --bg-selected: light-dark(#d3e3fd, #0f3a6e);
+  --bg-selected-idle: light-dark(#e8eaed, #3c4043); /* selected row, list not focused */
+  --bg-input: light-dark(#ffffff, #202124);
+
+  /* ---- lines ---- */
+  --divider: light-dark(#dadce0, #3c4043);
+  --border-input: light-dark(#80868b, #80868b); /* 3:1+ on bg and chrome */
+  --border-raised: light-dark(#c4c7c5, #5f6368);
+
+  /* ---- text ---- */
+  --text: light-dark(#1f1f1f, #e3e3e3);
+  --text-2: light-dark(#5f6368, #a8acb1); /* secondary: >= 5.3:1 on bg and chrome */
+  --text-disabled: light-dark(#9aa0a6, #6f7378);
+  --text-on-selected: light-dark(#041e49, #e3eefe);
+
+  /* ---- accent and state ---- */
+  --primary: light-dark(#0b57d0, #a8c7fa);
+  --primary-hover: light-dark(#0842a0, #c2d7fb);
+  --on-primary: light-dark(#ffffff, #062e6f);
+  --focus: light-dark(#0b57d0, #a8c7fa);
+
+  --record: light-dark(#d93025, #f28b82);
+
+  --resolved: light-dark(#137333, #81c995);
+  --resolved-bg: light-dark(#e6f4ea, #10301b);
+  --pending: light-dark(#8a5300, #fdd663);
+  --pending-bg: light-dark(#fef7e0, #3a2f0b);
+  --error: light-dark(#b3261e, #f2b8b5);
+  --error-bg: light-dark(#fce8e6, #3c1b18);
+
+  /* live interception infobar (DevTools "paused" yellow) */
+  --live-bg: light-dark(#fef7e0, #3a3013);
+  --live-border: light-dark(#f2d68b, #6b5718);
+  --live-text: light-dark(#3c2c00, #fdecb7);
+
+  /* passive-mode infobar */
+  --info-bg: light-dark(#e8f0fe, #172b4d);
+  --info-border: light-dark(#c2d7fb, #2c4a7a);
+  --info-text: light-dark(#062e6f, #d3e3fd);
+
+  /* row "updated" flash, as in the Elements panel */
+  --flash: light-dark(#fde293, #6b5718);
+
+  /* ---- syntax (DevTools Sources) ---- */
+  --syn-keyword: light-dark(#aa0d91, #e36eec);
+  --syn-type: light-dark(#0b57d0, #8ab4f8);
+  --syn-variable: light-dark(#c5221f, #f28b82);
+  --syn-property: light-dark(#994500, #e8c38a);
+  --syn-string: light-dark(#1a1aa6, #f29766);
+  --syn-number: light-dark(#1c00cf, #b39ddb);
+  --syn-punct: light-dark(#5f6368, #a8acb1);
+  --syn-comment: light-dark(#5f6368, #9aa0a6);
+
+  /* ---- space (4px grid) ---- */
+  --s-1: 2px;
+  --s-2: 4px;
+  --s-3: 6px;
+  --s-4: 8px;
+  --s-5: 12px;
+  --s-6: 16px;
+  --s-7: 24px;
+
+  /* ---- shape ---- */
+  --r-sm: 3px;
+  --r-md: 4px;
+  --r-lg: 8px;
+  --r-pill: 999px;
+
+  /* ---- elevation: overlays only (menus, dialogs, toasts) ---- */
+  --shadow-menu: 0 1px 2px rgb(0 0 0 / 0.3), 0 2px 6px 2px rgb(0 0 0 / 0.15);
+
+  /* ---- motion ---- */
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --t-fast: 120ms;
+  --t-med: 200ms;
+}

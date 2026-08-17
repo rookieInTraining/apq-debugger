@@ -5,6 +5,34 @@ All notable changes to the APQ Debugger extension will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Observed-endpoints section in the session drawer: GraphQL endpoints seen in
+  live traffic, with request counts and one-click "Add as pattern"
+- Session metrics strip: captured, resolved, unique operations, endpoints
+- Endpoint filter and automatic endpoint group headers in the request list
+- Toast notifications (replacing the status banner), confirm dialogs before
+  clearing history or the hash registry, and skeleton loading for the schema
+  explorer
+- New read-only `getObservedEndpoints` service-worker message
+
+### Changed
+- **Full UI redesign in the Kora design language** — operator-split layout
+  (toolbar with session controls and tabs, collapsible session drawer,
+  persistent request list + detail split), bundled Italiana / Albert Sans /
+  Spline Sans Mono fonts (SIL OFL 1.1, no network fetches), weave-textured
+  surfaces with no shadows or divider lines, and organic radii
+- Dark mode is now a derived "canvas at night" palette defined once via CSS
+  `light-dark()`; the explicit setting and system preference share one
+  definition (requires Chrome 123+, declared via `minimum_chrome_version`)
+- Syntax highlighting recolored from theme-aware pigment inks, fixing the
+  hardcoded One Dark colors that were unreadable on light backgrounds
+- Status vocabulary: one-word states (Attached, Detached, Connecting,
+  Passive…) and verb+object buttons ("Start debugging")
+- Session drawer opens by default only until URL patterns are configured
+- CSS build supports ordered multi-file concatenation with a size budget
+
 ## [3.0.0] - 2026-06-13
 
 ### Added

@@ -3,6 +3,7 @@
   "name": "Apollo GraphQL Persisted Queries (APQ) Debugger",
   "description": "Reveal full GraphQL queries behind Apollo APQ hashes. Inspect fallback flow and debug Automatic Persisted Queries in DevTools.",
   "version": "3.0.0",
+  "minimum_chrome_version": "123",
   "permissions": ["contextMenus", "debugger", "storage", "tabs", "notifications"],
   "host_permissions": ["<all_urls>"],
   "background": {

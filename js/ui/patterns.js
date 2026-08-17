@@ -5,6 +5,10 @@
 
 import { getElement, getPatternInputs, getPatternsFromForm } from './dom-helpers.js';
 import { state, PATTERNS_STORAGE_KEY } from './state.js';
+import { setPatternsPaneOpen, renderPatternsSummary } from './session.js';
+
+const REMOVE_ICON =
+  '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><line x1="7" y1="7" x2="17" y2="17"/><line x1="17" y1="7" x2="7" y2="17"/></svg>';
 
 /**
  * Persist current pattern values to chrome.storage.local.
@@ -32,6 +36,10 @@ export function restorePatternsFromStorage() {
       ? result[PATTERNS_STORAGE_KEY]
       : [];
 
+    // First run (no patterns yet): open the pane so setup is obvious.
+    // Configured already: keep it closed and give the list the room.
+    setPatternsPaneOpen(!patterns.some((p) => typeof p === 'string' && p.trim().length > 0));
+
     const inputs = getPatternInputs();
     if (inputs.length === 0) return;
 
@@ -42,6 +50,7 @@ export function restorePatternsFromStorage() {
     for (let i = 1; i < patterns.length; i++) {
       addPatternField(patterns[i]);
     }
+    renderPatternsSummary();
   });
 }
 
@@ -58,20 +67,25 @@ export function addPatternField(value = '') {
 
   const input = document.createElement('input');
   input.type = 'text';
-  input.className = 'urlPattern';
+  input.className = 'tb-input urlPattern';
   input.setAttribute('data-pattern-index', ++state.totalPatterns);
-  input.placeholder = '*graphql*';
+  input.setAttribute('aria-label', `URL pattern ${state.totalPatterns}`);
+  input.autocomplete = 'off';
+  input.spellcheck = false;
+  input.placeholder = 'e.g. *api/graphql*';
   if (value) input.value = value;
   input.addEventListener('input', savePatternsToStorage);
 
   const removeBtn = document.createElement('button');
   removeBtn.type = 'button';
-  removeBtn.className = 'btn-icon btn-remove';
+  removeBtn.className = 'icon-btn btn-remove';
   removeBtn.title = 'Remove pattern';
-  removeBtn.innerHTML = '&times;';
+  removeBtn.setAttribute('aria-label', 'Remove pattern');
+  removeBtn.innerHTML = REMOVE_ICON;
   removeBtn.addEventListener('click', () => {
     patternItem.remove();
     savePatternsToStorage();
+    renderPatternsSummary();
   });
 
   patternItem.appendChild(input);
@@ -79,6 +93,7 @@ export function addPatternField(value = '') {
   form.appendChild(patternItem);
 
   savePatternsToStorage();
+  renderPatternsSummary();
 }
 
 /**
@@ -87,7 +102,11 @@ export function addPatternField(value = '') {
 export function initPatterns() {
   const addButton = getElement('add');
   if (addButton) {
-    addButton.addEventListener('click', () => addPatternField());
+    addButton.addEventListener('click', () => {
+      addPatternField();
+      const inputs = getPatternInputs();
+      if (inputs.length) inputs[inputs.length - 1].focus();
+    });
   }
 
   const initialInput = document.querySelector('.urlPattern');

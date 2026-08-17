@@ -7,6 +7,22 @@ import { getElement } from './dom-helpers.js';
 import { state, inspectedTabId } from './state.js';
 import { updateDebuggerStatus, showStatusBanner, showError } from './status.js';
 import { savePatternsToStorage } from './patterns.js';
+import { renderSessionBar, setPatternsPaneOpen } from './session.js';
+
+/**
+ * Put the record button into its idle or recording appearance.
+ * @param {HTMLButtonElement} button
+ * @param {boolean} recording
+ * @param {string} label
+ */
+function setRecordButton(button, recording, label) {
+  button.classList.toggle('is-recording', recording);
+  button.setAttribute('aria-pressed', String(recording));
+  button.title = recording ? 'Stop intercepting (Ctrl+E)' : 'Start intercepting (Ctrl+E)';
+  const labelEl = button.querySelector('.record-label');
+  if (labelEl) labelEl.textContent = label;
+  else button.textContent = label;
+}
 
 // ── UI state helpers ──────────────────────────────────────────────
 
@@ -18,8 +34,7 @@ export function resetUIState() {
   const submitButton = getElement('form-submit');
   if (submitButton) {
     submitButton.disabled = false;
-    submitButton.innerHTML = '<span class="btn-icon-play">&#9654;</span> Start';
-    submitButton.className = 'btn btn-primary btn-block';
+    setRecordButton(submitButton, false, 'Start');
   }
   state.currentOperation = null;
 }
@@ -31,8 +46,7 @@ export function setActiveUIState() {
   const submitButton = getElement('form-submit');
   if (submitButton) {
     submitButton.disabled = false;
-    submitButton.innerHTML = '<span class="btn-icon-play">&#9209;</span> Stop';
-    submitButton.className = 'btn btn-danger btn-block';
+    setRecordButton(submitButton, true, 'Stop');
   }
 }
 
@@ -43,10 +57,12 @@ export function setActiveUIState() {
  * @param {string} message - Success message to display in the status banner.
  */
 export function handleStartSuccess(message) {
-  updateDebuggerStatus('Active', 'active');
-  showStatusBanner(message, 'success');
+  // The live infobar is the confirmation; the message only goes to the log.
+  if (message) console.info(message);
+  updateDebuggerStatus('Intercepting', 'active');
   setActiveUIState();
   state.isDebuggerActive = true;
+  renderSessionBar();
 }
 
 /**
@@ -64,23 +80,42 @@ export function handleStartWarning(message) {
  * @param {string} error - Error message to display.
  */
 export function handleStartError(error) {
-  updateDebuggerStatus('Failed', 'error');
+  updateDebuggerStatus('Error', 'error');
   showStatusBanner(error, 'error');
   resetUIState();
 }
 
 function handleStartTimeout() {
   state.currentOperation = null;
-  updateDebuggerStatus('Timeout', 'error');
-  showStatusBanner('Start operation timed out', 'error');
+  updateDebuggerStatus('Error', 'error');
+  showStatusBanner('Start timed out. Press Start to try again.', 'error');
   resetUIState();
 }
 
 export function handleStopSuccess() {
-  updateDebuggerStatus('Stopped', 'error');
-  showStatusBanner('Debugger disconnected', 'warning');
+  updateDebuggerStatus(
+    state.passiveMode ? 'Passive' : 'Off',
+    state.passiveMode ? 'info' : 'default'
+  );
+  showStatusBanner(sessionRecap(), 'default');
   resetUIState();
   state.isDebuggerActive = false;
+  renderSessionBar();
+}
+
+/**
+ * One-line summary of the session for the stop toast.
+ * @returns {string}
+ */
+function sessionRecap() {
+  const captured = state.requestHistory.length;
+  if (captured === 0) return 'Interception stopped. No operations were captured.';
+  const resolved = state.requestHistory.filter((r) => r.type === 'apq' && r.query).length;
+  const hashes = state.requestHistory.filter((r) => r.type === 'apq').length;
+  const noun = captured === 1 ? 'operation' : 'operations';
+  return hashes > 0
+    ? `Interception stopped. ${captured} ${noun} captured; ${resolved} of ${hashes} hashes resolved.`
+    : `Interception stopped. ${captured} ${noun} captured.`;
 }
 
 /**
@@ -92,6 +127,7 @@ export function handleStopWarning(message) {
   showStatusBanner(message, 'warning');
   resetUIState();
   state.isDebuggerActive = false;
+  renderSessionBar();
 }
 
 function handleStopError(error) {
@@ -102,8 +138,8 @@ function handleStopError(error) {
 
 function handleStopTimeout() {
   state.currentOperation = null;
-  updateDebuggerStatus('Timeout', 'error');
-  showStatusBanner('Stop operation timed out', 'error');
+  updateDebuggerStatus('Error', 'error');
+  showStatusBanner('Stop timed out. Press Stop to try again.', 'error');
   resetUIState();
 }
 
@@ -125,18 +161,21 @@ function startDebugger() {
   });
 
   if (urlPatterns.length === 0) {
-    showError('Please enter at least one URL pattern');
+    setPatternsPaneOpen(true, { user: true });
+    const firstInput = document.querySelector('.urlPattern');
+    if (firstInput) firstInput.focus();
+    showError('Add a URL pattern first, for example *graphql*');
     state.currentOperation = null;
     return;
   }
 
   savePatternsToStorage();
-  updateDebuggerStatus('Connecting...', 'warning');
+  updateDebuggerStatus('Starting', 'warning');
 
   const submitButton = getElement('form-submit');
   if (submitButton) {
     submitButton.disabled = true;
-    submitButton.innerHTML = '<span class="btn-icon-play">&#9203;</span> Starting...';
+    setRecordButton(submitButton, false, 'Starting…');
   }
 
   const startTimeout = setTimeout(() => {
@@ -164,12 +203,12 @@ function startDebugger() {
 
 function stopDebugger() {
   state.currentOperation = 'stopping';
-  updateDebuggerStatus('Disconnecting...', 'warning');
+  updateDebuggerStatus('Stopping', 'warning');
 
   const submitButton = getElement('form-submit');
   if (submitButton) {
     submitButton.disabled = true;
-    submitButton.innerHTML = '<span class="btn-icon-play">&#9203;</span> Stopping...';
+    setRecordButton(submitButton, true, 'Stopping…');
   }
 
   const stopTimeout = setTimeout(() => {

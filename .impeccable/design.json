@@ -1,0 +1,1010 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-21T05:37:41.642Z",
+  "title": "Design System: APQ Debugger",
+  "extensions": {
+    "colorMeta": {
+      "surface": {
+        "role": "neutral",
+        "displayName": "Surface",
+        "canonical": "light-dark(#ffffff, #202124)",
+        "light": "#ffffff",
+        "dark": "#202124",
+        "lightOklch": "oklch(100.0% 0.000 89.9)",
+        "darkOklch": "oklch(24.8% 0.006 271.2)",
+        "purpose": "Table, panes and detail body.",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#242424",
+          "#404040",
+          "#5d5d5d",
+          "#808080",
+          "#a4a4a4",
+          "#cacaca",
+          "#eeeeee"
+        ]
+      },
+      "surface-chrome": {
+        "role": "neutral",
+        "displayName": "Chrome Grey",
+        "canonical": "light-dark(#f1f3f4, #292a2d)",
+        "light": "#f1f3f4",
+        "dark": "#292a2d",
+        "lightOklch": "oklch(96.3% 0.003 228.8)",
+        "darkOklch": "oklch(28.5% 0.006 271.2)",
+        "purpose": "Tab strip, toolbars, table head, group and code headers.",
+        "tonalRamp": [
+          "#0a0b0c",
+          "#232425",
+          "#3e4041",
+          "#5c5e5f",
+          "#7f8081",
+          "#a3a5a6",
+          "#c9cbcc",
+          "#edeff0"
+        ]
+      },
+      "surface-raised": {
+        "role": "neutral",
+        "displayName": "Raised",
+        "canonical": "light-dark(#ffffff, #303134)",
+        "light": "#ffffff",
+        "dark": "#303134",
+        "lightOklch": "oklch(100.0% 0.000 89.9)",
+        "darkOklch": "oklch(31.3% 0.006 271.2)",
+        "purpose": "Menus and dialogs.",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#242424",
+          "#404040",
+          "#5d5d5d",
+          "#808080",
+          "#a4a4a4",
+          "#cacaca",
+          "#eeeeee"
+        ]
+      },
+      "surface-sunken": {
+        "role": "neutral",
+        "displayName": "Sunken",
+        "canonical": "light-dark(#f8f9fa, #1b1c1e)",
+        "light": "#f8f9fa",
+        "dark": "#1b1c1e",
+        "lightOklch": "oklch(98.2% 0.002 247.8)",
+        "darkOklch": "oklch(22.6% 0.004 264.5)",
+        "purpose": "Query, variables and SDL code bodies.",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#232425",
+          "#3f4041",
+          "#5d5e5e",
+          "#7f8081",
+          "#a4a5a5",
+          "#cacacb",
+          "#edeeef"
+        ]
+      },
+      "surface-hover": {
+        "role": "neutral",
+        "displayName": "Hover Wash",
+        "canonical": "light-dark(#eef1f6, #2f3236)",
+        "light": "#eef1f6",
+        "dark": "#2f3236",
+        "lightOklch": "oklch(95.7% 0.007 260.7)",
+        "darkOklch": "oklch(31.6% 0.008 255.6)",
+        "purpose": "Hover on rows, tabs, buttons, menu options.",
+        "tonalRamp": [
+          "#090b0e",
+          "#222428",
+          "#3d4044",
+          "#5b5e62",
+          "#7e8085",
+          "#a2a5a9",
+          "#c8cbcf",
+          "#eceff4"
+        ]
+      },
+      "selection": {
+        "role": "primary",
+        "displayName": "Selection Blue",
+        "canonical": "light-dark(#d3e3fd, #0f3a6e)",
+        "light": "#d3e3fd",
+        "dark": "#0f3a6e",
+        "lightOklch": "oklch(91.2% 0.040 260.1)",
+        "darkOklch": "oklch(35.1% 0.101 255.7)",
+        "purpose": "Selected row / type / active pill while the list is focused.",
+        "tonalRamp": [
+          "#030b1c",
+          "#192437",
+          "#344055",
+          "#515e74",
+          "#738198",
+          "#96a6be",
+          "#bccce5",
+          "#e5efff"
+        ]
+      },
+      "selection-idle": {
+        "role": "neutral",
+        "displayName": "Selection Grey",
+        "canonical": "light-dark(#e8eaed, #3c4043)",
+        "light": "#e8eaed",
+        "dark": "#3c4043",
+        "lightOklch": "oklch(93.6% 0.005 258.3)",
+        "darkOklch": "oklch(36.9% 0.007 240.0)",
+        "purpose": "Selected row when its list is not focused.",
+        "tonalRamp": [
+          "#0a0b0d",
+          "#232426",
+          "#3e4042",
+          "#5c5e60",
+          "#7e8083",
+          "#a3a5a7",
+          "#c9cbcd",
+          "#edeff2"
+        ]
+      },
+      "input-surface": {
+        "role": "neutral",
+        "displayName": "Input Surface",
+        "canonical": "light-dark(#ffffff, #202124)",
+        "light": "#ffffff",
+        "dark": "#202124",
+        "lightOklch": "oklch(100.0% 0.000 89.9)",
+        "darkOklch": "oklch(24.8% 0.006 271.2)",
+        "purpose": "Text inputs and selects.",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#242424",
+          "#404040",
+          "#5d5d5d",
+          "#808080",
+          "#a4a4a4",
+          "#cacaca",
+          "#eeeeee"
+        ]
+      },
+      "divider": {
+        "role": "neutral",
+        "displayName": "Divider",
+        "canonical": "light-dark(#dadce0, #3c4043)",
+        "light": "#dadce0",
+        "dark": "#3c4043",
+        "lightOklch": "oklch(89.4% 0.006 264.5)",
+        "darkOklch": "oklch(36.9% 0.007 240.0)",
+        "purpose": "Every 1px region split and column rule; resting input border.",
+        "tonalRamp": [
+          "#0a0b0e",
+          "#232427",
+          "#3e4043",
+          "#5c5e61",
+          "#7e8084",
+          "#a3a5a8",
+          "#c8cace",
+          "#eceef2"
+        ]
+      },
+      "input-border": {
+        "role": "neutral",
+        "displayName": "Input Border",
+        "canonical": "light-dark(#80868b, #80868b)",
+        "light": "#80868b",
+        "dark": "#80868b",
+        "lightOklch": "oklch(61.7% 0.010 242.9)",
+        "darkOklch": "oklch(61.7% 0.010 242.9)",
+        "purpose": "Input border on hover (3:1).",
+        "tonalRamp": [
+          "#080c0f",
+          "#202529",
+          "#3b4045",
+          "#595e63",
+          "#7b8186",
+          "#9fa5ab",
+          "#c5cbd1",
+          "#e9eff5"
+        ]
+      },
+      "raised-border": {
+        "role": "neutral",
+        "displayName": "Raised Border",
+        "canonical": "light-dark(#c4c7c5, #5f6368)",
+        "light": "#c4c7c5",
+        "dark": "#5f6368",
+        "lightOklch": "oklch(82.7% 0.004 157.2)",
+        "darkOklch": "oklch(49.8% 0.009 253.9)",
+        "purpose": "Menu and dialog edge; kbd border; scrollbar thumb.",
+        "tonalRamp": [
+          "#0a0c0a",
+          "#222523",
+          "#3e403f",
+          "#5c5e5d",
+          "#7e817f",
+          "#a2a5a3",
+          "#c8cbc9",
+          "#ecefed"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "light-dark(#1f1f1f, #e3e3e3)",
+        "light": "#1f1f1f",
+        "dark": "#e3e3e3",
+        "lightOklch": "oklch(23.9% 0.000 89.9)",
+        "darkOklch": "oklch(91.6% 0.000 89.9)",
+        "purpose": "Primary text.",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#242424",
+          "#404040",
+          "#5d5d5d",
+          "#808080",
+          "#a4a4a4",
+          "#cacaca",
+          "#eeeeee"
+        ]
+      },
+      "ink-secondary": {
+        "role": "neutral",
+        "displayName": "Ink Secondary",
+        "canonical": "light-dark(#5f6368, #a8acb1)",
+        "light": "#5f6368",
+        "dark": "#a8acb1",
+        "lightOklch": "oklch(49.8% 0.009 253.9)",
+        "darkOklch": "oklch(74.3% 0.008 253.9)",
+        "purpose": "Labels, column heads, hashes, times.",
+        "tonalRamp": [
+          "#090b0f",
+          "#212429",
+          "#3c4045",
+          "#5a5e63",
+          "#7c8186",
+          "#a1a5aa",
+          "#c6cbd1",
+          "#eaeff5"
+        ]
+      },
+      "ink-disabled": {
+        "role": "neutral",
+        "displayName": "Ink Disabled",
+        "canonical": "light-dark(#9aa0a6, #6f7378)",
+        "light": "#9aa0a6",
+        "dark": "#6f7378",
+        "lightOklch": "oklch(70.3% 0.011 248.0)",
+        "darkOklch": "oklch(55.4% 0.009 253.9)",
+        "purpose": "Disabled controls.",
+        "tonalRamp": [
+          "#080c10",
+          "#202529",
+          "#3b4045",
+          "#595e64",
+          "#7b8187",
+          "#9fa5ab",
+          "#c5cbd2",
+          "#e9eff6"
+        ]
+      },
+      "ink-on-selection": {
+        "role": "neutral",
+        "displayName": "Ink on Selection",
+        "canonical": "light-dark(#041e49, #e3eefe)",
+        "light": "#041e49",
+        "dark": "#e3eefe",
+        "lightOklch": "oklch(24.6% 0.087 259.7)",
+        "darkOklch": "oklch(94.6% 0.025 257.6)",
+        "purpose": "Text on Selection Blue.",
+        "tonalRamp": [
+          "#00072a",
+          "#07224d",
+          "#233f6d",
+          "#405e8e",
+          "#6181b4",
+          "#84a6db",
+          "#adccfe",
+          "#e6effe"
+        ]
+      },
+      "devtools-blue": {
+        "role": "primary",
+        "displayName": "DevTools Blue",
+        "canonical": "light-dark(#0b57d0, #a8c7fa)",
+        "light": "#0b57d0",
+        "dark": "#a8c7fa",
+        "lightOklch": "oklch(49.5% 0.199 260.6)",
+        "darkOklch": "oklch(82.5% 0.080 260.3)",
+        "purpose": "Active tab, primary button, links, checkbox accent.",
+        "tonalRamp": [
+          "#00052e",
+          "#001e5a",
+          "#003790",
+          "#0452cb",
+          "#3179f4",
+          "#6ea4ff",
+          "#adccff",
+          "#e6efff"
+        ]
+      },
+      "devtools-blue-hover": {
+        "role": "primary",
+        "displayName": "DevTools Blue Hover",
+        "canonical": "light-dark(#0842a0, #c2d7fb)",
+        "light": "#0842a0",
+        "dark": "#c2d7fb",
+        "lightOklch": "oklch(40.9% 0.163 260.6)",
+        "darkOklch": "oklch(87.5% 0.055 261.2)",
+        "purpose": "Primary button hover.",
+        "tonalRamp": [
+          "#00052e",
+          "#001e5a",
+          "#003791",
+          "#2058b7",
+          "#437de0",
+          "#6fa4fe",
+          "#adccfe",
+          "#e6effe"
+        ]
+      },
+      "on-devtools-blue": {
+        "role": "primary",
+        "displayName": "On DevTools Blue",
+        "canonical": "light-dark(#ffffff, #062e6f)",
+        "light": "#ffffff",
+        "dark": "#062e6f",
+        "lightOklch": "oklch(100.0% 0.000 89.9)",
+        "darkOklch": "oklch(32.1% 0.121 260.2)",
+        "purpose": "Text on primary buttons.",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#242424",
+          "#404040",
+          "#5d5d5d",
+          "#808080",
+          "#a4a4a4",
+          "#cacaca",
+          "#eeeeee"
+        ]
+      },
+      "focus": {
+        "role": "primary",
+        "displayName": "Focus Blue",
+        "canonical": "light-dark(#0b57d0, #a8c7fa)",
+        "light": "#0b57d0",
+        "dark": "#a8c7fa",
+        "lightOklch": "oklch(49.5% 0.199 260.6)",
+        "darkOklch": "oklch(82.5% 0.080 260.3)",
+        "purpose": "2px focus outline; resize handle active.",
+        "tonalRamp": [
+          "#00052e",
+          "#001e5a",
+          "#003790",
+          "#0452cb",
+          "#3179f4",
+          "#6ea4ff",
+          "#adccff",
+          "#e6efff"
+        ]
+      },
+      "record-red": {
+        "role": "secondary",
+        "displayName": "Record Red",
+        "canonical": "light-dark(#d93025, #f28b82)",
+        "light": "#d93025",
+        "dark": "#f28b82",
+        "lightOklch": "oklch(57.8% 0.206 29.0)",
+        "darkOklch": "oklch(74.5% 0.127 25.8)",
+        "purpose": "Recording circle, Intercepting status, live infobar dot.",
+        "tonalRamp": [
+          "#210000",
+          "#4c0000",
+          "#7d0000",
+          "#b20102",
+          "#e1392c",
+          "#ff7362",
+          "#ffb5aa",
+          "#ffe9e5"
+        ]
+      },
+      "resolved-green": {
+        "role": "tertiary",
+        "displayName": "Resolved Green",
+        "canonical": "light-dark(#137333, #81c995)",
+        "light": "#137333",
+        "dark": "#81c995",
+        "lightOklch": "oklch(48.8% 0.130 149.0)",
+        "darkOklch": "oklch(77.4% 0.104 152.2)",
+        "purpose": "Resolved state only.",
+        "tonalRamp": [
+          "#001002",
+          "#002d0d",
+          "#014e1e",
+          "#0e7131",
+          "#3e9553",
+          "#65bb77",
+          "#8be29b",
+          "#c8ffd0"
+        ]
+      },
+      "awaiting-amber": {
+        "role": "tertiary",
+        "displayName": "Awaiting Amber",
+        "canonical": "light-dark(#8a5300, #fdd663)",
+        "light": "#8a5300",
+        "dark": "#fdd663",
+        "lightOklch": "oklch(49.4% 0.109 66.9)",
+        "darkOklch": "oklch(88.8% 0.139 90.6)",
+        "purpose": "Awaiting retry state; no-patterns warning; warning status.",
+        "tonalRamp": [
+          "#160700",
+          "#371d00",
+          "#5c3601",
+          "#845002",
+          "#ab722f",
+          "#d29755",
+          "#fbbd7b",
+          "#feebd8"
+        ]
+      },
+      "error-red": {
+        "role": "tertiary",
+        "displayName": "Error Red",
+        "canonical": "light-dark(#b3261e, #f2b8b5)",
+        "light": "#b3261e",
+        "dark": "#f2b8b5",
+        "lightOklch": "oklch(50.1% 0.178 28.7)",
+        "darkOklch": "oklch(83.4% 0.068 22.0)",
+        "purpose": "Not in registry, errors, destructive confirm.",
+        "tonalRamp": [
+          "#210000",
+          "#4c0000",
+          "#7d0001",
+          "#ac1d17",
+          "#d64a3d",
+          "#ff7363",
+          "#ffb5aa",
+          "#ffe9e5"
+        ]
+      },
+      "error-wash": {
+        "role": "tertiary",
+        "displayName": "Error Wash",
+        "canonical": "light-dark(#fce8e6, #3c1b18)",
+        "light": "#fce8e6",
+        "dark": "#3c1b18",
+        "lightOklch": "oklch(94.6% 0.022 24.4)",
+        "darkOklch": "oklch(26.9% 0.053 26.5)",
+        "purpose": "Schema error band, error toast.",
+        "tonalRamp": [
+          "#130807",
+          "#2e201f",
+          "#4b3b3a",
+          "#6a5957",
+          "#8d7b7a",
+          "#b2a09e",
+          "#d9c5c3",
+          "#fde9e7"
+        ]
+      },
+      "live-wash": {
+        "role": "secondary",
+        "displayName": "Live Yellow",
+        "canonical": "light-dark(#fef7e0, #3a3013)",
+        "light": "#fef7e0",
+        "dark": "#3a3013",
+        "lightOklch": "oklch(97.6% 0.031 92.9)",
+        "darkOklch": "oklch(31.3% 0.047 90.5)",
+        "purpose": "Interception infobar and warning toast background.",
+        "tonalRamp": [
+          "#100b00",
+          "#292412",
+          "#45402d",
+          "#645d4a",
+          "#86806c",
+          "#aba58f",
+          "#d1cab4",
+          "#f5eed8"
+        ]
+      },
+      "live-border": {
+        "role": "secondary",
+        "displayName": "Live Yellow Border",
+        "canonical": "light-dark(#f2d68b, #6b5718)",
+        "light": "#f2d68b",
+        "dark": "#6b5718",
+        "lightOklch": "oklch(88.3% 0.099 89.8)",
+        "darkOklch": "oklch(46.5% 0.083 90.7)",
+        "purpose": "Infobar and warning toast edge.",
+        "tonalRamp": [
+          "#110a00",
+          "#2e2200",
+          "#4f3d01",
+          "#735a03",
+          "#977d32",
+          "#bda258",
+          "#e4c87d",
+          "#ffedbf"
+        ]
+      },
+      "live-ink": {
+        "role": "secondary",
+        "displayName": "Live Ink",
+        "canonical": "light-dark(#3c2c00, #fdecb7)",
+        "light": "#3c2c00",
+        "dark": "#fdecb7",
+        "lightOklch": "oklch(30.3% 0.062 87.0)",
+        "darkOklch": "oklch(94.4% 0.070 92.4)",
+        "purpose": "Text on Live Yellow.",
+        "tonalRamp": [
+          "#120a00",
+          "#2f2200",
+          "#4e3d14",
+          "#6d5b33",
+          "#907e55",
+          "#b5a378",
+          "#dcc99d",
+          "#ffedc4"
+        ]
+      },
+      "passive-wash": {
+        "role": "secondary",
+        "displayName": "Passive Blue Wash",
+        "canonical": "light-dark(#e8f0fe, #172b4d)",
+        "light": "#e8f0fe",
+        "dark": "#172b4d",
+        "lightOklch": "oklch(95.3% 0.021 261.8)",
+        "darkOklch": "oklch(29.2% 0.068 260.4)",
+        "purpose": "Passive-mode infobar background.",
+        "tonalRamp": [
+          "#070b14",
+          "#1e242e",
+          "#3a404b",
+          "#575e6a",
+          "#79818d",
+          "#9ea5b2",
+          "#c3cbd8",
+          "#e7effd"
+        ]
+      },
+      "passive-border": {
+        "role": "secondary",
+        "displayName": "Passive Border",
+        "canonical": "light-dark(#c2d7fb, #2c4a7a)",
+        "light": "#c2d7fb",
+        "dark": "#2c4a7a",
+        "lightOklch": "oklch(87.5% 0.055 261.2)",
+        "darkOklch": "oklch(41.0% 0.089 259.4)",
+        "purpose": "Passive infobar edge.",
+        "tonalRamp": [
+          "#010922",
+          "#14233e",
+          "#2f405d",
+          "#4c5e7d",
+          "#6e81a2",
+          "#92a5c8",
+          "#b7ccef",
+          "#e6effe"
+        ]
+      },
+      "passive-ink": {
+        "role": "secondary",
+        "displayName": "Passive Ink",
+        "canonical": "light-dark(#062e6f, #d3e3fd)",
+        "light": "#062e6f",
+        "dark": "#d3e3fd",
+        "lightOklch": "oklch(32.1% 0.121 260.2)",
+        "darkOklch": "oklch(91.2% 0.040 260.1)",
+        "purpose": "Text on Passive Blue Wash.",
+        "tonalRamp": [
+          "#00062c",
+          "#001e58",
+          "#153c7e",
+          "#335ca1",
+          "#5480c8",
+          "#78a5f0",
+          "#adccff",
+          "#e6effe"
+        ]
+      },
+      "update-flash": {
+        "role": "tertiary",
+        "displayName": "Update Flash",
+        "canonical": "light-dark(#fde293, #6b5718)",
+        "light": "#fde293",
+        "dark": "#6b5718",
+        "lightOklch": "oklch(91.8% 0.103 91.3)",
+        "darkOklch": "oklch(46.5% 0.083 90.7)",
+        "purpose": "Start colour of the resolve-in-place row flash.",
+        "tonalRamp": [
+          "#110a00",
+          "#2e2300",
+          "#4f3e00",
+          "#725b00",
+          "#977e2d",
+          "#bca254",
+          "#e3c97a",
+          "#ffeebc"
+        ]
+      },
+      "syntax-keyword": {
+        "role": "tertiary",
+        "displayName": "Syntax Keyword",
+        "canonical": "light-dark(#aa0d91, #e36eec)",
+        "light": "#aa0d91",
+        "dark": "#e36eec",
+        "lightOklch": "oklch(50.7% 0.217 336.8)",
+        "darkOklch": "oklch(72.1% 0.209 324.7)",
+        "purpose": "GraphQL keywords.",
+        "tonalRamp": [
+          "#1c0016",
+          "#430038",
+          "#6f005e",
+          "#9f0188",
+          "#ca3aae",
+          "#f463d5",
+          "#ffabe8",
+          "#ffe6f7"
+        ]
+      },
+      "syntax-type": {
+        "role": "tertiary",
+        "displayName": "Syntax Type",
+        "canonical": "light-dark(#0b57d0, #8ab4f8)",
+        "light": "#0b57d0",
+        "dark": "#8ab4f8",
+        "lightOklch": "oklch(49.5% 0.199 260.6)",
+        "darkOklch": "oklch(76.6% 0.108 259.8)",
+        "purpose": "Type names and built-ins.",
+        "tonalRamp": [
+          "#00052e",
+          "#001e5a",
+          "#003790",
+          "#0452cb",
+          "#3179f4",
+          "#6ea4ff",
+          "#adccff",
+          "#e6efff"
+        ]
+      },
+      "syntax-variable": {
+        "role": "tertiary",
+        "displayName": "Syntax Variable",
+        "canonical": "light-dark(#c5221f, #f28b82)",
+        "light": "#c5221f",
+        "dark": "#f28b82",
+        "lightOklch": "oklch(53.2% 0.198 27.9)",
+        "darkOklch": "oklch(74.5% 0.127 25.8)",
+        "purpose": "$variables and directives.",
+        "tonalRamp": [
+          "#210000",
+          "#4c0001",
+          "#7d0005",
+          "#b2010b",
+          "#dd3e35",
+          "#ff7365",
+          "#ffb5ab",
+          "#fee9e6"
+        ]
+      },
+      "syntax-string": {
+        "role": "tertiary",
+        "displayName": "Syntax String",
+        "canonical": "light-dark(#1a1aa6, #f29766)",
+        "light": "#1a1aa6",
+        "dark": "#f29766",
+        "lightOklch": "oklch(35.5% 0.209 269.0)",
+        "darkOklch": "oklch(76.0% 0.127 48.4)",
+        "purpose": "String literals.",
+        "tonalRamp": [
+          "#030036",
+          "#0e0075",
+          "#1c21ab",
+          "#3249d1",
+          "#4f70fb",
+          "#809fff",
+          "#b5c9ff",
+          "#e8eefe"
+        ]
+      },
+      "syntax-enum": {
+        "role": "tertiary",
+        "displayName": "Syntax Enum",
+        "canonical": "light-dark(#1c00cf, #b39ddb)",
+        "light": "#1c00cf",
+        "dark": "#b39ddb",
+        "lightOklch": "oklch(39.3% 0.263 267.9)",
+        "darkOklch": "oklch(73.7% 0.091 300.5)",
+        "purpose": "Enum values in SDL.",
+        "tonalRamp": [
+          "#020036",
+          "#0b0076",
+          "#1901bf",
+          "#2738ee",
+          "#4a70fe",
+          "#7e9fff",
+          "#b4c9ff",
+          "#e8eefe"
+        ]
+      },
+      "syntax-comment": {
+        "role": "tertiary",
+        "displayName": "Syntax Comment",
+        "canonical": "light-dark(#5f6368, #9aa0a6)",
+        "light": "#5f6368",
+        "dark": "#9aa0a6",
+        "lightOklch": "oklch(49.8% 0.009 253.9)",
+        "darkOklch": "oklch(70.3% 0.011 248.0)",
+        "purpose": "SDL descriptions/comments (italic).",
+        "tonalRamp": [
+          "#090b0f",
+          "#212429",
+          "#3c4045",
+          "#5a5e63",
+          "#7c8186",
+          "#a1a5aa",
+          "#c6cbd1",
+          "#eaeff5"
+        ]
+      }
+    },
+    "colorNotes": "Canonical values are light-dark() pairs in frontend/css/tokens.css; tonalRamp is synthesized in OKLCH from the light value. Dark mode flips color-scheme only (frontend/css/theme-dark.css). prefers-contrast: more strengthens divider and ink-secondary.",
+    "typographyMeta": {
+      "title": {
+        "displayName": "Title",
+        "purpose": "Detail operation name, empty-state and dialog titles. Largest UI text (13px)."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Default for all interface text at DevTools 12px."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Operation names, state words, column heads, primary/record buttons. Emphasis by weight 500."
+      },
+      "code": {
+        "displayName": "Code",
+        "purpose": "Query, variables and SDL bodies; wraps, never scrolls horizontally."
+      },
+      "code-small": {
+        "displayName": "Code Small",
+        "purpose": "Hashes, times, patterns, endpoint URLs, group headers, schema type names, inline code."
+      }
+    },
+    "density": [
+      {
+        "name": "comfortable",
+        "values": {
+          "fs": "12px",
+          "fs-sm": "11px",
+          "fs-title": "13px",
+          "toolbar-h": "30px",
+          "tab-h": "28px",
+          "control-h": "22px",
+          "row-h": "24px",
+          "pad": "12px"
+        },
+        "purpose": "DevTools default row height."
+      },
+      {
+        "name": "compact",
+        "values": {
+          "toolbar-h": "26px",
+          "tab-h": "26px",
+          "control-h": "20px",
+          "row-h": "20px",
+          "pad": "8px"
+        },
+        "purpose": "Dense tables; set via data-density=\"compact\" and applied automatically at max-height 460px."
+      }
+    ],
+    "shadows": [
+      {
+        "name": "shadow-menu",
+        "value": "0 1px 2px rgb(0 0 0 / 0.3), 0 2px 6px 2px rgb(0 0 0 / 0.15)",
+        "purpose": "Floating layers only: settings menu, toasts, dialog panel."
+      },
+      {
+        "name": "focus-outline",
+        "value": "outline: 2px solid var(--focus); outline-offset: 1px",
+        "purpose": "Focus indicator (an outline, not a shadow); inset -1px/-2px on rows, tabs, lists and code."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.2, 0, 0, 1)",
+        "purpose": "Standard easing for state transitions, the row flash and toast entry."
+      },
+      {
+        "name": "t-fast",
+        "value": "120ms",
+        "purpose": "Chevron and disclosure-triangle rotation."
+      },
+      {
+        "name": "t-med",
+        "value": "200ms",
+        "purpose": "Toast rise-in (6px)."
+      },
+      {
+        "name": "row-updated",
+        "value": "1.2s var(--ease-out), background from var(--flash)",
+        "purpose": "Signature resolve-in-place flash; reduced motion swaps it for a 1px resolved-green inset outline."
+      },
+      {
+        "name": "live-pulse",
+        "value": "1.2s ease-in-out x3, opacity to 0.35",
+        "purpose": "Record dot in the live infobar pulses three times, then rests."
+      },
+      {
+        "name": "skeleton",
+        "value": "1.4s ease-in-out infinite",
+        "purpose": "Schema loading shimmer."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "narrow",
+        "value": "640px",
+        "purpose": "Below: detail pane overlays the list; Hash column, Patterns label and pane descriptions drop."
+      },
+      {
+        "name": "very-narrow",
+        "value": "420px",
+        "purpose": "Below: Time column, resolved count and toolbar separators drop; schema type list 140px."
+      },
+      {
+        "name": "short",
+        "value": "max-height: 460px",
+        "purpose": "Compact density applies automatically."
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Toolbar Button",
+      "kind": "button",
+      "refersTo": "button-toolbar",
+      "description": "Default quiet control in toolbars; gains a divider outline on content surfaces.",
+      "html": "<div class=\"ds-toolbar\"><button class=\"ds-btn\">Clear</button><button class=\"ds-btn ds-btn-outlined\">Copy as cURL</button></div>",
+      "css": ".ds-toolbar{display:flex;gap:4px;padding:2px 6px;background:var(--bg-chrome);font:12px/1.4 var(--font-ui);color:var(--text)} .ds-btn{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border:1px solid transparent;border-radius:var(--r-md);background:none;color:var(--text);font:inherit;cursor:pointer} .ds-btn-outlined{border-color:var(--divider)} .ds-btn:hover{background:var(--bg-hover)} .ds-btn:focus-visible{outline:2px solid var(--focus);outline-offset:1px} .ds-btn:disabled{color:var(--text-disabled);background:none}"
+    },
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "One primary action per view (Load schema, Copy in the cURL dialog).",
+      "html": "<button class=\"ds-btn-primary\">Load schema</button>",
+      "css": ".ds-btn-primary{height:22px;padding:0 8px;border:1px solid transparent;border-radius:var(--r-md);background:var(--primary);color:var(--on-primary);font:500 12px/1.4 var(--font-ui);cursor:pointer} .ds-btn-primary:hover{background:var(--primary-hover)} .ds-btn-primary:focus-visible{outline:2px solid var(--focus);outline-offset:1px}"
+    },
+    {
+      "name": "Record Button",
+      "kind": "button",
+      "refersTo": "button-toolbar",
+      "description": "Network-panel record circle: hollow when idle, filled red while intercepting.",
+      "html": "<button class=\"ds-rec\"><svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\"><circle cx=\"12\" cy=\"12\" r=\"6\"/></svg>Record</button> <button class=\"ds-rec is-on\"><svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\"><circle cx=\"12\" cy=\"12\" r=\"6\"/></svg>Stop</button>",
+      "css": ".ds-rec{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px 0 6px;border:1px solid transparent;border-radius:var(--r-md);background:none;color:var(--text);font:500 12px/1.4 var(--font-ui);cursor:pointer} .ds-rec svg{fill:none;stroke:var(--text-2);stroke-width:2} .ds-rec.is-on{color:var(--record)} .ds-rec.is-on svg{fill:var(--record);stroke:var(--record)} .ds-rec:hover{background:var(--bg-hover)} .ds-rec:focus-visible{outline:2px solid var(--focus);outline-offset:1px}"
+    },
+    {
+      "name": "Type Filter Pills",
+      "kind": "chip",
+      "refersTo": "chip-filter",
+      "description": "DevTools Network resource-type pills: All / APQ / Full.",
+      "html": "<div class=\"ds-pills\"><button class=\"ds-pill is-active\">All</button><button class=\"ds-pill\">APQ</button><button class=\"ds-pill\">Full</button></div>",
+      "css": ".ds-pills{display:inline-flex;gap:2px;font:12px/1.4 var(--font-ui)} .ds-pill{height:20px;padding:0 8px;border:1px solid transparent;border-radius:var(--r-pill);background:none;color:var(--text);font:inherit;cursor:pointer} .ds-pill:hover{background:var(--bg-hover)} .ds-pill.is-active{background:var(--bg-selected);color:var(--text-on-selected)} .ds-pill:focus-visible{outline:2px solid var(--focus);outline-offset:1px}"
+    },
+    {
+      "name": "Toolbar Input",
+      "kind": "input",
+      "refersTo": "input-toolbar",
+      "description": "Filter and pattern fields; patterns use the monospace stack.",
+      "html": "<input class=\"ds-input\" placeholder=\"Filter\"> <input class=\"ds-input ds-mono\" value=\"*graphql*\">",
+      "css": ".ds-input{height:22px;width:180px;padding:0 6px;border:1px solid var(--divider);border-radius:var(--r-md);background:var(--bg-input);color:var(--text);font:12px/1.4 var(--font-ui)} .ds-input::placeholder{color:var(--text-2)} .ds-input:hover{border-color:var(--border-input)} .ds-input:focus-visible{outline:2px solid var(--focus);outline-offset:-1px;border-color:var(--focus)} .ds-mono{font-family:var(--font-mono);font-size:11px}"
+    },
+    {
+      "name": "Tab Strip",
+      "kind": "nav",
+      "refersTo": "tab",
+      "description": "Requests / Schema tabs with the blue underline; session status at the end.",
+      "html": "<div class=\"ds-tabs\"><button class=\"ds-tab is-on\">Requests</button><button class=\"ds-tab\">Schema</button><span class=\"ds-status\"><i></i>Intercepting</span></div>",
+      "css": ".ds-tabs{display:flex;align-items:stretch;min-height:28px;background:var(--bg-chrome);border-bottom:1px solid var(--divider);font:12px/1.4 var(--font-ui)} .ds-tab{position:relative;padding:0 12px;border:0;background:none;color:var(--text-2);font:inherit;cursor:pointer} .ds-tab:hover{color:var(--text);background:var(--bg-hover)} .ds-tab.is-on{color:var(--primary)} .ds-tab.is-on::after{content:\"\";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--primary)} .ds-tab:focus-visible{outline:2px solid var(--focus);outline-offset:-2px} .ds-status{margin-left:auto;padding:0 8px;display:inline-flex;align-items:center;gap:6px;color:var(--record);font-weight:600} .ds-status i{width:8px;height:8px;border-radius:50%;background:currentColor}"
+    },
+    {
+      "name": "Live Infobar",
+      "kind": "custom",
+      "refersTo": "infobar-live",
+      "description": "Yellow band shown only while matching traffic is being rewritten.",
+      "html": "<div class=\"ds-infobar\"><svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\"><circle cx=\"12\" cy=\"12\" r=\"6\"/></svg><p>Intercepting requests matching <code>*graphql*</code></p><button>Stop</button></div>",
+      "css": ".ds-infobar{display:flex;align-items:flex-start;gap:8px;min-height:30px;padding:4px 12px;background:var(--live-bg);color:var(--live-text);border-bottom:1px solid var(--live-border);font:12px/1.4 var(--font-ui)} .ds-infobar svg{margin-top:4px;fill:var(--record);flex:none;animation:ds-pulse 1.2s ease-in-out 3} .ds-infobar p{flex:1;margin:0;padding-top:1px} .ds-infobar code{font:11px var(--font-mono);padding:0 2px;border-radius:var(--r-sm);background:color-mix(in srgb,currentColor 10%,transparent)} .ds-infobar button{height:22px;padding:0 8px;border:1px solid color-mix(in srgb,currentColor 35%,transparent);border-radius:var(--r-md);background:none;color:inherit;font:500 12px var(--font-ui);cursor:pointer} .ds-infobar button:hover{background:color-mix(in srgb,currentColor 10%,transparent)} .ds-infobar button:focus-visible{outline:2px solid var(--focus);outline-offset:1px} @keyframes ds-pulse{50%{opacity:.35}}"
+    },
+    {
+      "name": "Request Rows",
+      "kind": "custom",
+      "refersTo": "table-row",
+      "description": "Single-line rows with state as word + glyph; a resolving row flashes in place.",
+      "html": "<div class=\"ds-table\"><div class=\"ds-row ds-head\"><span>Name</span><span>State</span><span>Hash</span></div><div class=\"ds-row ds-flash\"><span class=\"ds-op\">GetViewer</span><span class=\"ds-st ds-res\">Resolved</span><span class=\"ds-h\">ecf4edb4</span></div><div class=\"ds-row\" tabindex=\"0\"><span class=\"ds-op\">ProductListing</span><span class=\"ds-st ds-pen\">Awaiting retry</span><span class=\"ds-h\">7a1f0c2e</span></div><div class=\"ds-row ds-sel\"><span class=\"ds-op\">AddToCart</span><span class=\"ds-st ds-full\">Full query</span><span class=\"ds-h\"></span></div></div>",
+      "css": ".ds-table{font:12px/1.4 var(--font-ui);color:var(--text);background:var(--bg);min-width:360px} .ds-row{display:grid;grid-template-columns:minmax(120px,1fr) 112px 76px;align-items:center;height:24px;border-bottom:1px solid color-mix(in srgb,var(--divider) 55%,transparent)} .ds-row>*{padding:0 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .ds-row>*+*{border-left:1px solid var(--divider);line-height:23px} .ds-head{background:var(--bg-chrome);color:var(--text-2);font-weight:500;border-bottom-color:var(--divider)} .ds-row:not(.ds-head):hover{background:var(--bg-hover)} .ds-row:focus-visible{outline:1px solid var(--focus);outline-offset:-1px} .ds-sel{background:var(--bg-selected);color:var(--text-on-selected)} .ds-op{font-weight:500} .ds-h{font:11px var(--font-mono);color:var(--text-2)} .ds-st{display:inline-flex;align-items:center;gap:4px;font-weight:500} .ds-st::before{content:\"\";width:7px;height:7px;flex:none} .ds-res{color:var(--resolved)} .ds-res::before{border-radius:50%;background:currentColor} .ds-pen{color:var(--pending)} .ds-pen::before{border-radius:50%;border:1.5px solid currentColor} .ds-full{color:inherit;font-weight:400} .ds-full::before{width:6px;height:6px;background:currentColor;border-radius:1px} .ds-flash{animation:ds-flash 1.2s var(--ease-out) infinite} @keyframes ds-flash{from{background:var(--flash)}} @media (prefers-reduced-motion:reduce){.ds-flash{animation:none;outline:1px solid var(--resolved);outline-offset:-1px}}"
+    },
+    {
+      "name": "Query Code Block",
+      "kind": "card",
+      "refersTo": "code-block",
+      "description": "Collapsible, wrapped, syntax-coloured query; the dominant element of the detail pane.",
+      "html": "<details class=\"ds-code\" open><summary><span>Query</span><button>Copy</button></summary><pre><span class=\"k\">query</span> GetViewer(<span class=\"v\">$id</span>: <span class=\"t\">ID!</span>) {\n  viewer(id: <span class=\"v\">$id</span>) { name }\n}</pre></details>",
+      "css": ".ds-code{border:1px solid var(--divider);border-radius:var(--r-md);font:12px/1.4 var(--font-ui);color:var(--text)} .ds-code summary{display:flex;align-items:center;gap:6px;min-height:26px;padding:2px 2px 2px 8px;background:var(--bg-chrome);border-bottom:1px solid var(--divider);border-radius:var(--r-md) var(--r-md) 0 0;list-style:none;cursor:pointer;font-weight:600} .ds-code summary::-webkit-details-marker{display:none} .ds-code summary::before{content:\"\";border-style:solid;border-width:4px 0 4px 6px;border-color:transparent transparent transparent var(--text-2);transform:rotate(90deg);transition:transform var(--t-fast) var(--ease-out)} .ds-code summary span{flex:1} .ds-code summary:focus-visible{outline:2px solid var(--focus);outline-offset:-2px} .ds-code summary button{height:20px;padding:0 8px;border:1px solid transparent;border-radius:var(--r-md);background:none;color:var(--text);font:400 12px var(--font-ui);cursor:pointer} .ds-code summary button:hover{background:var(--bg-hover)} .ds-code pre{margin:0;padding:8px 12px;background:var(--bg-sunken);font:12px/1.5 var(--font-mono);white-space:pre-wrap;overflow-wrap:anywhere;border-radius:0 0 var(--r-md) var(--r-md)} .ds-code .k{color:var(--syn-keyword)} .ds-code .t{color:var(--syn-type)} .ds-code .v{color:var(--syn-variable)}"
+    },
+    {
+      "name": "Settings Menu",
+      "kind": "custom",
+      "refersTo": "menu",
+      "description": "Floating raised menu: the only in-panel surface (with toasts and dialogs) that carries a shadow.",
+      "html": "<div class=\"ds-menu\"><fieldset><legend>Theme</legend><label><input type=\"radio\" name=\"t\" checked> System</label><label><input type=\"radio\" name=\"t\"> Light</label><label><input type=\"radio\" name=\"t\"> Dark</label></fieldset></div>",
+      "css": ".ds-menu{width:240px;padding:6px 0;background:var(--bg-raised);border:1px solid var(--border-raised);border-radius:var(--r-lg);box-shadow:var(--shadow-menu);font:12px/1.4 var(--font-ui);color:var(--text)} .ds-menu fieldset{margin:0;padding:4px 0;border:0} .ds-menu legend{float:left;width:100%;padding:4px 12px;color:var(--text-2);font-weight:500} .ds-menu label{clear:both;display:flex;align-items:center;gap:8px;height:26px;padding:0 12px;cursor:pointer} .ds-menu label:hover{background:var(--bg-hover)} .ds-menu input{width:14px;height:14px;margin:0;accent-color:var(--primary)} .ds-menu input:focus-visible{outline:2px solid var(--focus);outline-offset:1px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The First-Party Panel",
+    "overview": "APQ Debugger is built to be mistaken for a panel Chrome shipped itself. It sits beside Network and Elements, so it takes their system wholesale: 12px system UI type, monospace for anything machine-made (hashes, queries, URLs, timestamps), white and grey-100 surfaces (dark: #202124 / #292a2d) split by 1px dividers, Google blue for selection, focus and the one primary action, record red, a yellow infobar while traffic is being rewritten, and green reserved for a resolved hash. Familiarity is the design goal; personality is spent only on state changes.\n\nThe structure is the DevTools canon: a tab strip (Requests, Schema, settings gear and session status at the right), a per-view toolbar, an optional collapsible patterns pane, an infobar when interception or passive mode is on, then a dense single-line data table with a detail pane that appears only after selection. In the detail pane the recovered query is the largest, most readable thing on screen, wrapped and syntax-coloured in DevTools Sources colours. The system rejects the editorial card-and-metric dashboard and the permanent settings sidebar that preceded it.\n\nDensity is a working constraint, not a preference: the panel is often docked about 400px tall. Comfortable matches DevTools' default row height (24px), Compact its dense tables (20px), and Compact switches on by itself when the panel is 460px tall or less. The one signature moment is a pending APQ row resolving in place, its state flipping to Resolved under the DevTools \"updated\" flash.",
+    "keyCharacteristics": [
+      "System UI 12px for interface, ui-monospace for code, hashes, URLs and times; no bundled or network fonts.",
+      "Flat in-flow surfaces separated by 1px dividers and tonal steps (surface vs chrome vs sunken).",
+      "Blue means selection, focus or primary; red means recording; yellow means traffic is being rewritten; green means resolved.",
+      "Every request state is a word plus a glyph shape, never colour alone.",
+      "Single-line 24px (20px compact) table rows with column dividers.",
+      "Every colour defined once with light-dark(); dark mode only flips color-scheme."
+    ],
+    "rules": [
+      {
+        "name": "The One Meaning Rule",
+        "body": "Each signal colour has exactly one job: blue is selection, focus and the primary action; red is recording; yellow is live rewriting or a warning; green is a resolved hash. A colour never borrows another's meaning.",
+        "section": "colors"
+      },
+      {
+        "name": "The Yellow Means Rewriting Rule",
+        "body": "The yellow infobar is visible if and only if the debugger is attached and rewriting matching traffic; it names the patterns in monospace and carries Stop. Passive mode gets the blue infobar instead, because nothing is modified.",
+        "section": "colors"
+      },
+      {
+        "name": "The Define-Once Rule",
+        "body": "Every colour is declared once in tokens.css as `light-dark(light, dark)`. Dark mode is a `color-scheme` flip in theme-dark.css (explicit `data-theme` wins; otherwise the system preference). No component redeclares a colour per theme.",
+        "section": "colors"
+      },
+      {
+        "name": "The Machine-Text Rule",
+        "body": "Anything the machine produced (hash, URL, pattern, timestamp, query, type name) is set in the monospace stack; anything a person reads as interface is in system-ui. Numbers that update in place use tabular numerals.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat Ramp Rule",
+        "body": "The ramp spans 11px to 13px. Hierarchy comes from weight (400/500/600), colour (ink vs ink-secondary) and position, never from display sizes. Sentence case throughout; no uppercase tracking, no eyebrows.",
+        "section": "typography"
+      },
+      {
+        "name": "The Docked-First Rule",
+        "body": "Design for the panel docked about 400px tall: no chrome may cost more than one toolbar row plus the optional infobar before data rows begin.",
+        "section": "layout"
+      },
+      {
+        "name": "The Overlays-Only Rule",
+        "body": "A shadow means \"floating above the panel\". Rows, panes, toolbars, code blocks and infobars never carry one.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do take every colour from tokens.css and add new ones there as `light-dark(light, dark)` pairs with text at 4.5:1 and meaningful indicators at 3:1 in both themes.",
+      "Do separate regions with 1px dividers and the surface / chrome / sunken tonal steps.",
+      "Do express every request state as a word plus a glyph shape, using the vocabulary in `request-state.js`.",
+      "Do set hashes, URLs, patterns, times and code in the monospace stack, and counts in tabular numerals.",
+      "Do keep controls at the density heights (22/20px controls, 24/20px rows) so compact and the short-dock auto-compact keep working.",
+      "Do keep the query block wrapped and dominant in the detail pane; the recovered query is the largest readable thing on screen.",
+      "Do give every motion a reduced-motion fallback that keeps the meaning (the resolve flash becomes a green outline).",
+      "Do support forced colours: selection maps to Highlight/HighlightText and floating layers get a CanvasText border."
+    ],
+    "donts": [
+      "Don't add shadows to in-flow surfaces; the overlay shadow is for menus, toasts and dialogs only.",
+      "Don't use green for anything except a resolved hash, or yellow except live interception and warnings.",
+      "Don't signal state with colour alone.",
+      "Don't load fonts, icons or scripts from the network, or ship a display face; the platform system-ui and ui-monospace stacks are the type system.",
+      "Don't reintroduce the editorial card-and-metric dashboard, a permanent settings sidebar, uppercase tracked eyebrows or display numerals.",
+      "Don't redeclare colours for dark mode; flip `color-scheme` only.",
+      "Don't let the query scroll horizontally; it wraps."
+    ]
+  }
+}

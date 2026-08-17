@@ -1,6 +1,9 @@
 /**
  * Keyboard navigation:
  * - Escape closes the detail panel
+ * - Ctrl/Cmd+E starts or stops interception (as Network's record shortcut)
+ * - Ctrl/Cmd+F or "/" focuses the active view's filter
+ * - Arrow navigation between the Requests / Schema tabs
  * - Arrow/Home/End navigation within the request list (roving focus)
  * - Arrow/Home/End navigation within the schema type list (roving focus)
  * - Arrow navigation within the filter chip radio group
@@ -9,6 +12,7 @@
 
 import { getElement } from './dom-helpers.js';
 import { state } from './state.js';
+import { showMainTab } from './schema-viewer.js';
 
 function isEditableTarget(target) {
   if (!target) return false;
@@ -126,6 +130,34 @@ function handleChipKeydown(e) {
   chips[next].click();
 }
 
+function handleTabKeydown(e) {
+  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Home' && e.key !== 'End')
+    return;
+  const tabs = Array.from(document.querySelectorAll('.tabs [role="tab"]'));
+  const currentIndex = tabs.indexOf(document.activeElement);
+  if (currentIndex < 0) return;
+
+  e.preventDefault();
+  let next = currentIndex;
+  if (e.key === 'ArrowRight') next = (currentIndex + 1) % tabs.length;
+  else if (e.key === 'ArrowLeft') next = (currentIndex - 1 + tabs.length) % tabs.length;
+  else if (e.key === 'Home') next = 0;
+  else next = tabs.length - 1;
+
+  showMainTab(tabs[next].id === 'tab-schema' ? 'schema' : 'requests');
+  tabs[next].focus();
+}
+
+/** Focus the filter of whichever view is showing. */
+function focusActiveFilter() {
+  const schemaVisible = !document.getElementById('schema-content')?.classList.contains('hidden');
+  const filter = document.getElementById(schemaVisible ? 'schema-search' : 'filter-input');
+  if (filter) {
+    filter.focus();
+    filter.select?.();
+  }
+}
+
 /**
  * Wire up global and per-region keyboard handling.
  */
@@ -164,7 +196,32 @@ export function initKeyboard() {
     chipGroup.addEventListener('keydown', handleChipKeydown);
   }
 
+  const tabList = document.querySelector('.tabs');
+  if (tabList) {
+    tabList.addEventListener('keydown', handleTabKeydown);
+  }
+
   document.addEventListener('keydown', (e) => {
+    const mod = e.ctrlKey || e.metaKey;
+
+    if (mod && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'e') {
+      const recordButton = document.getElementById('form-submit');
+      if (recordButton && !recordButton.disabled) {
+        e.preventDefault();
+        recordButton.click();
+      }
+      return;
+    }
+
+    if (
+      (mod && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'f') ||
+      (e.key === '/' && !mod && !isEditableTarget(e.target))
+    ) {
+      e.preventDefault();
+      focusActiveFilter();
+      return;
+    }
+
     // Escape: close the detail panel (unless typing in a field)
     if (e.key === 'Escape' && !isEditableTarget(e.target)) {
       const detailPanel = getElement('detail-panel');

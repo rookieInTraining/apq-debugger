@@ -1,280 +1,520 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>APQ Debugger</title>
-    <link rel="stylesheet" href="devtools.min.css">
-</head>
+    <link rel="stylesheet" href="devtools.min.css" />
+  </head>
 
-<body>
+  <body>
     <div class="app">
-        <!-- Header Bar -->
-        <header class="header" role="banner">
-            <div class="header-left">
-                <button type="button" class="btn-header" id="btn-toggle-sidebar" title="Toggle patterns sidebar"
-                    aria-label="Toggle patterns sidebar" aria-expanded="true" aria-controls="patterns-sidebar">
+      <!-- Tab strip: views on the left, session status and settings on the right -->
+      <header class="tabstrip" role="banner">
+        <div class="tabs" role="tablist" aria-label="Panel views">
+          <button
+            class="tab"
+            id="tab-requests"
+            role="tab"
+            aria-selected="true"
+            aria-controls="requests-content"
+          >
+            Requests
+          </button>
+          <button
+            class="tab"
+            id="tab-schema"
+            role="tab"
+            aria-selected="false"
+            tabindex="-1"
+            aria-controls="schema-content"
+          >
+            Schema
+          </button>
+        </div>
+        <div class="tabstrip-end">
+          <div class="status" id="debugger-status" role="status" aria-live="polite">
+            <span class="status-dot" aria-hidden="true"></span>
+            <span class="status-text">Off</span>
+          </div>
+          <div class="settings-wrap">
+            <button
+              type="button"
+              class="icon-btn"
+              id="btn-settings"
+              title="Settings"
+              aria-label="Settings"
+              aria-haspopup="true"
+              aria-expanded="false"
+              aria-controls="settings-popover"
+            >
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="3" />
+                <path
+                  d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.09a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.09a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
+                />
+              </svg>
+            </button>
+            <div
+              class="menu settings-popover hidden"
+              id="settings-popover"
+              role="group"
+              aria-label="Panel settings"
+            >
+              <fieldset class="menu-group">
+                <legend class="menu-label">Theme</legend>
+                <label class="menu-option"
+                  ><input type="radio" name="theme" value="system" checked /> System</label
+                >
+                <label class="menu-option"
+                  ><input type="radio" name="theme" value="light" /> Light</label
+                >
+                <label class="menu-option"
+                  ><input type="radio" name="theme" value="dark" /> Dark</label
+                >
+              </fieldset>
+              <fieldset class="menu-group">
+                <legend class="menu-label">Row density</legend>
+                <label class="menu-option"
+                  ><input type="radio" name="density" value="comfortable" checked />
+                  Comfortable</label
+                >
+                <label class="menu-option"
+                  ><input type="radio" name="density" value="compact" /> Compact</label
+                >
+              </fieldset>
+              <p class="menu-hint">
+                Shortcuts: <kbd>Ctrl</kbd>+<kbd>E</kbd> start or stop, <kbd>Ctrl</kbd>+<kbd>F</kbd>
+                filter, <kbd>Esc</kbd> close details.
+              </p>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main class="views" aria-label="APQ Debugger">
+        <!-- ── Requests ─────────────────────────────────────────── -->
+        <section class="view" id="requests-content" role="tabpanel" aria-labelledby="tab-requests">
+          <div class="toolbar" id="requests-toolbar" role="toolbar" aria-label="Requests">
+            <button
+              type="button"
+              id="form-submit"
+              class="tb-btn record-btn"
+              title="Start intercepting (Ctrl+E)"
+            >
+              <svg class="icon icon-record" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="6" />
+              </svg>
+              <span class="record-label">Start</span>
+            </button>
+            <button
+              type="button"
+              class="tb-btn icon-btn"
+              id="btn-clear-history"
+              title="Clear requests"
+              aria-label="Clear requests"
+              disabled
+            >
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="8" />
+                <line x1="6.4" y1="6.4" x2="17.6" y2="17.6" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              class="tb-btn icon-btn"
+              id="btn-export-history"
+              title="Export requests as JSON"
+              aria-label="Export requests as JSON"
+              disabled
+            >
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 4v11" />
+                <polyline points="7 10 12 15 17 10" />
+                <path d="M5 19h14" />
+              </svg>
+            </button>
+            <span class="tb-sep" aria-hidden="true"></span>
+            <button
+              type="button"
+              class="tb-btn patterns-toggle"
+              id="btn-toggle-patterns"
+              aria-expanded="false"
+              aria-controls="patterns-pane"
+              title="URL patterns and passive mode"
+            >
+              <span class="patterns-toggle-label">Patterns</span>
+              <span class="patterns-summary" id="patterns-summary">none</span>
+              <svg class="icon icon-chevron" viewBox="0 0 24 24" aria-hidden="true">
+                <polyline points="7 10 12 15 17 10" />
+              </svg>
+            </button>
+            <span class="tb-sep" aria-hidden="true"></span>
+            <input
+              type="search"
+              class="tb-input filter-input"
+              id="filter-input"
+              placeholder="Filter"
+              aria-label="Filter by operation name or URL"
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <div class="segmented filter-chips" role="radiogroup" aria-label="Request type">
+              <button
+                type="button"
+                class="chip active"
+                data-filter="all"
+                role="radio"
+                aria-checked="true"
+              >
+                All
+              </button>
+              <button
+                type="button"
+                class="chip"
+                data-filter="apq"
+                role="radio"
+                aria-checked="false"
+                tabindex="-1"
+                title="Hash-only requests"
+              >
+                APQ
+              </button>
+              <button
+                type="button"
+                class="chip"
+                data-filter="full"
+                role="radio"
+                aria-checked="false"
+                tabindex="-1"
+                title="Requests carrying the query text"
+              >
+                Full
+              </button>
+            </div>
+            <select
+              class="tb-select endpoint-filter hidden"
+              id="endpoint-filter"
+              aria-label="Filter by endpoint"
+            ></select>
+            <span class="tb-spacer" aria-hidden="true"></span>
+            <span class="request-count" id="request-count">
+              <span class="count-number" id="interception-counter">0</span> requests<span
+                class="count-resolved"
+                title="APQ hashes resolved to their full query"
+              >
+                · <span id="metric-resolved">0</span> hashes resolved</span
+              >
+            </span>
+          </div>
+
+          <!-- Session pane: patterns, passive mode, observed endpoints -->
+          <div class="patterns-pane" id="patterns-pane" hidden>
+            <div class="pane-row">
+              <span class="pane-label" id="patterns-label">Intercept URLs matching</span>
+              <form id="myForm" class="pattern-list" role="group" aria-labelledby="patterns-label">
+                <div class="pattern-item">
+                  <input
+                    type="text"
+                    class="tb-input urlPattern"
+                    data-pattern-index="1"
+                    placeholder="e.g. *graphql*"
+                    aria-label="URL pattern 1"
+                    autocomplete="off"
+                    spellcheck="false"
+                  />
+                  <button
+                    type="button"
+                    class="icon-btn btn-remove"
+                    title="Remove pattern"
+                    aria-label="Remove pattern"
+                    hidden
+                  >
                     <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-                        <rect x="3" y="4" width="18" height="16" rx="2" />
-                        <line x1="9" y1="4" x2="9" y2="20" />
+                      <line x1="7" y1="7" x2="17" y2="17" />
+                      <line x1="17" y1="7" x2="7" y2="17" />
                     </svg>
+                  </button>
+                </div>
+              </form>
+              <button type="button" class="tb-btn btn-add-pattern" id="add">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <line x1="12" y1="6" x2="12" y2="18" />
+                  <line x1="6" y1="12" x2="18" y2="12" />
+                </svg>
+                Add pattern
+              </button>
+            </div>
+            <div class="pane-row" id="passive-mode-section">
+              <label class="check">
+                <input
+                  type="checkbox"
+                  id="passive-mode-toggle"
+                  aria-describedby="passive-mode-desc"
+                />
+                Passive mode
+              </label>
+              <span class="pane-desc" id="passive-mode-desc"
+                >Resolve hashes from the local registry without modifying requests.</span
+              >
+              <span class="registry-count"><span id="registry-size">0</span> hashes known</span>
+              <button type="button" class="link-btn" id="btn-clear-registry" disabled>
+                Clear registry
+              </button>
+            </div>
+            <div class="pane-row hidden" id="endpoints-section">
+              <span class="pane-label">Seen on this page</span>
+              <div
+                class="endpoints-list"
+                id="observed-endpoints"
+                role="list"
+                aria-label="Observed GraphQL endpoints"
+              ></div>
+            </div>
+          </div>
+
+          <!-- Live interception bar -->
+          <div class="infobar hidden" id="live-bar">
+            <svg class="icon icon-record" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="6" />
+            </svg>
+            <p class="infobar-text">
+              <span id="live-text">Intercepting requests</span>
+              <span class="infobar-note hidden" id="live-note"
+                >APQ hashes are swapped so the server asks Apollo for the full query. Chrome shows
+                its own “started debugging” bar while this runs.</span
+              >
+            </p>
+            <button type="button" class="link-btn hidden" id="live-note-dismiss">Got it</button>
+            <button type="button" class="tb-btn infobar-action" id="live-stop">Stop</button>
+          </div>
+
+          <div class="split" id="requests-split">
+            <div class="list-pane">
+              <div class="grid-head" aria-hidden="true">
+                <span class="col-name">Name</span>
+                <span class="col-state">State</span>
+                <span class="col-hash">Hash</span>
+                <span class="col-time">Time</span>
+              </div>
+              <div
+                class="request-list"
+                id="request-list"
+                role="listbox"
+                aria-label="Captured GraphQL operations"
+                tabindex="0"
+              >
+                <div class="empty-state" id="empty-state">
+                  <p class="empty-title" id="empty-title">No operations captured yet</p>
+                  <ol class="empty-steps" id="empty-steps">
+                    <li>
+                      Under <strong>Patterns</strong>, enter a URL pattern for your GraphQL
+                      endpoint, for example <code>*graphql*</code>.
+                    </li>
+                    <li>
+                      Press <strong>Start</strong> (<kbd>Ctrl</kbd>+<kbd>E</kbd>) and use the page.
+                      Each hashed operation appears here with its full query.
+                    </li>
+                  </ol>
+                  <p class="empty-desc" id="empty-desc">
+                    Rather not modify requests? Turn on passive mode to resolve hashes you have
+                    already captured.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div
+              class="resize-handle"
+              id="resize-handle-right"
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize details"
+              tabindex="0"
+            ></div>
+
+            <aside class="detail-panel hidden" id="detail-panel" aria-labelledby="detail-title">
+              <div class="detail-head">
+                <h2 class="detail-title" id="detail-title">Operation</h2>
+                <button
+                  type="button"
+                  class="icon-btn btn-close"
+                  id="close-detail"
+                  title="Close (Esc)"
+                  aria-label="Close details"
+                >
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <line x1="7" y1="7" x2="17" y2="17" />
+                    <line x1="17" y1="7" x2="7" y2="17" />
+                  </svg>
                 </button>
-                <img src="../icons/icon32.png" alt="APQ" class="header-logo">
-                <span class="header-title">APQ Debugger</span>
-            </div>
-            <div class="header-center">
-                <div class="status-badge" id="debugger-status" role="status" aria-live="polite">
-                    <span class="status-dot" aria-hidden="true"></span>
-                    <span class="status-text">Ready</span>
+              </div>
+              <div class="detail-content" id="detail-content">
+                <div class="detail-placeholder">
+                  <p>Select a request to view details</p>
                 </div>
-            </div>
-            <div class="header-right">
-                <span class="request-count" id="request-count" role="status" aria-live="polite"
-                    aria-label="Intercepted request count">
-                    <span class="count-number" id="interception-counter">0</span>
-                    <span class="count-label">requests</span>
-                </span>
-                <div class="settings-wrap">
-                    <button type="button" class="btn-header" id="btn-settings" title="Settings"
-                        aria-label="Settings" aria-haspopup="true" aria-expanded="false"
-                        aria-controls="settings-popover">
-                        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-                            <circle cx="12" cy="12" r="3" />
-                            <path
-                                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.09a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.09a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-                        </svg>
-                    </button>
-                    <div class="settings-popover hidden" id="settings-popover" role="group"
-                        aria-label="Panel settings">
-                        <div class="settings-group">
-                            <span class="settings-group-label" id="theme-label">Theme</span>
-                            <div class="settings-options" role="radiogroup" aria-labelledby="theme-label">
-                                <label class="settings-option">
-                                    <input type="radio" name="theme" value="system" checked>
-                                    <span>System</span>
-                                </label>
-                                <label class="settings-option">
-                                    <input type="radio" name="theme" value="light">
-                                    <span>Light</span>
-                                </label>
-                                <label class="settings-option">
-                                    <input type="radio" name="theme" value="dark">
-                                    <span>Dark</span>
-                                </label>
-                            </div>
-                        </div>
-                        <div class="settings-group">
-                            <span class="settings-group-label" id="density-label">Density</span>
-                            <div class="settings-options" role="radiogroup" aria-labelledby="density-label">
-                                <label class="settings-option">
-                                    <input type="radio" name="density" value="comfortable" checked>
-                                    <span>Comfortable</span>
-                                </label>
-                                <label class="settings-option">
-                                    <input type="radio" name="density" value="compact">
-                                    <span>Compact</span>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </header>
-
-        <!-- Main Content -->
-        <div class="main-content">
-            <!-- Left Sidebar - Patterns -->
-            <aside class="sidebar" id="patterns-sidebar" role="complementary" aria-label="URL Patterns">
-                <div class="sidebar-header">
-                    <h2 class="sidebar-title"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-                            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-                        </svg>Patterns</h2>
-                </div>
-                <div class="patterns-list" id="patterns-list" role="list" aria-label="URL pattern list">
-                    <form id="myForm" role="group" aria-label="URL pattern inputs">
-                        <div class="pattern-item" role="listitem">
-                            <input type="text" class="urlPattern" data-pattern-index="1" placeholder="*graphql*"
-                                aria-label="URL pattern 1">
-                            <button type="button" class="btn-icon btn-remove" title="Remove pattern"
-                                aria-label="Remove pattern" style="display: none;">×</button>
-                        </div>
-                    </form>
-                </div>
-                <button type="button" class="btn-add-pattern" id="add" aria-label="Add URL pattern">
-                    <span class="btn-icon-plus" aria-hidden="true">+</span> Add Pattern
-                </button>
-                <div class="sidebar-actions">
-                    <button id="form-submit" class="btn btn-primary btn-block"
-                        aria-label="Start debugger">
-                        <span class="btn-icon-play" aria-hidden="true">▶</span> Start
-                    </button>
-                </div>
-                <div class="status-banner hidden" id="status-banner" role="alert" aria-live="assertive">
-                    <span class="status-banner-text" id="status-banner-text"></span>
-                </div>
-
-                <!-- Passive Mode -->
-                <div class="sidebar-section" id="passive-mode-section">
-                    <div class="sidebar-section-header">
-                        <h3 class="sidebar-section-title">Passive Mode</h3>
-                        <label class="toggle-switch" title="Resolve APQ hashes from the registry without contaminating requests">
-                            <input type="checkbox" id="passive-mode-toggle" aria-label="Toggle passive mode">
-                            <span class="toggle-slider" aria-hidden="true"></span>
-                        </label>
-                    </div>
-                    <p class="sidebar-section-desc">
-                        Look up hashes locally instead of contaminating requests.
-                    </p>
-                    <div class="registry-info">
-                        <span class="registry-count">
-                            <strong id="registry-size">0</strong> hashes known
-                        </span>
-                        <button type="button" class="btn-link" id="btn-clear-registry"
-                            aria-label="Clear hash registry" disabled>Clear</button>
-                    </div>
-                </div>
+              </div>
             </aside>
+          </div>
+        </section>
 
-            <!-- Resize handle: sidebar / request panel -->
-            <div class="resize-handle resize-handle-left" id="resize-handle-left" role="separator"
-                aria-orientation="vertical" aria-label="Resize patterns panel" tabindex="0"></div>
-
-            <!-- Center Panel - Requests / Schema -->
-            <main class="request-panel" aria-label="Main panel">
-                <div class="panel-header main-panel-header">
-                    <div class="panel-tabs" role="tablist" aria-label="Main panel views">
-                        <button class="panel-tab" id="tab-requests" role="tab" aria-selected="true"
-                            aria-controls="requests-content">Requests</button>
-                        <button class="panel-tab" id="tab-schema" role="tab" aria-selected="false"
-                            aria-controls="schema-content">Schema</button>
-                    </div>
-                    <div class="panel-toolbar" id="requests-toolbar">
-                        <button class="btn btn-toolbar" id="btn-clear-history" title="Clear request history"
-                            aria-label="Clear request history" disabled>
-                            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-                                <polyline points="3 6 5 6 21 6" />
-                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                            </svg> Clear
-                        </button>
-                        <button class="btn btn-toolbar" id="btn-export-history" title="Export history as JSON"
-                            aria-label="Export history as JSON" disabled>
-                            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                <polyline points="7 10 12 15 17 10" />
-                                <line x1="12" y1="15" x2="12" y2="3" />
-                            </svg> Export
-                        </button>
-                    </div>
-                </div>
-                <div class="main-tab-content" id="requests-content" role="tabpanel" aria-labelledby="tab-requests">
-                    <div class="filter-bar">
-                        <input type="text" class="filter-input" id="filter-input"
-                            placeholder="Filter by operation name..." aria-label="Filter requests by operation name">
-                        <div class="filter-chips" role="radiogroup" aria-label="Filter by request type">
-                            <button class="chip active" data-filter="all" role="radio" aria-checked="true">All</button>
-                            <button class="chip" data-filter="apq" role="radio" aria-checked="false">APQ</button>
-                            <button class="chip" data-filter="full" role="radio" aria-checked="false">Full</button>
-                        </div>
-                    </div>
-                    <div class="request-list" id="request-list" role="listbox" aria-label="Request list"
-                        tabindex="0">
-                        <div class="empty-state" id="empty-state" role="status">
-                            <div class="empty-icon" aria-hidden="true">
-                                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
-                                    <path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9" />
-                                    <path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5" />
-                                    <circle cx="12" cy="12" r="2" />
-                                    <path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5" />
-                                    <path d="M19.1 4.9C23 8.8 23 15.2 19.1 19.1" />
-                                </svg>
-                            </div>
-                            <p class="empty-title" id="empty-title">No requests intercepted yet</p>
-                            <p class="empty-desc" id="empty-desc">Start debugging to capture GraphQL requests</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="main-tab-content hidden" id="schema-content" role="tabpanel" aria-labelledby="tab-schema">
-                    <div class="schema-load-bar">
-                        <input type="url" class="schema-url-input" id="schema-url-input"
-                            placeholder="https://api.example.com/graphql"
-                            aria-label="GraphQL endpoint URL">
-                        <div class="schema-actions">
-                            <input type="text" class="schema-search" id="schema-search" placeholder="Filter types..."
-                                aria-label="Filter schema types">
-                            <button type="button" class="btn btn-primary" id="btn-load-schema"
-                                aria-label="Load schema via introspection">Load Schema</button>
-                            <button type="button" class="btn btn-toolbar" id="btn-clear-schema"
-                                aria-label="Clear loaded schema" disabled>Clear</button>
-                        </div>
-                        <div class="schema-status" id="schema-status" role="status" aria-live="polite">
-                            No schema loaded
-                        </div>
-                    </div>
-                    <div class="schema-explorer hidden" id="schema-explorer">
-                        <div class="schema-meta" id="schema-meta"></div>
-                        <div class="schema-body">
-                            <div class="schema-type-list" id="schema-type-list" role="listbox"
-                                aria-label="Schema types" tabindex="0"></div>
-                            <div class="resize-handle resize-handle-schema" id="resize-handle-schema" role="separator"
-                                aria-orientation="vertical" aria-label="Resize schema type list" tabindex="0"></div>
-                            <pre class="schema-sdl" id="schema-sdl-view" aria-label="Selected type definition"></pre>
-                        </div>
-                    </div>
-                </div>
-            </main>
-
-            <!-- Resize handle: request panel / detail panel -->
-            <div class="resize-handle resize-handle-right" id="resize-handle-right" role="separator"
-                aria-orientation="vertical" aria-label="Resize detail panel" tabindex="0"></div>
-
-            <!-- Right Panel - Request Details -->
-            <aside class="detail-panel" id="detail-panel" aria-label="Request details">
-                <div class="panel-header">
-                    <h2 class="panel-title">Request</h2>
-                    <button class="btn-icon btn-close" id="close-detail" title="Close (Escape)"
-                        aria-label="Close detail panel">×</button>
-                </div>
-                <div class="detail-content" id="detail-content">
-                    <div class="detail-placeholder">
-                        <p>Select a request to view details</p>
-                    </div>
-                </div>
-            </aside>
-        </div>
-
-        <!-- Response Container (hidden, for compatibility) -->
-        <div id="response-container" style="display: none;">
-            <div class="response" id="response"></div>
-        </div>
-
-        <!-- Copy as cURL modal -->
-        <div class="modal hidden" id="curl-modal" role="dialog" aria-modal="true"
-            aria-labelledby="curl-modal-title">
-            <div class="modal-backdrop" aria-hidden="true"></div>
-            <div class="modal-panel">
-                <div class="modal-header">
-                    <h3 class="modal-title" id="curl-modal-title">Copy as cURL</h3>
-                    <button type="button" class="btn-icon btn-close" id="curl-modal-close"
-                        aria-label="Close">×</button>
-                </div>
-                <p class="modal-desc">Includes captured request headers (cookies, client headers, etc.) when available.</p>
-                <div class="modal-options" role="group" aria-label="Shell format">
-                    <button type="button" class="curl-shell-option active" data-shell="bash"
-                        aria-pressed="true">Bash</button>
-                    <button type="button" class="curl-shell-option" data-shell="powershell"
-                        aria-pressed="false">PowerShell</button>
-                </div>
-                <pre class="modal-preview" id="curl-preview" aria-label="Generated cURL command"></pre>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" id="curl-copy-btn">Copy</button>
-                </div>
+        <!-- ── Schema ───────────────────────────────────────────── -->
+        <section
+          class="view hidden"
+          id="schema-content"
+          role="tabpanel"
+          aria-labelledby="tab-schema"
+        >
+          <div class="toolbar" role="toolbar" aria-label="Schema">
+            <input
+              type="url"
+              class="tb-input schema-url-input"
+              id="schema-url-input"
+              placeholder="Endpoint URL, or leave blank to use observed traffic"
+              aria-label="GraphQL endpoint URL"
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <button type="button" class="tb-btn primary" id="btn-load-schema">Load schema</button>
+            <button type="button" class="tb-btn" id="btn-clear-schema" disabled>Clear</button>
+            <span class="tb-sep" aria-hidden="true"></span>
+            <input
+              type="search"
+              class="tb-input schema-search"
+              id="schema-search"
+              placeholder="Filter types"
+              aria-label="Filter schema types"
+              autocomplete="off"
+              spellcheck="false"
+            />
+          </div>
+          <div class="schema-status" id="schema-status" role="status" aria-live="polite">
+            No schema loaded
+          </div>
+          <div class="schema-empty" id="schema-empty">
+            <p class="empty-title">Browse the schema behind these operations</p>
+            <p class="empty-desc">
+              Load schema runs an introspection query against the endpoint, reusing the request
+              headers captured from live traffic. Leave the URL blank to try the endpoints this page
+              has already called.
+            </p>
+          </div>
+          <div class="schema-skeleton hidden" id="schema-skeleton" aria-hidden="true">
+            <div class="skeleton"></div>
+            <div class="skeleton"></div>
+            <div class="skeleton"></div>
+            <div class="skeleton"></div>
+          </div>
+          <div class="schema-explorer hidden" id="schema-explorer">
+            <div class="schema-meta" id="schema-meta"></div>
+            <div class="schema-body">
+              <div
+                class="schema-type-list"
+                id="schema-type-list"
+                role="listbox"
+                aria-label="Schema types"
+                tabindex="0"
+              ></div>
+              <div
+                class="resize-handle resize-handle-schema"
+                id="resize-handle-schema"
+                role="separator"
+                aria-orientation="vertical"
+                aria-label="Resize type list"
+                tabindex="0"
+              ></div>
+              <pre
+                class="schema-sdl"
+                id="schema-sdl-view"
+                tabindex="0"
+                aria-label="Selected type definition"
+              ></pre>
             </div>
+          </div>
+        </section>
+      </main>
+
+      <!-- Toasts (bottom-right); error toasts individually get role="alert" -->
+      <div class="toast-stack hidden" id="status-banner" role="status" aria-live="polite"></div>
+
+      <!-- Confirm dialog for destructive actions -->
+      <div
+        class="modal hidden"
+        id="confirm-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="confirm-title"
+        aria-describedby="confirm-body"
+      >
+        <div class="modal-backdrop" aria-hidden="true"></div>
+        <div class="modal-panel">
+          <h3 class="modal-title" id="confirm-title"></h3>
+          <p class="modal-desc" id="confirm-body"></p>
+          <div class="modal-footer">
+            <button type="button" class="tb-btn" id="confirm-cancel">Cancel</button>
+            <button type="button" class="tb-btn danger" id="confirm-accept">Confirm</button>
+          </div>
         </div>
+      </div>
+
+      <!-- Copy as cURL dialog -->
+      <div
+        class="modal hidden"
+        id="curl-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="curl-modal-title"
+      >
+        <div class="modal-backdrop" aria-hidden="true"></div>
+        <div class="modal-panel modal-wide">
+          <div class="modal-header">
+            <h3 class="modal-title" id="curl-modal-title">Copy as cURL</h3>
+            <button
+              type="button"
+              class="icon-btn btn-close"
+              id="curl-modal-close"
+              aria-label="Close"
+            >
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                <line x1="7" y1="7" x2="17" y2="17" />
+                <line x1="17" y1="7" x2="7" y2="17" />
+              </svg>
+            </button>
+          </div>
+          <p class="modal-desc">
+            Includes the captured request headers (cookies, client headers) when available.
+          </p>
+          <div class="segmented modal-options" role="group" aria-label="Shell">
+            <button
+              type="button"
+              class="chip curl-shell-option active"
+              data-shell="bash"
+              aria-pressed="true"
+            >
+              Bash
+            </button>
+            <button
+              type="button"
+              class="chip curl-shell-option"
+              data-shell="powershell"
+              aria-pressed="false"
+            >
+              PowerShell
+            </button>
+          </div>
+          <pre
+            class="code modal-preview"
+            id="curl-preview"
+            tabindex="0"
+            aria-label="Generated cURL command"
+          ></pre>
+          <div class="modal-footer">
+            <button type="button" class="tb-btn primary" id="curl-copy-btn">Copy</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <script src="../js/devtools.min.js"></script>
-</body>
-
+  </body>
 </html>
