@@ -8,44 +8,27 @@
 
 import { escapeHtml } from './dom-helpers.js';
 
-const KEYWORDS = new Set([
-  'type',
-  'input',
-  'enum',
-  'interface',
-  'union',
-  'scalar',
-  'schema',
-  'directive',
-  'implements',
-  'extend',
-  'on',
-  'repeatable',
-]);
+/** @param {string} list Space-separated words. */
+const words = (list) => new Set(list.split(' '));
+
+const KEYWORDS = words(
+  'type input enum interface union scalar schema directive implements extend on repeatable'
+);
 
 /** Keywords that open a definition and are followed by its name. */
-const DEFINITION_KEYWORDS = new Set(['type', 'input', 'enum', 'interface', 'union', 'scalar']);
+const DEFINITION_KEYWORDS = words('type input enum interface union scalar');
 
-const BUILTINS = new Set(['String', 'Int', 'Float', 'Boolean', 'ID']);
+const BUILTINS = words('String Int Float Boolean ID');
 
-const LITERALS = new Set(['true', 'false', 'null']);
+const LITERALS = words('true false null');
 
-/**
- * Token patterns, tried in order at each position. The sticky flag anchors
- * each match at `lastIndex`.
- * @type {[string, RegExp][]}
- */
-const LEXEMES = [
-  ['space', /\s+/y],
-  ['comment', /#[^\n\r]*/y],
-  ['block-string', /"""(?:\\"""|[\s\S])*?"""/y],
-  ['string', /"(?:\\.|[^"\\\n\r])*"?/y],
-  ['directive', /@[_A-Za-z]\w*/y],
-  ['number', /-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/y],
-  ['name', /[_A-Za-z]\w*/y],
-  ['punct', /\.\.\.|[!|&=:[\](){},]/y],
-  ['other', /[\s\S]/y],
-];
+/** One capture group per token kind, in KINDS order; the group that matched names the kind. */
+const TOKEN =
+  /(\s+)|(#.*)|("""(?:\\"""|[\s\S])*?"""|"(?:\\.|[^"\\\n\r])*"?)|(@\w+)|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)|([_A-Za-z]\w*)|([!|&=:[\](){},])|([\s\S])/g;
+const KINDS = 'space comment string directive number name punct other'.split(' ');
+
+/** Kinds whose class is the kind itself, whatever the grammatical position. */
+const FIXED_KINDS = words('comment string directive number');
 
 /**
  * @typedef {{ kind: string, text: string }} Lexeme
@@ -56,20 +39,10 @@ const LEXEMES = [
  * @returns {Lexeme[]}
  */
 function lex(text) {
-  /** @type {Lexeme[]} */
-  const out = [];
-  let pos = 0;
-  while (pos < text.length) {
-    for (const [kind, re] of LEXEMES) {
-      re.lastIndex = pos;
-      const match = re.exec(text);
-      if (!match) continue;
-      out.push({ kind, text: match[0] });
-      pos += match[0].length;
-      break;
-    }
-  }
-  return out;
+  return Array.from(text.matchAll(TOKEN), (match) => ({
+    kind: KINDS[match.findIndex((group, i) => i > 0 && group !== undefined) - 1],
+    text: match[0],
+  }));
 }
 
 /**
@@ -128,25 +101,12 @@ export function highlightSDL(text) {
   for (let i = 0; i < tokens.length; i++) {
     const token = tokens[i];
     const { kind } = token;
-    let className = null;
+    let className = FIXED_KINDS.has(kind) ? kind : null;
 
     if (kind === 'space') {
-      if (inValue && valueDepth === 0 && /\n/.test(token.text)) inValue = false;
-      html += wrap(token.text, null);
-      continue;
-    }
-    if (kind === 'comment') {
-      html += wrap(token.text, 'comment');
-      continue;
-    }
-
-    if (kind === 'block-string' || kind === 'string') {
-      className = 'string';
-    } else if (kind === 'number') {
-      className = 'number';
+      if (inValue && valueDepth === 0 && token.text.includes('\n')) inValue = false;
     } else if (kind === 'directive') {
       directiveIsUsage = prev?.text !== 'directive';
-      className = 'directive';
     } else if (kind === 'punct') {
       className = handlePunct(token.text);
     } else if (kind === 'name') {
@@ -154,7 +114,7 @@ export function highlightSDL(text) {
     }
 
     html += wrap(token.text, className);
-    prev = token;
+    if (kind !== 'space' && kind !== 'comment') prev = token;
   }
 
   return html;
@@ -249,8 +209,6 @@ export function highlightSDL(text) {
       return BUILTINS.has(name) ? 'builtin' : 'type-name';
     }
 
-    const atTopLevel = braces.length === 0 && parens.length === 0;
-
     if (parens.length > 0) {
       return next?.text === ':' ? 'field' : null;
     }
@@ -261,7 +219,8 @@ export function highlightSDL(text) {
       return null;
     }
 
-    if (atTopLevel && KEYWORDS.has(name) && !expectTypeName) {
+    // Top level from here on.
+    if (KEYWORDS.has(name) && !expectTypeName) {
       if (name === 'extend') return 'keyword';
       if (DEFINITION_KEYWORDS.has(name) || name === 'schema' || name === 'directive') {
         definition = name;

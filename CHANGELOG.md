@@ -7,31 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.0.0] - 2026-10-23
+
 ### Added
-- Observed-endpoints section in the session drawer: GraphQL endpoints seen in
-  live traffic, with request counts and one-click "Add as pattern"
-- Session metrics strip: captured, resolved, unique operations, endpoints
+- Observed endpoints in the patterns pane: GraphQL endpoints seen in live
+  traffic, with request counts and one-click "Add as pattern"
+- Request and resolved-hash counts in the toolbar
 - Endpoint filter and automatic endpoint group headers in the request list
+- Row states with a word and a shape for each: Resolved, Awaiting retry,
+  Not in registry, APQ retry, Full query; a hash row resolves in place when
+  its full-query retry arrives
+- Infobar while traffic is being rewritten, and in passive mode
 - Toast notifications (replacing the status banner), confirm dialogs before
   clearing history or the hash registry, and skeleton loading for the schema
   explorer
+- Comfortable and compact row density (compact applies automatically in short
+  DevTools docks)
 - New read-only `getObservedEndpoints` service-worker message
 
 ### Changed
-- **Full UI redesign in the Kora design language** — operator-split layout
-  (toolbar with session controls and tabs, collapsible session drawer,
-  persistent request list + detail split), bundled Italiana / Albert Sans /
-  Spline Sans Mono fonts (SIL OFL 1.1, no network fetches), weave-textured
-  surfaces with no shadows or divider lines, and organic radii
-- Dark mode is now a derived "canvas at night" palette defined once via CSS
-  `light-dark()`; the explicit setting and system preference share one
-  definition (requires Chrome 123+, declared via `minimum_chrome_version`)
-- Syntax highlighting recolored from theme-aware pigment inks, fixing the
-  hardcoded One Dark colors that were unreadable on light backgrounds
-- Status vocabulary: one-word states (Attached, Detached, Connecting,
-  Passive…) and verb+object buttons ("Start debugging")
-- Session drawer opens by default only until URL patterns are configured
-- CSS build supports ordered multi-file concatenation with a size budget
+- **Full UI redesign as a DevTools-native panel**, matching Network and
+  Elements: tab strip, per-view toolbar, collapsible patterns pane (open by
+  default until a pattern is saved), request table with a detail split that
+  overlays the list in narrow docks
+- System UI font only; no bundled or network fonts
+- Light and dark colours defined once via CSS `light-dark()` (requires
+  Chrome 123+, declared via `minimum_chrome_version`)
+- One-word status vocabulary: Off, Starting, Intercepting, Passive, Stopping,
+  Error
+- Schema SDL highlighting rewritten as a single-pass lexer: fields, arguments,
+  default values, directive arguments, interfaces, unions and directive
+  locations are now coloured correctly, in DevTools Sources colours
+- CSS build supports ordered multi-file concatenation with a size budget;
+  panel bundle budget raised to 55 KB
+
+### Fixed
+- SDL comments containing a string no longer render stray placeholder
+  characters in the schema viewer
+- All-caps type names (such as `URL`) are no longer coloured as enum values
 
 ## [3.0.0] - 2026-06-13
 
@@ -130,6 +143,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Commit | Date |
 |---------|--------|------|
+| 4.0.0 | — | 2026-10-23 |
 | 3.0.0 | — | 2026-06-13 |
 | 2.0.0 | — | 2026-02-07 |
 | 1.1.0 | `5b035ba` | 2026-01-30 |

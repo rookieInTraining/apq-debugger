@@ -10,7 +10,7 @@ const path = require('path');
 
 /** Max bytes per artifact in extension_build/ */
 const BUDGETS = {
-  'devtools.min.js': 50000,
+  'devtools.min.js': 55000,
   'service-worker.min.js': 25000,
   'devtools.min.css': 30000,
 };
