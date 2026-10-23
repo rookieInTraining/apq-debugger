@@ -24,6 +24,9 @@ import { initKeyboard } from './keyboard.js';
 import { initSchemaControls, updateSchemaProgress } from './schema-controls.js';
 import { initSchemaViewer } from './schema-viewer.js';
 import { initCurlCopy } from './curl-copy.js';
+import { initConfirm } from './confirm.js';
+import { initEndpoints, scheduleEndpointsRefresh } from './endpoints.js';
+import { initSession, renderSessionBar } from './session.js';
 
 // ── Panel registration ────────────────────────────────────────────
 
@@ -41,6 +44,7 @@ chrome.devtools.panels.create(
 document.addEventListener('DOMContentLoaded', function () {
   // Initialise UI modules
   initPatterns();
+  initSession();
   initRequestList();
   initRequestDetail();
   initDebuggerControls();
@@ -53,6 +57,8 @@ document.addEventListener('DOMContentLoaded', function () {
   initSchemaViewer();
   initSchemaControls();
   initCurlCopy();
+  initConfirm();
+  initEndpoints();
 
   // ── Message listeners ─────────────────────────────────────────
 
@@ -79,6 +85,7 @@ document.addEventListener('DOMContentLoaded', function () {
           responseTime: message.responseTime || null,
           headers: message.headers || [],
         });
+        scheduleEndpointsRefresh();
 
         try {
           sendResponse({ status: 'Message received' });
@@ -120,16 +127,20 @@ document.addEventListener('DOMContentLoaded', function () {
     state.isDebuggerActive = false;
 
     const reasonMessages = {
-      target_closed: 'Tab closed',
-      canceled_by_user: 'Manually detached',
+      target_closed: 'the tab closed.',
+      canceled_by_user: 'Chrome’s debugging bar was cancelled.',
     };
 
-    updateDebuggerStatus('Disconnected', 'error');
+    updateDebuggerStatus(
+      state.passiveMode ? 'Passive' : 'Off',
+      state.passiveMode ? 'info' : 'default'
+    );
     showStatusBanner(
-      `Debugger disconnected: ${reasonMessages[reason] || 'Unknown reason'}`,
+      `Interception stopped: ${reasonMessages[reason] || 'Chrome detached the debugger.'}`,
       'warning'
     );
     resetUIState();
+    renderSessionBar();
   });
 
   // ── Extension suspend handler ─────────────────────────────────
@@ -142,7 +153,7 @@ document.addEventListener('DOMContentLoaded', function () {
   // ── Initialisation ────────────────────────────────────────────
 
   console.log('APQ Debugger DevTools panel initialized');
-  updateDebuggerStatus('Ready', 'default');
+  updateDebuggerStatus('Off', 'default');
   restorePatternsFromStorage();
   renderRequestList();
 

@@ -43,7 +43,13 @@
 apq-debugger/
 ├── frontend/
 │   ├── devtools.html              # Main DevTools panel HTML
-│   └── devtools.css               # Panel styles (dark/light theme)
+│   ├── css/                       # Kora design system layer
+│   │   ├── tokens.css             # Color/type/spacing tokens (light-dark() theming)
+│   │   ├── theme-dark.css         # Dark-mode gates (explicit + system preference)
+│   │   ├── density.css            # Comfortable/Compact density scales
+│   │   └── components.css         # Panel components in the Kora idiom
+│   └── fonts/                     # Bundled woff2 (Italiana, Albert Sans,
+│                                  # Spline Sans Mono — all SIL OFL 1.1)
 ├── js/
 │   ├── shared/                    # Constants & logger shared by both bundles
 │   ├── sw/                        # Service worker modules

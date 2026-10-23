@@ -29,7 +29,13 @@ const config = {
     },
   ],
   css: {
-    input: 'frontend/devtools.css',
+    // Concatenated in order, then minified into a single output file
+    inputs: [
+      'frontend/css/tokens.css',
+      'frontend/css/theme-dark.css',
+      'frontend/css/density.css',
+      'frontend/css/components.css',
+    ],
     output: 'devtools.min.css',
     options: {
       level: {
@@ -102,17 +108,22 @@ async function bundleJS(entry, outfile) {
 // ── CSS minification (Clean-CSS) ──────────────────────────────────
 
 async function minifyCSS() {
-  const inputPath = path.join(config.sourceDir, config.css.input);
   const outputPath = path.join(config.extDir, config.css.output);
+  const chunks = [];
 
-  if (!(await fs.pathExists(inputPath))) {
-    console.log(`❌ CSS not found: ${config.css.input}`);
-    return;
+  for (const input of config.css.inputs) {
+    const inputPath = path.join(config.sourceDir, input);
+    if (!(await fs.pathExists(inputPath))) {
+      console.log(`❌ CSS not found: ${input}`);
+      return;
+    }
+    const code = await fs.readFile(inputPath, 'utf8');
+    chunks.push(`/* ── ${input} ── */\n${code}`);
   }
 
-  console.log(`🔄 Processing ${config.css.input}...`);
+  console.log(`🔄 Processing ${config.css.inputs.join(', ')}...`);
 
-  const code = await fs.readFile(inputPath, 'utf8');
+  const code = chunks.join('\n');
   const cleanCSS = new CleanCSS(config.css.options);
   const result = cleanCSS.minify(code);
 
@@ -126,7 +137,7 @@ async function minifyCSS() {
   const minifiedSize = Buffer.byteLength(result.styles, 'utf8');
   const reduction = (((originalSize - minifiedSize) / originalSize) * 100).toFixed(1);
 
-  console.log(`✅ ${config.css.input} → ${config.css.output}`);
+  console.log(`✅ ${config.css.inputs.length} CSS file(s) → ${config.css.output}`);
   console.log(`   ${originalSize} bytes → ${minifiedSize} bytes (${reduction}% reduction)\n`);
 }
 
@@ -206,7 +217,7 @@ async function watch() {
   await build();
 
   const watcher = chokidar.watch(
-    ['js/**/*.js', 'frontend/*.css', 'frontend/devtools.html', 'manifest.json', 'icons/*'],
+    ['js/**/*.js', 'frontend/css/**/*.css', 'frontend/devtools.html', 'manifest.json', 'icons/*'],
     {
       ignored: [/\.min\.(js|css)$/, /node_modules/, /extension_build/],
       persistent: true,

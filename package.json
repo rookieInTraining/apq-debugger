@@ -1,6 +1,6 @@
 {
   "name": "apq-debugger",
-  "version": "3.0.0",
+  "version": "4.0.0",
   "description": "Chrome DevTools extension for intercepting Apollo Persisted Queries",
   "main": "build-enhanced.js",
   "scripts": {
@@ -17,7 +17,9 @@
     "version": "node scripts/sync-version.js && git add manifest.json",
     "package": "node scripts/package-extension.js",
     "release": "npm run build && npm run package",
-    "check:bundle": "node scripts/check-bundle-size.js"
+    "check:bundle": "node scripts/check-bundle-size.js",
+    "promo:screens": "node scripts/promo/capture-screens.js",
+    "promo:video": "node scripts/promo/record-demo.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.1",

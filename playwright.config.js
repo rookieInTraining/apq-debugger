@@ -9,7 +9,9 @@ module.exports = defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  // Each test launches a full headed Chrome with the extension loaded;
+  // parallel launches starve the extension service worker and flake.
+  workers: 1,
   reporter: 'html',
   use: {
     trace: 'on-first-retry',

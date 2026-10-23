@@ -11,7 +11,8 @@ import {
 } from '../../js/ui/dom-helpers.js';
 import { state, MAX_HISTORY, inspectedTabId } from '../../js/ui/state.js';
 import { addRequest, getFilteredRequests, renderRequestList } from '../../js/ui/request-list.js';
-import { formatGraphQL } from '../../js/ui/request-detail.js';
+import { formatGraphQL, prettyPrintGraphQL } from '../../js/ui/request-detail.js';
+import { getRequestState } from '../../js/ui/request-state.js';
 import {
   updateDebuggerStatus,
   showStatusBanner,
@@ -39,16 +40,15 @@ import {
 import { initSchemaControls } from '../../js/ui/schema-controls.js';
 import { SCHEMA_STORAGE_KEY, SCHEMA_CACHE_STORAGE_KEY } from '../../js/shared/constants.js';
 import { initRequestList } from '../../js/ui/request-list.js';
+import { renderMetrics } from '../../js/ui/metrics.js';
 
 function setupDOM() {
   document.body.innerHTML = `
-        <div id="debugger-status" class="status-badge">
+        <div id="debugger-status" class="status">
             <span class="status-dot"></span>
             <span class="status-text">Ready</span>
         </div>
-        <div id="status-banner" class="status-banner hidden">
-            <span id="status-banner-text"></span>
-        </div>
+        <div id="status-banner" class="toast-stack hidden"></div>
         <span id="interception-counter">0</span>
         <div id="request-list">
             <div id="empty-state" style="display: flex;"></div>
@@ -63,13 +63,17 @@ function setupDOM() {
             </div>
         </form>
         <button id="add"></button>
-        <button id="form-submit" class="btn btn-primary btn-block">
-            <span class="btn-icon-play">&#9654;</span> Start
+        <button id="form-submit" class="tb-btn record-btn">
+            <span class="record-label">Start</span>
         </button>
         <input type="text" id="filter-input">
         <button class="chip active" data-filter="all">All</button>
         <button class="chip" data-filter="apq">APQ</button>
         <button class="chip" data-filter="full">Full</button>
+        <span id="metric-captured">0</span>
+        <span id="metric-resolved">0</span>
+        <span id="metric-operations">0</span>
+        <span id="metric-endpoints">0</span>
     `;
 }
 
@@ -80,12 +84,9 @@ function resetAppState() {
   state.selectedRequestId = null;
   state.activeFilter = 'all';
   state.filterText = '';
+  state.endpointFilter = '';
   state.requestHistory = [];
   state.requestIdCounter = 0;
-  if (state.statusBannerTimeout) {
-    clearTimeout(state.statusBannerTimeout);
-  }
-  state.statusBannerTimeout = null;
 }
 
 describe('DevTools Panel Logic', () => {
@@ -262,6 +263,31 @@ describe('DevTools Panel Logic', () => {
       expect(items.length).toBe(2);
     });
 
+    test('a full-query retry should resolve the matching hash row in place', () => {
+      const pending = addRequest({ operationName: 'GetUser', isAPQ: true, hash: 'abc' });
+      expect(pending.query).toBe('');
+
+      addRequest({
+        operationName: 'GetUser',
+        isAPQ: false,
+        hash: 'abc',
+        query: 'query GetUser { user { id } }',
+        variables: { id: 1 },
+      });
+
+      expect(pending.query).toBe('query GetUser { user { id } }');
+      expect(pending.variables).toEqual({ id: 1 });
+      const row = document.querySelector(`.request-item[data-request-id="${pending.id}"]`);
+      expect(row.textContent).toContain('Resolved');
+      expect(row.classList.contains('is-updated')).toBe(true);
+    });
+
+    test('a retry should not touch hash rows with a different hash', () => {
+      const other = addRequest({ operationName: 'A', isAPQ: true, hash: 'one' });
+      addRequest({ operationName: 'B', isAPQ: false, hash: 'two', query: 'query B { b }' });
+      expect(other.query).toBe('');
+    });
+
     test('renderRequestList should hide empty state when items present', () => {
       addRequest({ operationName: 'A' });
       renderRequestList();
@@ -302,6 +328,49 @@ describe('DevTools Panel Logic', () => {
       expect(result).toContain('&lt;script&gt;');
       expect(result).toContain('<span class="keyword">query</span>');
     });
+
+    test('formatGraphQL should keep variable names (not "$1")', () => {
+      const result = formatGraphQL(
+        'mutation AddToCart($input: CartLineInput!) { add(input: $input) }'
+      );
+      expect(result).toContain('<span class="variable">$input</span>');
+      expect(result).not.toContain('$1');
+    });
+
+    test('prettyPrintGraphQL should indent a single-line document', () => {
+      const pretty = prettyPrintGraphQL(
+        'query Q($id: ID!) { user(id: $id) { id name ... on Admin { level } } }'
+      );
+      expect(pretty).toBe(
+        [
+          'query Q($id: ID!) {',
+          '  user(id: $id) {',
+          '    id',
+          '    name',
+          '    ... on Admin {',
+          '      level',
+          '    }',
+          '  }',
+          '}',
+        ].join('\n')
+      );
+    });
+
+    test('prettyPrintGraphQL should leave strings and multi-line documents alone', () => {
+      expect(prettyPrintGraphQL('{ a(s: "x { y } z") }')).toBe('{\n  a(s: "x { y } z")\n}');
+      const formatted = 'query Q {\n  a\n}';
+      expect(prettyPrintGraphQL(formatted)).toBe(formatted);
+    });
+
+    test('getRequestState should describe each kind of row', () => {
+      expect(getRequestState({ type: 'apq', query: 'q', hash: 'h' }).key).toBe('resolved');
+      expect(getRequestState({ type: 'apq', query: '', hash: 'h' }).key).toBe('pending');
+      expect(
+        getRequestState({ type: 'apq', query: '', hash: 'h', capturedPassive: true }).key
+      ).toBe('unknown');
+      expect(getRequestState({ type: 'full', query: 'q', hash: 'h' }).key).toBe('retry');
+      expect(getRequestState({ type: 'full', query: 'q', hash: '' }).key).toBe('full');
+    });
   });
 
   // ── Status Management ──────────────────────────────────────────
@@ -329,71 +398,179 @@ describe('DevTools Panel Logic', () => {
 
     test('updateDebuggerStatus should reset classes for default type', () => {
       updateDebuggerStatus('Error', 'error');
-      updateDebuggerStatus('Ready', 'default');
+      updateDebuggerStatus('Detached', 'default');
       const badge = document.getElementById('debugger-status');
       expect(badge.classList.contains('error')).toBe(false);
-      expect(badge.className).toBe('status-badge');
+      expect(badge.className).toBe('status');
     });
 
-    test('showStatusBanner should display banner with message and type', () => {
+    test('showStatusBanner should append a toast with message and tone', () => {
       showStatusBanner('Test message', 'warning');
-      const banner = document.getElementById('status-banner');
-      const text = document.getElementById('status-banner-text');
-      expect(banner.classList.contains('hidden')).toBe(false);
-      expect(banner.classList.contains('warning')).toBe(true);
-      expect(text.textContent).toBe('Test message');
+      const stack = document.getElementById('status-banner');
+      expect(stack.classList.contains('hidden')).toBe(false);
+      const toast = stack.querySelector('.toast');
+      expect(toast).not.toBeNull();
+      expect(toast.classList.contains('toast--warning')).toBe(true);
+      expect(toast.textContent).toContain('Test message');
     });
 
-    test('showStatusBanner should auto-dismiss for success type', () => {
+    test('success toasts should auto-dismiss and hide the empty stack', () => {
       jest.useFakeTimers();
-      showStatusBanner('Success!', 'success');
-      const banner = document.getElementById('status-banner');
-      expect(banner.classList.contains('hidden')).toBe(false);
+      showStatusBanner('Success', 'success');
+      const stack = document.getElementById('status-banner');
+      expect(stack.classList.contains('hidden')).toBe(false);
 
       jest.advanceTimersByTime(5000);
-      expect(banner.classList.contains('hidden')).toBe(true);
+      expect(stack.querySelectorAll('.toast').length).toBe(0);
+      expect(stack.classList.contains('hidden')).toBe(true);
       jest.useRealTimers();
     });
 
-    test('showStatusBanner should auto-dismiss when autoDismiss is true', () => {
+    test('error toasts should persist until dismissed', () => {
       jest.useFakeTimers();
-      showStatusBanner('Info', 'default', true);
-      expect(state.statusBannerTimeout).not.toBeNull();
+      showStatusBanner('Broken', 'error');
+      const stack = document.getElementById('status-banner');
+      jest.advanceTimersByTime(10000);
+      const toast = stack.querySelector('.toast');
+      expect(toast).not.toBeNull();
+      expect(toast.getAttribute('role')).toBe('alert');
 
-      jest.advanceTimersByTime(5000);
-      const banner = document.getElementById('status-banner');
-      expect(banner.classList.contains('hidden')).toBe(true);
+      toast.querySelector('.toast-close').click();
+      expect(stack.querySelectorAll('.toast').length).toBe(0);
+      expect(stack.classList.contains('hidden')).toBe(true);
       jest.useRealTimers();
     });
 
-    test('showStatusBanner should clear previous timeout', () => {
+    test('toasts should stack and drop the oldest beyond the limit', () => {
       jest.useFakeTimers();
-      showStatusBanner('First', 'success');
-      const firstTimeout = state.statusBannerTimeout;
-      showStatusBanner('Second', 'warning');
-      // The first timeout should have been cleared (new timeout or null)
-      expect(state.statusBannerTimeout).not.toBe(firstTimeout);
+      for (let i = 1; i <= 5; i++) {
+        showStatusBanner(`Message ${i}`, 'error');
+      }
+      const stack = document.getElementById('status-banner');
+      const toasts = stack.querySelectorAll('.toast');
+      expect(toasts.length).toBe(4);
+      expect(toasts[0].textContent).toContain('Message 2');
       jest.useRealTimers();
     });
 
-    test('hideStatusBanner should hide banner and clear timeout', () => {
-      showStatusBanner('Temp message', 'default');
+    test('hideStatusBanner should clear all toasts', () => {
+      showStatusBanner('Temp message', 'error');
       hideStatusBanner();
-      const banner = document.getElementById('status-banner');
-      expect(banner.classList.contains('hidden')).toBe(true);
-      expect(state.statusBannerTimeout).toBeNull();
+      const stack = document.getElementById('status-banner');
+      expect(stack.classList.contains('hidden')).toBe(true);
+      expect(stack.querySelectorAll('.toast').length).toBe(0);
     });
 
-    test('showError should set error status and show error banner', () => {
+    test('showError should set error status and show a persistent toast', () => {
       const spy = jest.spyOn(console, 'error').mockImplementation();
       showError('Something went wrong');
       const badge = document.getElementById('debugger-status');
       const text = badge.querySelector('.status-text');
       expect(text.textContent).toBe('Error');
       expect(badge.classList.contains('error')).toBe(true);
-      const bannerText = document.getElementById('status-banner-text');
-      expect(bannerText.textContent).toBe('Something went wrong');
+      const toast = document.querySelector('#status-banner .toast');
+      expect(toast.textContent).toContain('Something went wrong');
       spy.mockRestore();
+    });
+  });
+
+  // ── Session Metrics ────────────────────────────────────────────
+
+  describe('Session Metrics', () => {
+    test('renderMetrics should compute captured, resolved hashes, operations, endpoints', () => {
+      state.requestHistory = [
+        {
+          id: 1,
+          timestamp: new Date(),
+          operationName: 'GetUser',
+          url: 'https://a.example.com/graphql',
+          type: 'apq',
+          query: 'query GetUser { user { id } }',
+        },
+        {
+          id: 2,
+          timestamp: new Date(),
+          operationName: 'GetUser',
+          url: 'https://a.example.com/graphql?x=1',
+          type: 'apq',
+          query: '',
+        },
+        {
+          id: 3,
+          timestamp: new Date(),
+          operationName: 'ListPosts',
+          url: 'https://b.example.com/api',
+          type: 'full',
+          query: 'query ListPosts { posts { id } }',
+        },
+      ];
+
+      renderMetrics();
+
+      expect(document.getElementById('metric-captured').textContent).toBe('3');
+      // Only APQ rows count as resolved hashes; full-query requests never had one
+      expect(document.getElementById('metric-resolved').textContent).toBe('1');
+      expect(document.getElementById('metric-operations').textContent).toBe('2');
+      expect(document.getElementById('metric-endpoints').textContent).toBe('2');
+    });
+
+    test('renderMetrics should render zeros for empty history', () => {
+      state.requestHistory = [];
+      renderMetrics();
+      expect(document.getElementById('metric-captured').textContent).toBe('0');
+      expect(document.getElementById('metric-endpoints').textContent).toBe('0');
+    });
+  });
+
+  // ── Endpoint grouping and filtering ────────────────────────────
+
+  describe('Endpoint grouping', () => {
+    const twoEndpointHistory = () => [
+      {
+        id: 1,
+        timestamp: new Date(),
+        operationName: 'GetUser',
+        url: 'https://a.example.com/graphql',
+        type: 'apq',
+        query: '',
+      },
+      {
+        id: 2,
+        timestamp: new Date(),
+        operationName: 'ListPosts',
+        url: 'https://b.example.com/api',
+        type: 'full',
+        query: '',
+      },
+    ];
+
+    test('renderRequestList should insert group headers when multiple endpoints have traffic', () => {
+      state.requestHistory = twoEndpointHistory();
+      renderRequestList();
+
+      const headers = document.querySelectorAll('#request-list .request-group-header');
+      expect(headers.length).toBe(2);
+      expect(document.querySelectorAll('#request-list .request-item').length).toBe(2);
+      expect(headers[0].getAttribute('role')).toBe('presentation');
+    });
+
+    test('renderRequestList should not group with a single endpoint', () => {
+      state.requestHistory = [twoEndpointHistory()[0]];
+      renderRequestList();
+
+      expect(document.querySelectorAll('#request-list .request-group-header').length).toBe(0);
+      expect(document.querySelectorAll('#request-list .request-item').length).toBe(1);
+    });
+
+    test('endpoint filter should narrow the list and disable grouping', () => {
+      state.requestHistory = twoEndpointHistory();
+      state.endpointFilter = 'https://a.example.com/graphql';
+      renderRequestList();
+
+      const items = document.querySelectorAll('#request-list .request-item');
+      expect(items.length).toBe(1);
+      expect(items[0].textContent).toContain('GetUser');
+      expect(document.querySelectorAll('#request-list .request-group-header').length).toBe(0);
     });
   });
 
@@ -406,7 +583,7 @@ describe('DevTools Panel Logic', () => {
       const btn = document.getElementById('form-submit');
       expect(btn.disabled).toBe(false);
       expect(btn.innerHTML).toContain('Start');
-      expect(btn.className).toContain('btn-primary');
+      expect(btn.classList.contains('is-recording')).toBe(false);
       expect(state.currentOperation).toBeNull();
     });
 
@@ -415,13 +592,14 @@ describe('DevTools Panel Logic', () => {
       const btn = document.getElementById('form-submit');
       expect(btn.disabled).toBe(false);
       expect(btn.innerHTML).toContain('Stop');
-      expect(btn.className).toContain('btn-danger');
+      expect(btn.classList.contains('is-recording')).toBe(true);
+      expect(btn.getAttribute('aria-pressed')).toBe('true');
     });
 
     test('handleStartSuccess should activate UI and set state', () => {
       handleStartSuccess('Connected');
       const badge = document.getElementById('debugger-status');
-      expect(badge.querySelector('.status-text').textContent).toBe('Active');
+      expect(badge.querySelector('.status-text').textContent).toBe('Intercepting');
       expect(badge.classList.contains('active')).toBe(true);
       expect(state.isDebuggerActive).toBe(true);
       const btn = document.getElementById('form-submit');
@@ -439,7 +617,7 @@ describe('DevTools Panel Logic', () => {
     test('handleStartError should show error and reset', () => {
       handleStartError('Connection failed');
       const badge = document.getElementById('debugger-status');
-      expect(badge.querySelector('.status-text').textContent).toBe('Failed');
+      expect(badge.querySelector('.status-text').textContent).toBe('Error');
       expect(badge.classList.contains('error')).toBe(true);
       const btn = document.getElementById('form-submit');
       expect(btn.innerHTML).toContain('Start');
@@ -451,7 +629,7 @@ describe('DevTools Panel Logic', () => {
       expect(state.isDebuggerActive).toBe(false);
       const btn = document.getElementById('form-submit');
       expect(btn.innerHTML).toContain('Start');
-      expect(btn.className).toContain('btn-primary');
+      expect(btn.classList.contains('is-recording')).toBe(false);
     });
 
     test('handleStopWarning should show warning and deactivate', () => {

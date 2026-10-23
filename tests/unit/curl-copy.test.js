@@ -102,6 +102,81 @@ describe('curl-copy', () => {
         })
       ).toEqual([{ name: 'User-Agent', value: 'Mozilla/5.0' }]);
     });
+
+    test('should collapse repeated names case-insensitively, keeping the last value', () => {
+      expect(
+        getReplayHeaders({
+          headers: [
+            { name: 'X-Trace', value: 'one' },
+            { name: 'Cookie', value: 'a=b' },
+            { name: 'x-trace', value: 'two' },
+          ],
+        })
+      ).toEqual([
+        { name: 'x-trace', value: 'two' },
+        { name: 'Cookie', value: 'a=b' },
+      ]);
+    });
+  });
+
+  describe('header de-duplication', () => {
+    const countMatches = (text, pattern) => (text.match(pattern) || []).length;
+
+    test('bash: a captured content-type replaces the default instead of repeating it', () => {
+      const curl = toBashCurl('https://x.com/gql', { query: '{}' }, [
+        { name: 'content-type', value: 'application/json; charset=utf-8' },
+      ]);
+
+      expect(countMatches(curl, /-H 'content-type:/gi)).toBe(1);
+      expect(curl).toContain("-H 'content-type: application/json; charset=utf-8'");
+      expect(curl).toContain("-H 'Accept: application/json'");
+    });
+
+    test('bash: a captured accept header replaces the default', () => {
+      const curl = toBashCurl('https://x.com/gql', { query: '{}' }, [
+        { name: 'accept', value: 'application/graphql-response+json' },
+      ]);
+
+      expect(countMatches(curl, /-H 'accept:/gi)).toBe(1);
+      expect(curl).toContain("-H 'accept: application/graphql-response+json'");
+      expect(curl).toContain("-H 'Content-Type: application/json'");
+    });
+
+    test('powershell: content-type goes to -ContentType, never the headers hashtable', () => {
+      const ps = toPowerShellCurl('https://x.com/gql', { query: '{}' }, [
+        { name: 'Content-Type', value: 'application/json; charset=utf-8' },
+        { name: 'Cookie', value: 'a=b' },
+      ]);
+
+      expect(ps).not.toMatch(/'content-type' =/i);
+      expect(ps).toContain('-ContentType "application/json; charset=utf-8"');
+      expect(ps).toContain("'Cookie' = 'a=b'");
+    });
+
+    test('powershell: no hashtable when content-type was the only captured header', () => {
+      const ps = toPowerShellCurl('https://x.com/gql', { query: '{}' }, [
+        { name: 'content-type', value: 'application/json' },
+      ]);
+
+      expect(ps).not.toContain('$headers');
+      expect(ps).toContain('-ContentType "application/json"');
+    });
+
+    test('the generated command for a captured request lists each header once', () => {
+      const request = {
+        ...sampleRequest,
+        headers: [
+          { name: 'content-type', value: 'application/json' },
+          { name: 'Accept', value: '*/*' },
+          { name: 'accept', value: 'application/json' },
+        ],
+      };
+      const curl = toBashCurl(request.url, buildGraphQLBody(request), getReplayHeaders(request));
+
+      expect(countMatches(curl, /-H 'content-type:/gi)).toBe(1);
+      expect(countMatches(curl, /-H 'accept:/gi)).toBe(1);
+      expect(curl).toContain("-H 'accept: application/json'");
+    });
   });
 
   describe('modal interactions', () => {
@@ -168,7 +243,7 @@ describe('curl-copy', () => {
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
         document.getElementById('curl-preview').textContent
       );
-      expect(copyBtn.textContent).toBe('Copied!');
+      expect(copyBtn.textContent).toBe('Copied');
     });
 
     test.each([

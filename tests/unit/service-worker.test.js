@@ -15,6 +15,7 @@ import {
 } from '../../js/sw/hash-registry.js';
 import { digestMessage } from '../../js/sw/hash.js';
 import { handleMessage, toggleDebuggerFromAction } from '../../js/sw/messaging.js';
+import { recordEndpoint, clearObservedEndpoints } from '../../js/sw/endpoint-tracker.js';
 import {
   saveTabToStorage,
   removeTabFromStorage,
@@ -725,6 +726,43 @@ describe('Service Worker Logic', () => {
         expect.objectContaining({ status: 'SUCCESS', size: 0 })
       );
       expect(lookupHash('h1')).toBeNull();
+    });
+
+    test('should handle getObservedEndpoints message', async () => {
+      recordEndpoint(4242, 'https://api.example.com/graphql', []);
+      const sendResponse = jest.fn();
+
+      handleMessage({ getObservedEndpoints: true, tabId: 4242 }, {}, sendResponse);
+      await new Promise((r) => setTimeout(r, 50));
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'SUCCESS',
+          endpoints: expect.arrayContaining(['https://api.example.com/graphql']),
+        })
+      );
+      clearObservedEndpoints(4242);
+    });
+
+    test('should return error for getObservedEndpoints without tabId', async () => {
+      const sendResponse = jest.fn();
+
+      handleMessage({ getObservedEndpoints: true }, {}, sendResponse);
+      await new Promise((r) => setTimeout(r, 50));
+
+      expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ status: 'ERROR' }));
+    });
+
+    test('should reject non-boolean getObservedEndpoints', () => {
+      const sendResponse = jest.fn();
+      handleMessage({ getObservedEndpoints: 'yes', tabId: 42 }, {}, sendResponse);
+
+      expect(sendResponse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'ERROR',
+          error: expect.stringContaining('getObservedEndpoints'),
+        })
+      );
     });
 
     test('should return error for loadSchema without tabId', async () => {

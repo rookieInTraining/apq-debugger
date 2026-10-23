@@ -1,57 +1,25 @@
 /**
- * Responsive layout management: width-driven panel collapse and the
- * manual sidebar toggle. Class changes are picked up by devtools.css
- * (.app.narrow, .app.very-narrow, .app.sidebar-collapsed, .sidebar-open).
+ * Responsive layout: width-driven classes on .app that CSS uses to drop
+ * low-priority columns and to show the detail pane as an overlay when
+ * the panel is too narrow for a side-by-side split
+ * (.app.narrow, .app.very-narrow).
  * @module ui/layout
  */
 
-import { getElement } from './dom-helpers.js';
-
-const NARROW_PX = 560;
-const VERY_NARROW_PX = 400;
+const NARROW_PX = 640;
+const VERY_NARROW_PX = 420;
 
 function applyBreakpoints(app, width) {
   app.classList.toggle('narrow', width < NARROW_PX);
-  const veryNarrow = width < VERY_NARROW_PX;
-  const wasVeryNarrow = app.classList.contains('very-narrow');
-  app.classList.toggle('very-narrow', veryNarrow);
-
-  // Close the drawer when entering very-narrow so it doesn't cover content
-  if (veryNarrow && !wasVeryNarrow) {
-    app.classList.remove('sidebar-open');
-    syncToggleButton(app);
-  }
-}
-
-function syncToggleButton(app) {
-  const button = document.getElementById('btn-toggle-sidebar');
-  if (!button) return;
-
-  const veryNarrow = app.classList.contains('very-narrow');
-  const visible = veryNarrow
-    ? app.classList.contains('sidebar-open')
-    : !app.classList.contains('sidebar-collapsed');
-  button.setAttribute('aria-expanded', String(visible));
+  app.classList.toggle('very-narrow', width < VERY_NARROW_PX);
 }
 
 /**
- * Initialise responsive breakpoints and the sidebar toggle button.
+ * Initialise responsive breakpoints.
  */
 export function initLayout() {
   const app = document.querySelector('.app');
   if (!app) return;
-
-  const toggleButton = getElement('btn-toggle-sidebar');
-  if (toggleButton) {
-    toggleButton.addEventListener('click', () => {
-      if (app.classList.contains('very-narrow')) {
-        app.classList.toggle('sidebar-open');
-      } else {
-        app.classList.toggle('sidebar-collapsed');
-      }
-      syncToggleButton(app);
-    });
-  }
 
   applyBreakpoints(app, window.innerWidth);
 

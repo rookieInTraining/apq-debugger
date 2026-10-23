@@ -1,5 +1,5 @@
 /**
- * Schema sidebar section: Load Schema button with endpoint auto-detection,
+ * Schema toolbar: Load Schema button with endpoint auto-detection,
  * progress display, and per-endpoint caching in chrome.storage.local.
  * The service worker does the network work; this module converts the
  * introspection result to SDL and feeds the viewer.
@@ -22,7 +22,14 @@ function setStatus(text, isError = false) {
   const statusEl = getElement('schema-status');
   if (!statusEl) return;
   statusEl.textContent = text;
-  statusEl.style.color = isError ? 'var(--color-error)' : '';
+  statusEl.classList.toggle('is-error', isError);
+}
+
+function setSkeletonVisible(visible) {
+  const skeleton = getElement('schema-skeleton');
+  if (skeleton) skeleton.classList.toggle('hidden', !visible);
+  const empty = document.getElementById('schema-empty');
+  if (empty) empty.classList.toggle('hidden', visible || isSchemaLoaded());
 }
 
 /**
@@ -42,8 +49,9 @@ function updateClearButton() {
 
 function applySchema(sdl, meta) {
   setSchema(sdl, meta);
-  const when = meta.fetchedAt ? new Date(meta.fetchedAt).toLocaleString() : '';
-  setStatus(`${meta.typeCount} types loaded${when ? ` (${when})` : ''}`);
+  // The explorer's meta line shows count, endpoint and time; keep the
+  // status line for progress and errors only.
+  setStatus('');
   updateClearButton();
 }
 
@@ -74,11 +82,14 @@ function handleLoadClick() {
 
   isLoading = true;
   updateClearButton();
+  setSkeletonVisible(true);
   if (button) {
     button.disabled = true;
-    button.textContent = 'Loading...';
+    button.textContent = 'Loading…';
   }
-  setStatus(url ? `Loading schema from ${url}...` : 'Detecting GraphQL endpoint...');
+  setStatus(
+    url ? `Loading schema from ${url}…` : 'Looking for a GraphQL endpoint in observed traffic…'
+  );
 
   const message = { loadSchema: true, tabId: inspectedTabId };
   if (url) message.url = url;
@@ -86,9 +97,10 @@ function handleLoadClick() {
   chrome.runtime.sendMessage(message, (response) => {
     isLoading = false;
     updateClearButton();
+    setSkeletonVisible(false);
     if (button) {
       button.disabled = false;
-      button.textContent = 'Load Schema';
+      button.textContent = 'Load schema';
     }
 
     if (chrome.runtime.lastError) {

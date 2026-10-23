@@ -21,9 +21,11 @@ export const inspectedTabId = chrome.devtools.inspectedWindow.tabId;
  *   selectedRequestId: number|null,
  *   activeFilter: string,
  *   filterText: string,
+ *   endpointFilter: string,
  *   requestHistory: object[],
  *   requestIdCounter: number,
- *   statusBannerTimeout: number|null
+ *   passiveMode: boolean,
+ *   registrySize: number
  * }}
  */
 export const state = {
@@ -33,7 +35,9 @@ export const state = {
   selectedRequestId: null,
   activeFilter: 'all',
   filterText: '',
+  endpointFilter: '',
   requestHistory: [],
   requestIdCounter: 0,
-  statusBannerTimeout: null,
+  passiveMode: false,
+  registrySize: 0,
 };

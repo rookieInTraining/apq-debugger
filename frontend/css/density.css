@@ -1,0 +1,38 @@
+/* ================================================================
+   Density. Comfortable matches DevTools' default row height;
+   Compact matches its dense tables. Compact also applies on its own
+   when the panel is docked short, so a 400px dock still shows a
+   useful number of rows. settings.js sets data-density.
+   ================================================================ */
+
+:root {
+  --fs: 12px;
+  --fs-sm: 11px;
+  --fs-code: 12px;
+  --fs-title: 13px;
+  --lh: 1.4;
+  --lh-code: 1.5;
+  --toolbar-h: 30px;
+  --tab-h: 28px;
+  --control-h: 22px;
+  --row-h: 24px;
+  --pad: var(--s-5);
+}
+
+:root[data-density='compact'] {
+  --toolbar-h: 26px;
+  --tab-h: 26px;
+  --control-h: 20px;
+  --row-h: 20px;
+  --pad: var(--s-4);
+}
+
+@media (max-height: 460px) {
+  :root {
+    --toolbar-h: 26px;
+    --tab-h: 26px;
+    --control-h: 20px;
+    --row-h: 20px;
+    --pad: var(--s-4);
+  }
+}

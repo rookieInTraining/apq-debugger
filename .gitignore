@@ -113,6 +113,9 @@ tmp/
 temp/
 .tmp/
 
+# Brainstorming visual companion sessions
+.superpowers/
+
 # Chrome extension specific
 *.crx
 *.pem

@@ -1,10 +1,13 @@
 /**
- * Passive mode toggle and hash registry controls in the sidebar.
+ * Passive mode toggle and hash registry controls in the patterns pane.
  * @module ui/registry-controls
  */
 
 import { getElement } from './dom-helpers.js';
-import { showStatusBanner } from './status.js';
+import { showStatusBanner, updateDebuggerStatus } from './status.js';
+import { state } from './state.js';
+import { confirmAction, whenConfirmed } from './confirm.js';
+import { renderSessionBar } from './session.js';
 
 /**
  * Update the registry UI (size counter, clear button, passive-mode toggle)
@@ -15,6 +18,7 @@ export function updateRegistryUI(info) {
   if (!info || typeof info !== 'object') return;
 
   if (info.size !== undefined) {
+    state.registrySize = info.size;
     const sizeEl = getElement('registry-size');
     if (sizeEl) sizeEl.textContent = info.size;
 
@@ -25,7 +29,19 @@ export function updateRegistryUI(info) {
   if (info.passiveMode !== undefined) {
     const toggle = getElement('passive-mode-toggle');
     if (toggle) toggle.checked = info.passiveMode;
+    state.passiveMode = Boolean(info.passiveMode);
+
+    // While interception is off, passive mode is the effective state.
+    if (!state.isDebuggerActive) {
+      if (info.passiveMode) {
+        updateDebuggerStatus('Passive', 'info');
+      } else {
+        updateDebuggerStatus('Off', 'default');
+      }
+    }
   }
+
+  renderSessionBar();
 }
 
 /**
@@ -46,8 +62,8 @@ export function initRegistryControls() {
         updateRegistryUI(response);
         showStatusBanner(
           enabled
-            ? 'Passive mode on — requests will not be modified'
-            : 'Passive mode off — APQ hashes will be contaminated',
+            ? 'Passive mode on. Requests will not be modified.'
+            : 'Passive mode off. Start will swap APQ hashes again.',
           'success'
         );
       });
@@ -57,14 +73,23 @@ export function initRegistryControls() {
   const clearBtn = getElement('btn-clear-registry');
   if (clearBtn) {
     clearBtn.addEventListener('click', () => {
-      chrome.runtime.sendMessage({ clearRegistry: true }, (response) => {
-        if (chrome.runtime.lastError || !response || response.status !== 'SUCCESS') {
-          showStatusBanner('Failed to clear hash registry', 'error');
-          return;
+      whenConfirmed(
+        confirmAction({
+          title: 'Clear hash registry?',
+          body: 'Removes every known hash-to-query mapping. Passive mode cannot resolve hashes until new ones are learned.',
+          confirmLabel: 'Clear registry',
+        }),
+        () => {
+          chrome.runtime.sendMessage({ clearRegistry: true }, (response) => {
+            if (chrome.runtime.lastError || !response || response.status !== 'SUCCESS') {
+              showStatusBanner('Failed to clear hash registry', 'error');
+              return;
+            }
+            updateRegistryUI(response);
+            showStatusBanner('Hash registry cleared', 'success');
+          });
         }
-        updateRegistryUI(response);
-        showStatusBanner('Hash registry cleared', 'success');
-      });
+      );
     });
   }
 

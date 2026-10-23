@@ -1,7 +1,7 @@
 /**
  * Draggable + keyboard-resizable panel widths with persistence.
- * Wires the separator handles between sidebar / request panel,
- * request panel / detail panel, and schema type list / SDL view.
+ * Wires the separator handles between the request list / detail panel
+ * and the schema type list / SDL view.
  * @module ui/resize
  */
 
@@ -9,14 +9,13 @@ import { getElement } from './dom-helpers.js';
 import { PANEL_WIDTHS_STORAGE_KEY } from '../shared/constants.js';
 
 const LIMITS = {
-  sidebar: { min: 150, max: 420 },
-  detail: { min: 240, max: 560 },
+  detail: { min: 280, max: 1000 },
   schemaList: { min: 140, max: 480 },
 };
 
 const KEYBOARD_STEP = 16;
 
-let widths = { sidebar: null, detail: null };
+let widths = { detail: null, schemaList: null };
 let saveTimer = null;
 
 function persistWidths() {
@@ -46,7 +45,7 @@ function applyWidth(panel, key, value) {
  * Wire one resize handle.
  * @param {HTMLElement} handle - The separator element.
  * @param {HTMLElement} panel - The panel whose width changes.
- * @param {'sidebar'|'detail'|'schemaList'} key - Storage key / limits entry.
+ * @param {'detail'|'schemaList'} key - Storage key / limits entry.
  * @param {1|-1} direction - +1 if dragging right grows the panel.
  */
 function wireHandle(handle, panel, key, direction) {
@@ -102,16 +101,11 @@ function wireHandle(handle, panel, key, direction) {
  * Initialise resize handles and restore persisted widths.
  */
 export function initResize() {
-  const sidebar = getElement('patterns-sidebar');
   const detailPanel = getElement('detail-panel');
-  const leftHandle = getElement('resize-handle-left');
   const rightHandle = getElement('resize-handle-right');
   const schemaList = getElement('schema-type-list');
   const schemaHandle = getElement('resize-handle-schema');
 
-  if (sidebar && leftHandle) {
-    wireHandle(leftHandle, sidebar, 'sidebar', 1);
-  }
   if (detailPanel && rightHandle) {
     wireHandle(rightHandle, detailPanel, 'detail', -1);
   }
@@ -124,9 +118,6 @@ export function initResize() {
     const stored = result[PANEL_WIDTHS_STORAGE_KEY];
     if (!stored || typeof stored !== 'object') return;
 
-    if (typeof stored.sidebar === 'number' && sidebar) {
-      applyWidth(sidebar, 'sidebar', stored.sidebar);
-    }
     if (typeof stored.detail === 'number' && detailPanel) {
       applyWidth(detailPanel, 'detail', stored.detail);
     }

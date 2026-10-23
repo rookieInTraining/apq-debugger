@@ -126,3 +126,4 @@ export const INTROSPECTION_QUERY = `
 // ── UI Settings ───────────────────────────────────────────────────
 export const UI_SETTINGS_STORAGE_KEY = 'apqUiSettings';
 export const PANEL_WIDTHS_STORAGE_KEY = 'apqPanelWidths';
+export const FIRST_RUN_NOTE_STORAGE_KEY = 'apqFirstRunNoteSeen';
