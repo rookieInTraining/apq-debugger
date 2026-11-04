@@ -28,14 +28,18 @@ beforeEach(() => {
 
 afterEach(() => {
   chrome.runtime.lastError = undefined;
+  jest.restoreAllMocks();
 });
 
+/** Make every CDP command fail; returns the console.warn spy that logs it. */
 function failCdp() {
+  const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
   chrome.debugger.sendCommand.mockImplementation((t, m, p, cb) => {
     chrome.runtime.lastError = { message: 'Invalid InterceptionId.' };
     cb();
     chrome.runtime.lastError = undefined;
   });
+  return warn;
 }
 
 test('holdRequest lists and persists under gqlPausedQueue', async () => {
@@ -105,12 +109,49 @@ test('failHeld on CDP error marks cancelled', async () => {
   expect(pq.getHeld(1, 'r1').state).toBe('cancelled');
 });
 
-test('failHeld on an already-cancelled item removes it without CDP', async () => {
+test('failHeld on an already-cancelled item still sends Fetch.failRequest and removes it', async () => {
   await pq.holdRequest(held());
   await pq.markCancelled(1, 'n1');
   expect(await pq.failHeld(1, 'r1')).toBe('cancelled');
-  expect(chrome.debugger.sendCommand).not.toHaveBeenCalled();
+  expect(chrome.debugger.sendCommand).toHaveBeenCalledWith(
+    { tabId: 1 },
+    'Fetch.failRequest',
+    { requestId: 'r1', errorReason: 'Aborted' },
+    expect.any(Function)
+  );
   expect(pq.listPaused(1)).toEqual([]);
+});
+
+test('failHeld on a cancelled item ignores a CDP error, logs it and still removes it', async () => {
+  await pq.holdRequest(held());
+  await pq.markCancelled(1, 'n1');
+  const warn = failCdp();
+  expect(await pq.failHeld(1, 'r1')).toBe('cancelled');
+  expect(pq.listPaused(1)).toEqual([]);
+  expect(warn).toHaveBeenCalledWith(expect.any(String), 'Invalid InterceptionId.');
+});
+
+test('continueHeld logs the CDP error message', async () => {
+  await pq.holdRequest(held());
+  const warn = failCdp();
+  await pq.continueHeld(1, 'r1');
+  expect(warn).toHaveBeenCalledWith(expect.any(String), 'Invalid InterceptionId.');
+});
+
+test('a request held while releaseAll awaits its continues stays in the queue', async () => {
+  await pq.holdRequest(held({ id: 'old', networkId: 'n-old' }));
+  let finish;
+  chrome.debugger.sendCommand.mockImplementation((t, m, p, cb) => {
+    finish = () => cb && cb({});
+  });
+  const release = pq.releaseAll(1);
+  await new Promise((r) => setTimeout(r, 0));
+  await pq.holdRequest(held({ id: 'late', networkId: 'n-late' }));
+  finish();
+  await release;
+  expect(pq.listPaused(1).map((r) => r.id)).toEqual(['late']);
+  const written = chrome.storage.session.set.mock.calls.at(-1)[0].gqlPausedQueue;
+  expect(written[1].map((r) => r.id)).toEqual(['late']);
 });
 
 test('releaseAll continues paused items unmodified and drops cancelled ones silently', async () => {

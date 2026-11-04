@@ -1688,7 +1688,7 @@ describe('Service Worker Logic', () => {
         });
       });
 
-      test('setDebugMode / setPauseNext toggle Network events on an attached tab', async () => {
+      test('setDebugMode / setPauseNext toggle Network and Page events on an attached tab', async () => {
         attachedTabs.add(1);
 
         expect(await send({ setDebugMode: true, tabId: 1 })).toEqual({
@@ -1698,6 +1698,7 @@ describe('Service Worker Logic', () => {
         });
         expect(cdp()).toEqual([
           [{ tabId: 1 }, 'Network.enable', { maxTotalBufferSize: 0, maxResourceBufferSize: 0 }],
+          [{ tabId: 1 }, 'Page.enable', {}],
         ]);
 
         await send({ setPauseNext: true, tabId: 1 });
@@ -1708,7 +1709,10 @@ describe('Service Worker Logic', () => {
           debugMode: false,
           pauseNext: false,
         });
-        expect(cdp()).toEqual([[{ tabId: 1 }, 'Network.disable', {}]]);
+        expect(cdp()).toEqual([
+          [{ tabId: 1 }, 'Network.disable', {}],
+          [{ tabId: 1 }, 'Page.disable', {}],
+        ]);
       });
 
       test('setDebugMode on a tab without the debugger sends no CDP command', async () => {
@@ -1790,10 +1794,10 @@ describe('Service Worker Logic', () => {
         expect(listPaused(1)).toEqual([]);
       });
 
-      test('attaching with debug mode already on enables Network events', async () => {
+      test('attaching with debug mode already on enables Network and Page events', async () => {
         await setDebugMode(1, true);
         await attachDebuggerToTab({ id: 1, url: 'https://example.com' }, [{ urlPattern: '*' }]);
-        expect(cdpMethods()).toEqual(['Fetch.enable', 'Network.enable']);
+        expect(cdpMethods()).toEqual(['Fetch.enable', 'Network.enable', 'Page.enable']);
         expect(cdp()[1][2]).toEqual({ maxTotalBufferSize: 0, maxResourceBufferSize: 0 });
       });
 
@@ -1836,17 +1840,107 @@ describe('Service Worker Logic', () => {
         expect(getDebugState(1)).toEqual({ debugMode: false, pauseNext: false });
       });
 
-      test('navigation (status loading) releases held requests and clears pause-next', async () => {
+      test('main-frame Page.frameNavigated releases held requests and keeps pause-next armed', async () => {
         await holdRequest(heldItem());
         await setPauseNext(1, true);
         await setDebugMode(1, true);
+        jest.clearAllMocks();
+
+        listeners.onEvent({ tabId: 1 }, 'Page.frameNavigated', { frame: { id: 'main' } });
+        await flush();
+
+        expect(listPaused(1)).toEqual([]);
+        expect(cdp()).toEqual([[{ tabId: 1 }, 'Fetch.continueRequest', { requestId: 'p1' }]]);
+        expect(getDebugState(1)).toEqual({ debugMode: true, pauseNext: true });
+        expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(
+          { status: 'PAUSED_UPDATED', tabId: 1, paused: [], pauseNext: true },
+          expect.any(Function)
+        );
+      });
+
+      test('sub-frame Page.frameNavigated and Page.navigatedWithinDocument release nothing', async () => {
+        await holdRequest(heldItem());
+        await setPauseNext(1, true);
+        jest.clearAllMocks();
+
+        listeners.onEvent({ tabId: 1 }, 'Page.frameNavigated', {
+          frame: { id: 'child', parentId: 'main' },
+        });
+        listeners.onEvent({ tabId: 1 }, 'Page.navigatedWithinDocument', {
+          frameId: 'main',
+          url: 'https://example.com/#/cart',
+        });
+        await flush();
+
+        expect(listPaused(1)).toHaveLength(1);
+        expect(chrome.debugger.sendCommand).not.toHaveBeenCalled();
+        expect(chrome.runtime.sendMessage).not.toHaveBeenCalled();
+        expect(getDebugState(1).pauseNext).toBe(true);
+      });
+
+      test('tabs.onUpdated loading no longer releases held requests or clears pause-next', async () => {
+        await holdRequest(heldItem());
+        await setPauseNext(1, true);
+        jest.clearAllMocks();
 
         await listeners.onUpdated(1, { status: 'loading' });
         await flush();
 
-        expect(listPaused(1)).toEqual([]);
-        expect(cdp()).toContainEqual([{ tabId: 1 }, 'Fetch.continueRequest', { requestId: 'p1' }]);
-        expect(getDebugState(1)).toEqual({ debugMode: true, pauseNext: false });
+        expect(listPaused(1)).toHaveLength(1);
+        expect(chrome.debugger.sendCommand).not.toHaveBeenCalled();
+        expect(getDebugState(1).pauseNext).toBe(true);
+      });
+
+      test('a request held while releaseAll awaits stays queued and the interceptor guard continues it', async () => {
+        await setBreakpoints([{ name: 'GetCart', enabled: true }]);
+        await setDebugMode(1, true);
+        const disconnect = connectPanel(1);
+        await holdRequest(heldItem({ id: 'old' }));
+
+        // The release's CDP continue for 'old' stays in flight until finishOld()
+        let finishOld;
+        chrome.debugger.sendCommand.mockImplementation((_d, _m, params, cb) => {
+          chrome.runtime.lastError = null;
+          if (params && params.requestId === 'old') finishOld = () => cb && cb();
+          else if (cb) cb();
+        });
+        // Persisting the hold of 'late' stays in flight until finishLateHold()
+        let finishLateHold;
+        const defaultSessionSet = chrome.storage.session.set.getMockImplementation();
+        chrome.storage.session.set.mockImplementation((items, cb) => {
+          const stored = items.gqlPausedQueue;
+          const holdsLate = stored && (stored[1] || []).some((r) => r.id === 'late');
+          if (holdsLate && !finishLateHold) finishLateHold = () => cb && cb();
+          else if (cb) cb();
+        });
+
+        try {
+          // Decided while the panel is connected; the panel goes right after
+          handleFetchRequestPaused(
+            { tabId: 1 },
+            paused('late', { query: 'query GetCart { cart { id } }', operationName: 'GetCart' })
+          );
+          disconnect();
+          await flush();
+          expect(listPaused(1).map((r) => r.id)).toEqual(['old', 'late']);
+
+          // The release finishes while 'late' is still being held
+          finishOld();
+          await flush();
+          expect(listPaused(1).map((r) => r.id)).toEqual(['late']);
+
+          // The interceptor's post-hold guard sees no panel and continues it
+          finishLateHold();
+          await flush();
+          expect(listPaused(1)).toEqual([]);
+          expect(cdp()).toContainEqual([
+            { tabId: 1 },
+            'Fetch.continueRequest',
+            { requestId: 'late' },
+          ]);
+        } finally {
+          chrome.storage.session.set.mockImplementation(defaultSessionSet);
+        }
       });
 
       test('last panel port disconnecting releases held requests and disarms pause-next', async () => {

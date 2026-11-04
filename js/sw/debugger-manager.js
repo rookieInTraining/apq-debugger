@@ -130,7 +130,7 @@ export async function attachDebuggerToTab(currentTab, validPatterns) {
 
   // Debug mode / pause-next may already be on for this tab (set before attaching)
   if (await wantsNetworkEvents(currentTab.id)) {
-    await sendNetworkCommand(currentTab.id, 'Network.enable', NETWORK_ENABLE_PARAMS);
+    await setEventDomains(currentTab.id, true);
   }
 
   return { status: 'SUCCESS', message: 'Network Interception enabled for logic' };
@@ -223,19 +223,16 @@ export async function restoreDebuggerState() {
 }
 
 /**
- * Enable Network events for an attached tab while debug mode or pause-next is
- * on (they report page-cancelled held requests), and disable them when both are off.
+ * Enable Network and Page events for an attached tab while debug mode or
+ * pause-next is on (they report page-cancelled held requests and cross-document
+ * navigations), and disable them when both are off.
  * Does nothing for tabs without an attached debugger.
  * @param {number} tabId
  * @returns {Promise<void>}
  */
 export async function syncNetworkEvents(tabId) {
   if (!(await isDebuggerActive(tabId))) return;
-  if (await wantsNetworkEvents(tabId)) {
-    await sendNetworkCommand(tabId, 'Network.enable', NETWORK_ENABLE_PARAMS);
-  } else {
-    await sendNetworkCommand(tabId, 'Network.disable');
-  }
+  await setEventDomains(tabId, await wantsNetworkEvents(tabId));
 }
 
 // ── Internal helpers ──────────────────────────────────────────────
@@ -249,6 +246,16 @@ async function wantsNetworkEvents(tabId) {
   }
   const { debugMode, pauseNext } = getDebugState(tabId);
   return debugMode || pauseNext;
+}
+
+async function setEventDomains(tabId, on) {
+  if (on) {
+    await sendNetworkCommand(tabId, 'Network.enable', NETWORK_ENABLE_PARAMS);
+    await sendNetworkCommand(tabId, 'Page.enable');
+  } else {
+    await sendNetworkCommand(tabId, 'Network.disable');
+    await sendNetworkCommand(tabId, 'Page.disable');
+  }
 }
 
 async function sendNetworkCommand(tabId, method, params) {

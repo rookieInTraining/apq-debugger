@@ -10,7 +10,7 @@ import { handleFetchRequestPaused } from './interceptor.js';
 import { handleMessage, toggleDebuggerFromAction, broadcastPausedUpdate } from './messaging.js';
 import { initRegistry } from './hash-registry.js';
 import { clearObservedEndpoints } from './endpoint-tracker.js';
-import { initBreakpoints, getDebugState, setPauseNext, clearDebugState } from './breakpoints.js';
+import { initBreakpoints, setPauseNext, clearDebugState } from './breakpoints.js';
 import {
   ensurePausedLoaded,
   onQueueChanged,
@@ -71,6 +71,16 @@ chrome.debugger.onEvent.addListener((source, method, params) => {
     if (method === 'Fetch.requestPaused') {
       console.info('Request paused:', params);
       handleFetchRequestPaused(source, params);
+    } else if (
+      method === 'Page.frameNavigated' &&
+      params &&
+      params.frame &&
+      !params.frame.parentId
+    ) {
+      // Cross-document navigation of the main frame (same-document navigations
+      // fire Page.navigatedWithinDocument instead): the old page's held requests
+      // go on unmodified. Pause-next stays armed for the new page.
+      logFailure(releaseAll(source.tabId), 'Releasing held requests');
     } else if (method === 'Network.loadingFailed' && params && params.canceled === true) {
       // The page gave up on a request; flag it if it is held
       logFailure(markCancelled(source.tabId, params.requestId), 'Marking request cancelled');
@@ -139,23 +149,8 @@ chrome.contextMenus.onClicked.addListener((info) => {
 
 // ── Tab navigation handling ───────────────────────────────────────
 
+// Held requests are released on navigation by Page.frameNavigated (above).
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo) => {
-  if (changeInfo.status === 'loading') {
-    // Navigation: the old page's held requests go on unmodified (Chrome has
-    // usually cancelled them already) and pause-next was meant for the old page
-    logFailure(releaseAll(tabId), 'Releasing held requests');
-    try {
-      await initBreakpoints();
-      if (getDebugState(tabId).pauseNext) {
-        await setPauseNext(tabId, false);
-        await syncNetworkEvents(tabId);
-      }
-    } catch (error) {
-      console.error('Failed to clear pause-next on navigation:', error);
-    }
-    return;
-  }
-
   if (changeInfo.status !== 'complete') {
     return;
   }

@@ -187,7 +187,8 @@ export async function continueHeld(tabId, id, params = {}) {
   if (item.state === 'cancelled') return 'cancelled';
   try {
     await sendDebuggerCommand(tabId, 'Fetch.continueRequest', { requestId: id, ...params });
-  } catch {
+  } catch (err) {
+    console.warn('Fetch.continueRequest failed for a held request:', err && err.message);
     return flagCancelled(tabId, item);
   }
   await removeHeld(tabId, id);
@@ -195,7 +196,9 @@ export async function continueHeld(tabId, id, params = {}) {
 }
 
 /**
- * Abort a held request. A request already cancelled by the page is just removed.
+ * Abort a held request. An item already marked cancelled is still failed in CDP
+ * (best effort: a CDP error can be misread as a page cancel, which would otherwise
+ * strand a live request) and then removed.
  * @param {number} tabId
  * @param {string} id
  * @returns {Promise<'failed'|'cancelled'>}
@@ -204,16 +207,20 @@ export async function failHeld(tabId, id) {
   await ensurePausedLoaded();
   const item = getHeld(tabId, id);
   if (!item) return 'cancelled';
+  const failParams = { requestId: id, errorReason: 'Aborted' };
   if (item.state === 'cancelled') {
+    try {
+      await sendDebuggerCommand(tabId, 'Fetch.failRequest', failParams);
+    } catch (err) {
+      console.warn('Fetch.failRequest failed for a cancelled request:', err && err.message);
+    }
     await removeHeld(tabId, id);
     return 'cancelled';
   }
   try {
-    await sendDebuggerCommand(tabId, 'Fetch.failRequest', {
-      requestId: id,
-      errorReason: 'Aborted',
-    });
-  } catch {
+    await sendDebuggerCommand(tabId, 'Fetch.failRequest', failParams);
+  } catch (err) {
+    console.warn('Fetch.failRequest failed for a held request:', err && err.message);
     return flagCancelled(tabId, item);
   }
   await removeHeld(tabId, id);
@@ -232,28 +239,34 @@ function uneditedContinueParams(item) {
 }
 
 /**
- * Continue every paused request for a tab without user edits and clear the tab.
- * Contaminated bodies are sent as contaminated.
+ * Continue every paused request for a tab without user edits and remove them.
+ * Contaminated bodies are sent as contaminated. Only the items present when the
+ * release started are removed: a request held while the continues are in flight
+ * stays queued for its own caller to handle.
  * @param {number} tabId
  * @returns {Promise<void>}
  */
 export async function releaseAll(tabId) {
   await ensurePausedLoaded();
   const items = listPaused(tabId);
+  if (!items.length) return;
   await Promise.all(
     items
       .filter((r) => r.state === 'paused')
       .map((r) =>
         sendDebuggerCommand(tabId, 'Fetch.continueRequest', uneditedContinueParams(r)).catch(
-          () => {}
+          (err) => {
+            console.warn('Fetch.continueRequest failed on release:', err && err.message);
+          }
         )
       )
   );
-  if (queue.has(tabId)) {
-    queue.delete(tabId);
-    await persist();
-    notify(tabId);
-  }
+  const released = new Set(items.map((r) => r.id));
+  const remaining = (queue.get(tabId) || []).filter((r) => !released.has(r.id));
+  if (remaining.length) queue.set(tabId, remaining);
+  else queue.delete(tabId);
+  await persist();
+  notify(tabId);
 }
 
 /**
