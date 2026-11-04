@@ -216,7 +216,13 @@ export async function trackEvent(name, params = {}) {
     // Only the call is locked, not the network round trip.
     const request = await withConsentLock(async () =>
       (await getConsent()) === 'granted'
-        ? { pending: fetch(url, { method: 'POST', body: JSON.stringify(body) }) }
+        ? {
+            pending: fetch(url, {
+              method: 'POST',
+              body: JSON.stringify(body),
+              credentials: 'omit',
+            }),
+          }
         : null
     );
     if (!request) return;
@@ -233,12 +239,18 @@ export async function trackEvent(name, params = {}) {
  * Record the user's answer. Granting creates the install ID and sends
  * `analytics_opt_in`; denying deletes the install and session IDs.
  * Broadcasts `ANALYTICS_UPDATED` to every panel (no tabId: it is global).
+ * Resolves once the answer is stored; the opt-in hit is not awaited, so the
+ * reply never waits for the network.
  * @param {'granted'|'denied'} value
  * @returns {Promise<void>}
  */
 export async function setConsent(value) {
   await withConsentLock(() => applyConsent(value));
-  if (value === 'granted') await trackEvent('analytics_opt_in');
+  if (value === 'granted') {
+    trackEvent('analytics_opt_in').catch((error) => {
+      console.debug('Analytics opt-in hit failed:', error);
+    });
+  }
 }
 
 /**

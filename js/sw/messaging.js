@@ -369,6 +369,10 @@ export function handleMessage(message, sender, sendResponse) {
           consent: await getConsent(),
         });
       } else if (message.setAnalyticsConsent !== undefined) {
+        if (!isAnalyticsConfigured()) {
+          sendResponse({ status: 'ERROR', error: 'Analytics is not configured' });
+          return;
+        }
         await setConsent(message.setAnalyticsConsent);
         sendResponse({
           status: 'SUCCESS',

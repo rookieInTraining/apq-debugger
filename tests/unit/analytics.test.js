@@ -22,6 +22,11 @@ import {
 const UUID = '11111111-2222-4333-8444-555555555555';
 const flush = () => new Promise((r) => setTimeout(r, 30));
 const send = (message) => new Promise((resolve) => handleMessage(message, {}, resolve));
+/** Grant consent and let the (unawaited) analytics_opt_in hit go out. */
+const grant = async () => {
+  await setConsent('granted');
+  await flush();
+};
 
 let localStore;
 let sessionStore;
@@ -98,7 +103,18 @@ describe('analytics: not configured', () => {
   });
 
   test('setConsent("granted") does not send', async () => {
-    await setConsent('granted');
+    await grant();
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  test('setAnalyticsConsent is rejected and nothing is stored', async () => {
+    expect(await send({ setAnalyticsConsent: 'granted' })).toEqual({
+      status: 'ERROR',
+      error: 'Analytics is not configured',
+    });
+    await flush();
+    expect(localStore[ANALYTICS_CONSENT_STORAGE_KEY]).toBeUndefined();
+    expect(localStore[ANALYTICS_CLIENT_ID_STORAGE_KEY]).toBeUndefined();
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
@@ -128,11 +144,12 @@ describe('analytics: consent', () => {
   });
 
   test('setConsent("granted") sends analytics_opt_in with the stored client id', async () => {
-    await setConsent('granted');
+    await grant();
     expect(global.fetch).toHaveBeenCalledTimes(1);
     const [url, init] = global.fetch.mock.calls[0];
     expect(url).toBe(`${GA_ENDPOINT}?measurement_id=G-TEST&api_secret=S`);
     expect(init.method).toBe('POST');
+    expect(init.credentials).toBe('omit');
     const body = JSON.parse(init.body);
     expect(localStore[ANALYTICS_CLIENT_ID_STORAGE_KEY]).toBe(UUID);
     expect(body.client_id).toBe(UUID);
@@ -146,6 +163,18 @@ describe('analytics: consent', () => {
     });
   });
 
+  test('setConsent("granted") resolves without waiting for the opt-in round trip', async () => {
+    global.fetch.mockReturnValue(new Promise(() => {}));
+    const settled = await Promise.race([
+      setConsent('granted').then(() => 'resolved'),
+      flush().then(() => 'pending'),
+    ]);
+    expect(settled).toBe('resolved');
+    expect(await getConsent()).toBe('granted');
+    await flush();
+    expect(sentEvents().map((e) => e.name)).toEqual(['analytics_opt_in']);
+  });
+
   test('setConsent broadcasts ANALYTICS_UPDATED without a tabId', async () => {
     await setConsent('denied');
     const msg = chrome.runtime.sendMessage.mock.calls.map((c) => c[0]);
@@ -154,7 +183,7 @@ describe('analytics: consent', () => {
   });
 
   test('setConsent("denied") after granted removes ids and stops sending', async () => {
-    await setConsent('granted');
+    await grant();
     await trackEvent('panel_open');
     expect(sessionStore[ANALYTICS_SESSION_STORAGE_KEY]).toBeDefined();
     global.fetch.mockClear();
@@ -178,7 +207,7 @@ describe('analytics: consent', () => {
 
 describe('analytics: sending', () => {
   beforeEach(async () => {
-    await setConsent('granted');
+    await grant();
     global.fetch.mockClear();
   });
 
@@ -247,7 +276,7 @@ describe('analytics: withdrawal racing an in-flight hit', () => {
   };
 
   test('withdrawal before the hit settles: no fetch, no IDs left', async () => {
-    await setConsent('granted');
+    await grant();
     global.fetch.mockClear();
     const hit = trackEvent('panel_open');
     await setConsent('denied');
@@ -263,7 +292,7 @@ describe('analytics: withdrawal racing an in-flight hit', () => {
     for (let k = 0; k <= 30; k++) {
       localStore = {};
       sessionStore = {};
-      await setConsent('granted');
+      await grant();
       global.fetch.mockClear();
 
       // Fetch calls already made when 'denied' reached storage
@@ -318,7 +347,7 @@ describe('analytics: messages', () => {
   });
 
   test('trackEvent message is routed', async () => {
-    await setConsent('granted');
+    await grant();
     global.fetch.mockClear();
     expect(await send({ trackEvent: { name: 'panel_open' } })).toEqual({ status: 'SUCCESS' });
     await flush();
@@ -369,7 +398,7 @@ describe('analytics: service-worker emit points', () => {
       cb({ id: tabId, url: 'https://example.com' });
     });
     await setPassiveMode(false);
-    await setConsent('granted');
+    await grant();
     global.fetch.mockClear();
   });
 
