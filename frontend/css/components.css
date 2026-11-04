@@ -1,5 +1,5 @@
 /* ================================================================
-   APQ Debugger panel components — DevTools-native.
+   GraphQL Debugger panel components — DevTools-native.
    Structure: tab strip → per-view toolbar → optional patterns pane →
    infobar → data table + detail split. 1px dividers separate regions;
    only floating layers (menus, dialogs, toasts) carry a shadow.

@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 
 /**
- * Dependency installation helper for APQ Debugger
+ * Dependency installation helper for GraphQL Debugger
  */
 
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-console.log('📦 Installing dependencies for APQ Debugger...\n');
+console.log('📦 Installing dependencies for GraphQL Debugger...\n');
 
 const dependencies = ['terser@^5.24.0', 'clean-css@^5.3.2', 'chokidar@^3.5.3', 'fs-extra@^11.2.0'];
 

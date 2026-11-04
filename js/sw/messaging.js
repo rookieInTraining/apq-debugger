@@ -64,12 +64,12 @@ export async function toggleDebuggerFromAction() {
 
   if (!storedPatterns || storedPatterns.length === 0) {
     const errorMsg =
-      'No URL patterns configured. Please open DevTools > APQ Debugger to add patterns.';
+      'No URL patterns configured. Open DevTools > GraphQL Debugger to add patterns.';
 
     chrome.notifications.create({
       type: 'basic',
       iconUrl: 'icons/icon128.png',
-      title: 'APQ Debugger',
+      title: 'GraphQL Debugger',
       message: errorMsg,
     });
 

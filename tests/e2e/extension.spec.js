@@ -2,7 +2,7 @@ const { test, expect, chromium } = require('@playwright/test');
 const path = require('path');
 
 // NOTE: run `npm run build` first — the extension is loaded from extension_build/
-test.describe('APQ Debugger Extension', () => {
+test.describe('GraphQL Debugger Extension', () => {
   let context;
   let extensionId;
 

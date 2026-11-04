@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Enhanced build script for APQ Debugger.
+ * Enhanced build script for GraphQL Debugger.
  * Uses esbuild for fast ES-module bundling + minification of JS,
  * and Clean-CSS for CSS minification.
  * Outputs a ready-to-load extension into the extension_build/ folder.

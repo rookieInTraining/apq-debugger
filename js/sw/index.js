@@ -63,12 +63,12 @@ chrome.debugger.onDetach.addListener((source, reason) => {
 // ── Lifecycle events ──────────────────────────────────────────────
 
 chrome.runtime.onInstalled.addListener(() => {
-  console.log('APQ Debugger service worker installed/updated');
+  console.log('GraphQL Debugger service worker installed/updated');
 
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({
       id: ACTION_MENU_ID,
-      title: 'Toggle APQ Debugger',
+      title: 'Toggle GraphQL Debugger',
       contexts: ['action'],
     });
   });
@@ -77,7 +77,7 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 chrome.runtime.onStartup.addListener(() => {
-  console.log('APQ Debugger service worker starting up');
+  console.log('GraphQL Debugger service worker starting up');
   restoreDebuggerState();
 });
 

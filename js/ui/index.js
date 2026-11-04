@@ -31,11 +31,11 @@ import { initSession, renderSessionBar } from './session.js';
 // ── Panel registration ────────────────────────────────────────────
 
 chrome.devtools.panels.create(
-  'APQ Debugger',
+  'GraphQL Debugger',
   'icons/icon128.png',
   'devtools.html',
   function (panel) {
-    console.log('APQ Debugger panel created:', panel);
+    console.log('GraphQL Debugger panel created:', panel);
   }
 );
 
@@ -152,7 +152,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // ── Initialisation ────────────────────────────────────────────
 
-  console.log('APQ Debugger DevTools panel initialized');
+  console.log('GraphQL Debugger DevTools panel initialized');
   updateDebuggerStatus('Off', 'default');
   restorePatternsFromStorage();
   renderRequestList();

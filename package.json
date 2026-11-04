@@ -1,7 +1,7 @@
 {
   "name": "apq-debugger",
   "version": "4.0.0",
-  "description": "Chrome DevTools extension for intercepting Apollo Persisted Queries",
+  "description": "GraphQL Debugger: a Chrome DevTools extension for breakpoints, APQ recovery and schema exploration",
   "main": "build-enhanced.js",
   "scripts": {
     "build": "node build-enhanced.js",
