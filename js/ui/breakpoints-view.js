@@ -63,6 +63,9 @@ const selectionListeners = [];
 /** Ids already shown, so only newly held requests bring the tab forward. */
 let seenIds = new Set();
 
+/** True while a Resume all chain is in flight (button disabled, F8 ignored). */
+let resumingAll = false;
+
 /**
  * Send a message to the service worker; `onFailure` runs on any error or
  * non-SUCCESS reply.
@@ -221,7 +224,7 @@ function renderToolbar() {
   if (hint) hint.hidden = !state.pauseNext;
 
   const resumeAll = byId('bp-resume-all');
-  if (resumeAll) resumeAll.disabled = getWaitingPaused().length === 0;
+  if (resumeAll) resumeAll.disabled = resumingAll || getWaitingPaused().length === 0;
 }
 
 /** @param {{debugMode?: boolean, pauseNext?: boolean}} response */
@@ -238,6 +241,7 @@ function applyDebugState(response) {
  * Resume all button and F8 come through here.
  */
 export function resumeAllPaused() {
+  if (resumingAll) return;
   const waiting = getWaitingPaused();
   if (waiting.length === 0) return;
 
@@ -251,26 +255,48 @@ export function resumeAllPaused() {
   const edited = waiting
     .map((item) => ({ id: item.id, edits: getPendingEdits(item.id) }))
     .filter((item) => item.edits);
-  const fail = () => showStatusBanner('Failed to resume paused requests', 'error');
   let cancelled = false;
+
+  const fail = () => showStatusBanner('Failed to resume paused requests', 'error');
+  const finish = () => {
+    resumingAll = false;
+    renderToolbar();
+  };
+  /** Wrap a final reply handler so Resume all is re-enabled whatever it does. */
+  const settle = (handler) => (response) => {
+    try {
+      if (handler) handler(response);
+    } finally {
+      finish();
+    }
+  };
 
   // one at a time, so the worker continues each edited request before the rest
   const sendNext = (i) => {
-    if (i >= edited.length) {
-      if (cancelled) showStatusBanner(CANCELLED_MESSAGE, 'warning');
-      sendToWorker({ resumeAllPaused: true, tabId: inspectedTabId }, null, fail);
-      return;
+    let handedOff = false; // a reply callback now owns finishing the chain
+    try {
+      if (i >= edited.length) {
+        if (cancelled) showStatusBanner(CANCELLED_MESSAGE, 'warning');
+        sendToWorker({ resumeAllPaused: true, tabId: inspectedTabId }, settle(null), settle(fail));
+      } else {
+        const { id, edits } = edited[i];
+        sendToWorker(
+          { resumePaused: id, tabId: inspectedTabId, edits },
+          (response) => {
+            if (response.result === 'cancelled') cancelled = true;
+            sendNext(i + 1);
+          },
+          settle(fail)
+        );
+      }
+      handedOff = true;
+    } finally {
+      if (!handedOff) finish();
     }
-    const { id, edits } = edited[i];
-    sendToWorker(
-      { resumePaused: id, tabId: inspectedTabId, edits },
-      (response) => {
-        if (response.result === 'cancelled') cancelled = true;
-        sendNext(i + 1);
-      },
-      fail
-    );
   };
+
+  resumingAll = true;
+  renderToolbar();
   sendNext(0);
 }
 
@@ -343,11 +369,26 @@ function renderEmpty() {
   if (offHint) offHint.classList.toggle('hidden', state.isDebuggerActive);
 }
 
+/**
+ * Focus the paused list, or — when it is hidden because nothing is held —
+ * the Pause on next request button, so focus never drops to the page body.
+ */
+function focusPausedList() {
+  const list = byId('bp-paused-list');
+  if (list && !list.hidden) list.focus();
+  else byId('bp-pause-next')?.focus();
+}
+
 /** Show the editor column only while something is selected, and tell listeners. */
 function renderSelection() {
   const held = selectedHeld();
   const editor = byId('bp-editor');
-  if (editor) editor.classList.toggle('hidden', !held);
+  if (editor) {
+    // e.g. the last request was resumed with focus on Resume this
+    const losingFocus = !held && editor.contains(document.activeElement);
+    editor.classList.toggle('hidden', !held);
+    if (losingFocus) focusPausedList();
+  }
   renderPausedEditor(held);
   selectionListeners.forEach((listener) => listener(held));
 }
@@ -357,8 +398,7 @@ function clearPausedSelection() {
   state.selectedPausedId = null;
   renderPausedList();
   renderSelection();
-  const list = byId('bp-paused-list');
-  if (list && !list.hidden) list.focus();
+  focusPausedList();
 }
 
 /**
@@ -453,6 +493,7 @@ function handlePausedKeydown(e) {
  * held requests from the service worker.
  */
 export function initBreakpointsView() {
+  resumingAll = false;
   initPausedEditor({ onClose: clearPausedSelection });
 
   const form = byId('bp-list');

@@ -27,7 +27,7 @@ function setupDom() {
       <div class="toolbar" id="bp-toolbar" role="toolbar">
         <label class="check"><input type="checkbox" id="bp-debug-mode" /> Debug mode</label>
         <button type="button" class="tb-btn" id="bp-pause-next" aria-pressed="false">Pause on next request</button>
-        <span class="bp-hint" id="bp-pause-next-hint" hidden>Waiting for the next request…</span>
+        <span class="bp-hint" id="bp-pause-next-hint" hidden>Waiting for the next intercepted request…</span>
         <button type="button" class="tb-btn" id="bp-resume-all" title="Resume all (F8)" disabled>Resume all</button>
       </div>
       <div class="infobar is-paused hidden" id="bp-infobar"><p class="infobar-text" id="bp-infobar-text"></p></div>
@@ -214,7 +214,9 @@ describe('toolbar', () => {
     expect(sent('setPauseNext').pop()).toEqual({ setPauseNext: true, tabId: 123 });
     expect(button.getAttribute('aria-pressed')).toBe('true');
     expect(byId('bp-pause-next-hint').hidden).toBe(false);
-    expect(byId('bp-pause-next-hint').textContent).toBe('Waiting for the next request…');
+    expect(byId('bp-pause-next-hint').textContent).toBe(
+      'Waiting for the next intercepted request…'
+    );
   });
 
   test('a failed pause-next request reverts the button', () => {
@@ -412,6 +414,35 @@ describe('resume all', () => {
     renderPaused([held('1', 'GetCart')], false);
     byId('bp-resume-all').click();
     expect(sent('resumeAllPaused')).toEqual([{ resumeAllPaused: true, tabId: 123 }]);
+  });
+
+  test.each([
+    ['succeeds', { status: 'SUCCESS' }],
+    ['fails', { status: 'ERROR', error: 'x' }],
+  ])('Resume all is disabled and F8 ignored until the chain %s', (_, reply) => {
+    setup();
+    renderPaused([held('1', 'GetCart')], false);
+    const pending = [];
+    const answer = chrome.runtime.sendMessage.getMockImplementation();
+    chrome.runtime.sendMessage.mockImplementation((msg, cb) => {
+      if ('resumeAllPaused' in msg) pending.push(cb);
+      else answer(msg, cb);
+    });
+
+    byId('bp-resume-all').click();
+    expect(byId('bp-resume-all').disabled).toBe(true);
+    pressF8();
+    byId('bp-resume-all').click();
+    // a queue update while in flight keeps it disabled
+    renderPaused([held('1', 'GetCart')], false);
+    expect(byId('bp-resume-all').disabled).toBe(true);
+    expect(sent('resumeAllPaused')).toHaveLength(1);
+
+    pending[0](reply);
+    expect(byId('bp-resume-all').disabled).toBe(false);
+    pressF8();
+    expect(sent('resumeAllPaused')).toHaveLength(2);
+    pending[1]({ status: 'SUCCESS' });
   });
 });
 

@@ -386,7 +386,7 @@ test('header edits produce the full header list for continueRequest', async () =
 Copy (sentence case, exact):
 - Infobar: one paused → `Paused on {operationName || 'anonymous operation'}`; more → `Paused · {n} requests waiting`.
 - Empty state title: `No paused requests`; body: `Add an operation name below and turn on debug mode. Matching requests pause here before they are sent.` When interception is off add: `Start interception on the Requests tab first.`
-- Pause-next armed hint next to the button: `Waiting for the next request…`
+- Pause-next armed hint next to the button: `Waiting for the next intercepted request…`
 - Paused list row: monospace operation name, then a word chip: `Paused` or `Cancelled by page`; cancelled rows also use a struck/hollow shape, not colour alone.
 - Narrow widths: below 640px wide the editor overlays the lists, the same way the detail pane does (`layout.js`); compact density applies as elsewhere.
 - Tab-strip status while anything is paused: word `Paused`, pause-bars shape, warning colour; restored to the previous word (`Intercepting`/`Passive`) when the queue empties.

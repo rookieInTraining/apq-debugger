@@ -581,6 +581,31 @@ describe('paused editor: going back to the list', () => {
     expect(byId('bp-editor').classList.contains('hidden')).toBe(true);
   });
 
+  test('resuming the last request with focus in the editor moves focus out of it', () => {
+    setup();
+    byId('bp-resume').focus();
+    byId('bp-resume').click();
+    renderPaused([], false);
+    expect(byId('bp-editor').classList.contains('hidden')).toBe(true);
+    // the paused list is hidden when nothing is held, so focus lands next to it
+    expect(byId('bp-paused-list').hidden).toBe(true);
+    expect(document.activeElement).toBe(byId('bp-pause-next'));
+  });
+
+  test('the editor hiding with focus inside goes to the paused list when it is shown', () => {
+    setup([held('1'), held('2')]);
+    byId('bp-variables').focus();
+    byId('bp-editor-back').click();
+    expect(byId('bp-paused-list').contains(document.activeElement)).toBe(true);
+  });
+
+  test('the editor hiding does not move focus that is elsewhere', () => {
+    setup();
+    byId('bp-debug-mode').focus();
+    renderPaused([], false);
+    expect(document.activeElement).toBe(byId('bp-debug-mode'));
+  });
+
   test('Escape inside the editor goes back, but not while typing in a field', () => {
     setup();
     keydown(byId('bp-variables'), 'Escape');
