@@ -4,9 +4,10 @@
  */
 
 import { digestMessage } from './hash.js';
+import { encodeBase64Json } from './resume-body.js';
 import { isPassiveMode, lookupHash, registerHash } from './hash-registry.js';
 import { recordEndpoint } from './endpoint-tracker.js';
-import { BOGUS_HASH_SEED, BASE64_CHUNK_SIZE, DEFAULT_OPERATION_NAME } from '../shared/constants.js';
+import { BOGUS_HASH_SEED, DEFAULT_OPERATION_NAME } from '../shared/constants.js';
 
 /**
  * Check whether a parsed request body looks like a GraphQL operation.
@@ -187,20 +188,6 @@ export async function contaminatePayload(payload, requestUrl, tabId, requestHead
 }
 
 /**
- * Convert a Uint8Array to a base64 string using chunked encoding
- * to avoid stack overflow on large payloads.
- * @param {Uint8Array} bytes
- * @returns {string}
- */
-function uint8ArrayToBase64(bytes) {
-  let binary = '';
-  for (let i = 0; i < bytes.length; i += BASE64_CHUNK_SIZE) {
-    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + BASE64_CHUNK_SIZE));
-  }
-  return btoa(binary);
-}
-
-/**
  * Send Fetch.continueRequest and handle any lastError.
  * @param {number} tabId
  * @param {string} requestId
@@ -271,9 +258,7 @@ export function handleFetchRequestPaused(source, params) {
 
       // Encode the modified request as base64 (chunked to avoid overflow)
       const modifiedJson = JSON.stringify(reqBody);
-      const encoder = new TextEncoder();
-      const bytes = encoder.encode(modifiedJson);
-      const base64Data = uint8ArrayToBase64(bytes);
+      const base64Data = encodeBase64Json(reqBody);
 
       console.info(`Modified Request: ${modifiedJson}\nBase64: ${base64Data}`);
       console.info('Executing Fetch.continueRequest...');
