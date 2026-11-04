@@ -62,53 +62,70 @@ export async function getConsent() {
   return value === 'granted' || value === 'denied' ? value : null;
 }
 
-/** In-flight client-ID lookup, shared so concurrent events create one ID. */
-let clientIdPromise = null;
-/** In-flight session-ID lookup, shared for the same reason. */
+/** In-flight session-ID creation, shared so concurrent events create one ID. */
 let sessionIdPromise = null;
+/** Tail of the consent lock: consent changes and the consent check + send of each hit. */
+let consentQueue = Promise.resolve();
 
 /**
- * Get the install ID, creating it on first use.
- * @returns {Promise<string>}
+ * Run a task after every earlier consent change, holding later ones until it ends.
+ * @template T
+ * @param {() => Promise<T>} task
+ * @returns {Promise<T>}
  */
-function getClientId() {
-  if (!clientIdPromise) {
-    clientIdPromise = (async () => {
-      const result = await storageGet(ANALYTICS_CLIENT_ID_STORAGE_KEY);
-      const existing = result[ANALYTICS_CLIENT_ID_STORAGE_KEY];
-      if (typeof existing === 'string' && existing) return existing;
-      const id = crypto.randomUUID();
-      await storageSet({ [ANALYTICS_CLIENT_ID_STORAGE_KEY]: id });
-      return id;
-    })();
-    // Dedupe in-flight lookups only: storage stays the source of truth
-    clientIdPromise
-      .finally(() => {
-        clientIdPromise = null;
-      })
-      .catch(() => {});
-  }
-  return clientIdPromise;
+function withConsentLock(task) {
+  const run = consentQueue.then(task);
+  consentQueue = run.catch(() => {});
+  return run;
 }
 
 /**
- * Get the per-browser-session ID (chrome.storage.session is cleared on browser exit).
- * @returns {Promise<string>}
+ * Read the install ID. Only setConsent('granted') creates it, so a hit that
+ * races a withdrawal can never bring it back.
+ * @returns {Promise<string|null>}
+ */
+async function getClientId() {
+  const result = await storageGet(ANALYTICS_CLIENT_ID_STORAGE_KEY);
+  const existing = result[ANALYTICS_CLIENT_ID_STORAGE_KEY];
+  return typeof existing === 'string' && existing ? existing : null;
+}
+
+/**
+ * Create the install ID unless one exists. Called only while granting consent.
+ * @returns {Promise<void>}
+ */
+async function ensureClientId() {
+  if (await getClientId()) return;
+  await storageSet({ [ANALYTICS_CLIENT_ID_STORAGE_KEY]: crypto.randomUUID() });
+}
+
+/**
+ * Get the per-browser-session ID (chrome.storage.session is cleared on browser
+ * exit), creating it lazily while consent is granted. Consent is re-checked
+ * after the write: withdrawal stores 'denied' before removing the IDs, so a
+ * write that lands after the removal is undone here.
+ * @returns {Promise<string|null>} null when consent is no longer granted.
  */
 function getSessionId() {
   if (!sessionIdPromise) {
-    sessionIdPromise = (async () => {
+    const pending = (async () => {
       const result = await sessionGet(ANALYTICS_SESSION_STORAGE_KEY);
       const existing = result[ANALYTICS_SESSION_STORAGE_KEY];
       if (typeof existing === 'string' && existing) return existing;
+      if ((await getConsent()) !== 'granted') return null;
       const id = String(Math.floor(Math.random() * 2 ** 31) + 1);
       await sessionSet({ [ANALYTICS_SESSION_STORAGE_KEY]: id });
+      if ((await getConsent()) !== 'granted') {
+        await sessionRemove(ANALYTICS_SESSION_STORAGE_KEY);
+        return null;
+      }
       return id;
     })();
-    // Dedupe in-flight lookups only: storage stays the source of truth
-    sessionIdPromise
+    sessionIdPromise = pending;
+    // Dedupe in-flight creation only: storage stays the source of truth
+    pending
       .finally(() => {
-        sessionIdPromise = null;
+        if (sessionIdPromise === pending) sessionIdPromise = null;
       })
       .catch(() => {});
   }
@@ -175,6 +192,7 @@ export async function trackEvent(name, params = {}) {
       getSessionId(),
       getUserProperties(),
     ]);
+    if (!clientId || !sessionId) return;
     const { measurementId, apiSecret } = getConfig();
     const url =
       `${GA_ENDPOINT}?measurement_id=${encodeURIComponent(measurementId)}` +
@@ -193,7 +211,16 @@ export async function trackEvent(name, params = {}) {
         },
       ],
     };
-    const response = await fetch(url, { method: 'POST', body: JSON.stringify(body) });
+    // Re-check consent and start the request under the consent lock, so a
+    // withdrawal either lands first (nothing sent) or after the hit left.
+    // Only the call is locked, not the network round trip.
+    const request = await withConsentLock(async () =>
+      (await getConsent()) === 'granted'
+        ? { pending: fetch(url, { method: 'POST', body: JSON.stringify(body) }) }
+        : null
+    );
+    if (!request) return;
+    const response = await request.pending;
     if (!response || !response.ok) {
       console.debug('Analytics hit rejected:', response && response.status);
     }
@@ -210,11 +237,23 @@ export async function trackEvent(name, params = {}) {
  * @returns {Promise<void>}
  */
 export async function setConsent(value) {
+  await withConsentLock(() => applyConsent(value));
+  if (value === 'granted') await trackEvent('analytics_opt_in');
+}
+
+/**
+ * Store consent and create or delete the IDs (runs serialized via setConsent).
+ * @param {'granted'|'denied'} value
+ * @returns {Promise<void>}
+ */
+async function applyConsent(value) {
+  // Consent is written first: in-flight hits re-check it before sending
   await storageSet({ [ANALYTICS_CONSENT_STORAGE_KEY]: value });
 
   if (value === 'granted') {
-    if (isAnalyticsConfigured()) await getClientId();
+    if (isAnalyticsConfigured()) await ensureClientId();
   } else {
+    sessionIdPromise = null;
     await storageRemove(ANALYTICS_CLIENT_ID_STORAGE_KEY);
     await sessionRemove(ANALYTICS_SESSION_STORAGE_KEY);
   }
@@ -224,6 +263,4 @@ export async function setConsent(value) {
       // No panel open — that's fine
     }
   });
-
-  if (value === 'granted') await trackEvent('analytics_opt_in');
 }

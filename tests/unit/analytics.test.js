@@ -232,6 +232,75 @@ describe('analytics: sending', () => {
     expect(bodies[1].client_id).toBe(UUID);
     expect(bodies[0].events[0].params.session_id).toBe(bodies[1].events[0].params.session_id);
   });
+
+  test('a granted store without a client id sends nothing and creates none', async () => {
+    delete localStore[ANALYTICS_CLIENT_ID_STORAGE_KEY];
+    await trackEvent('panel_open');
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(localStore[ANALYTICS_CLIENT_ID_STORAGE_KEY]).toBeUndefined();
+  });
+});
+
+describe('analytics: withdrawal racing an in-flight hit', () => {
+  const ticks = async (n) => {
+    for (let i = 0; i < n; i++) await Promise.resolve();
+  };
+
+  test('withdrawal before the hit settles: no fetch, no IDs left', async () => {
+    await setConsent('granted');
+    global.fetch.mockClear();
+    const hit = trackEvent('panel_open');
+    await setConsent('denied');
+    await hit;
+    await flush();
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(localStore[ANALYTICS_CLIENT_ID_STORAGE_KEY]).toBeUndefined();
+    expect(sessionStore[ANALYTICS_SESSION_STORAGE_KEY]).toBeUndefined();
+  });
+
+  test('at every interleaving, nothing is sent once denied is stored and no ID survives', async () => {
+    const outcomes = new Set();
+    for (let k = 0; k <= 30; k++) {
+      localStore = {};
+      sessionStore = {};
+      await setConsent('granted');
+      global.fetch.mockClear();
+
+      // Fetch calls already made when 'denied' reached storage
+      let callsAtDenial = null;
+      const set = chrome.storage.local.set.getMockImplementation();
+      chrome.storage.local.set.mockImplementation((items, cb) => {
+        if (items[ANALYTICS_CONSENT_STORAGE_KEY] === 'denied') {
+          callsAtDenial = global.fetch.mock.calls.length;
+        }
+        set(items, cb);
+      });
+
+      const hit = trackEvent('panel_open');
+      await ticks(k);
+      await setConsent('denied');
+      await hit;
+      await flush();
+      chrome.storage.local.set.mockImplementation(set);
+
+      expect(global.fetch.mock.calls.length).toBe(callsAtDenial);
+      outcomes.add(callsAtDenial);
+      expect(localStore[ANALYTICS_CLIENT_ID_STORAGE_KEY]).toBeUndefined();
+      expect(sessionStore[ANALYTICS_SESSION_STORAGE_KEY]).toBeUndefined();
+    }
+    // Both sides of the race were exercised: hits withdrawn in time and hits already sent
+    expect([...outcomes].sort()).toEqual([0, 1]);
+  });
+
+  test('grant then immediate withdrawal leaves no IDs', async () => {
+    const grant = setConsent('granted');
+    const deny = setConsent('denied');
+    await Promise.all([grant, deny]);
+    await flush();
+    expect(await getConsent()).toBe('denied');
+    expect(localStore[ANALYTICS_CLIENT_ID_STORAGE_KEY]).toBeUndefined();
+    expect(sessionStore[ANALYTICS_SESSION_STORAGE_KEY]).toBeUndefined();
+  });
 });
 
 describe('analytics: messages', () => {
