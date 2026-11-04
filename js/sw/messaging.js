@@ -504,9 +504,9 @@ async function handleBreakpointTabMessage(message, sendResponse) {
     const result = await failHeld(tabId, message.failPaused);
     sendResponse({ status: 'SUCCESS', result });
   } else {
-    // resumeAllPaused — unedited items go out unmodified
+    // resumeAllPaused — unedited items go out as held (contaminated bodies stay contaminated)
     for (const item of listPaused(tabId)) {
-      await continueHeld(tabId, item.id);
+      await continueHeld(tabId, item.id, await buildContinueParams(item));
     }
     sendResponse({ status: 'SUCCESS' });
   }

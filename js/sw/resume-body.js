@@ -73,7 +73,7 @@ function sortedEntries(obj) {
  * @param {import('./pause-queue.js').HeldRequest} held
  * @param {ResumeEdits} [edits]
  * @returns {Promise<{postData?: string, headers?: {name: string, value: string}[]}>}
- *   Empty object when nothing differs from the held request.
+ *   Empty object when nothing differs from the request as the page sent it.
  */
 export async function buildContinueParams(held, edits = {}) {
   const params = {};
@@ -89,6 +89,11 @@ export async function buildContinueParams(held, edits = {}) {
       if (await applyOperationEdit(target, edit, reference)) changed = true;
     }
     if (changed) params.postData = encodeBase64Json(body);
+  }
+
+  // The held body was rewritten (APQ contamination): send it, not the page's original
+  if (!params.postData && held.bodyModified) {
+    params.postData = encodeBase64Json(held.body);
   }
 
   if (edits.headers) {

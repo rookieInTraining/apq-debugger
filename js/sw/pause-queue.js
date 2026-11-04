@@ -7,6 +7,7 @@
 
 import { PAUSED_QUEUE_STORAGE_KEY, MAX_PAUSED_PER_TAB } from '../shared/constants.js';
 import { sessionGet, sessionSet, sendDebuggerCommand } from './chrome-api.js';
+import { encodeBase64Json } from './resume-body.js';
 
 /**
  * @typedef {object} HeldOperation
@@ -30,6 +31,8 @@ import { sessionGet, sessionSet, sendDebuggerCommand } from './chrome-api.js';
  * @property {'breakpoint'|'pause-next'} reason
  * @property {'paused'|'cancelled'} state
  * @property {object|object[]} body - Body as it would be sent unedited.
+ * @property {boolean} [bodyModified] - True when `body` differs from what the page
+ *   sent (APQ contamination); unedited continues must then send `body` as postData.
  * @property {Record<string,string>} rawHeaders
  * @property {HeldOperation[]} operations
  */
@@ -218,7 +221,19 @@ export async function failHeld(tabId, id) {
 }
 
 /**
- * Continue every paused request for a tab unmodified and clear the tab.
+ * Fetch.continueRequest params that send a held request as it would go unedited.
+ * @param {HeldRequest} item
+ * @returns {{requestId: string, postData?: string}}
+ */
+function uneditedContinueParams(item) {
+  return item.bodyModified
+    ? { requestId: item.id, postData: encodeBase64Json(item.body) }
+    : { requestId: item.id };
+}
+
+/**
+ * Continue every paused request for a tab without user edits and clear the tab.
+ * Contaminated bodies are sent as contaminated.
  * @param {number} tabId
  * @returns {Promise<void>}
  */
@@ -229,7 +244,9 @@ export async function releaseAll(tabId) {
     items
       .filter((r) => r.state === 'paused')
       .map((r) =>
-        sendDebuggerCommand(tabId, 'Fetch.continueRequest', { requestId: r.id }).catch(() => {})
+        sendDebuggerCommand(tabId, 'Fetch.continueRequest', uneditedContinueParams(r)).catch(
+          () => {}
+        )
       )
   );
   if (queue.has(tabId)) {

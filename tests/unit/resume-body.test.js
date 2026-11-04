@@ -13,6 +13,21 @@ const held = (body, extra = {}) => ({
 const decode = (p) => JSON.parse(atob(p.postData));
 
 describe('buildContinueParams', () => {
+  test('bodyModified with no edits → postData is the held (contaminated) body', async () => {
+    const body = [{ extensions: { persistedQuery: { sha256Hash: 'bogus' } } }, { query: '{ a }' }];
+    const p = await buildContinueParams(held(body, { bodyModified: true }));
+    expect(Object.keys(p)).toEqual(['postData']);
+    expect(decode(p)).toEqual(body);
+  });
+
+  test('bodyModified with a body edit → the edit (on top of the held body) wins', async () => {
+    const body = [{ extensions: { persistedQuery: { sha256Hash: 'bogus' } } }, { query: '{ a }' }];
+    const p = await buildContinueParams(held(body, { bodyModified: true }), {
+      operations: [{ index: 1, query: '{ b }' }],
+    });
+    expect(decode(p)).toEqual([body[0], { query: '{ b }' }]);
+  });
+
   test('no edits → empty params', async () => {
     expect(await buildContinueParams(held({ query: 'query A { a }', variables: {} }))).toEqual({});
   });

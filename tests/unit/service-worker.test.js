@@ -1544,6 +1544,87 @@ describe('Service Worker Logic', () => {
       });
     });
 
+    describe('held requests: panel race and contaminated bodies', () => {
+      const BATCH = () => [
+        { operationName: 'GetUser', extensions: { persistedQuery: { sha256Hash: 'user-hash' } } },
+        { query: 'query GetCart { cart { id } }', operationName: 'GetCart' },
+      ];
+      const CONTAMINATED = () => [
+        { operationName: 'GetUser', extensions: { persistedQuery: { sha256Hash: BOGUS } } },
+        { query: 'query GetCart { cart { id } }', operationName: 'GetCart' },
+      ];
+
+      beforeEach(async () => {
+        await setBreakpoints([{ name: 'GetCart', enabled: true }]);
+        await setDebugMode(1, true);
+      });
+
+      test('panel disconnecting while the request is being held: it is continued, not stranded', async () => {
+        const disconnect = connectPanel(1);
+        handleFetchRequestPaused({ tabId: 1 }, paused('race', BATCH()));
+        disconnect();
+        await flush();
+
+        const calls = cdp().filter((c) => c[1] === 'Fetch.continueRequest');
+        expect(calls).toHaveLength(1);
+        expect(calls[0][2].requestId).toBe('race');
+        expect(JSON.parse(atob(calls[0][2].postData))).toEqual(CONTAMINATED());
+        expect(listPaused(1)).toEqual([]);
+      });
+
+      test('contaminated batch is held with bodyModified and resumes unedited as contaminated', async () => {
+        connectPanel(1);
+        handleFetchRequestPaused({ tabId: 1 }, paused('cb1', BATCH()));
+        await flush();
+        expect(listPaused(1)[0].bodyModified).toBe(true);
+
+        expect(await send({ resumePaused: 'cb1', tabId: 1 })).toEqual({
+          status: 'SUCCESS',
+          result: 'sent',
+        });
+        const [call] = cdp().filter((c) => c[1] === 'Fetch.continueRequest');
+        expect(call[2]).toEqual({ requestId: 'cb1', postData: expect.any(String) });
+        expect(JSON.parse(atob(call[2].postData))).toEqual(CONTAMINATED());
+      });
+
+      test('resumeAllPaused sends a contaminated batch as contaminated', async () => {
+        connectPanel(1);
+        handleFetchRequestPaused({ tabId: 1 }, paused('cb2', BATCH()));
+        await flush();
+
+        await send({ resumeAllPaused: true, tabId: 1 });
+        const [call] = cdp().filter((c) => c[1] === 'Fetch.continueRequest');
+        expect(JSON.parse(atob(call[2].postData))).toEqual(CONTAMINATED());
+      });
+
+      test('releasing on last disconnect sends a contaminated batch as contaminated', async () => {
+        const disconnect = connectPanel(1);
+        handleFetchRequestPaused({ tabId: 1 }, paused('cb3', BATCH()));
+        await flush();
+        chrome.debugger.sendCommand.mockClear();
+
+        disconnect();
+        await flush();
+        const calls = cdp();
+        expect(calls).toHaveLength(1);
+        expect(calls[0][2].requestId).toBe('cb3');
+        expect(JSON.parse(atob(calls[0][2].postData))).toEqual(CONTAMINATED());
+      });
+
+      test('an unmodified held request still continues with only { requestId }', async () => {
+        connectPanel(1);
+        handleFetchRequestPaused(
+          { tabId: 1 },
+          paused('um1', { query: 'query GetCart { cart { id } }', operationName: 'GetCart' })
+        );
+        await flush();
+        expect(listPaused(1)[0].bodyModified).toBe(false);
+
+        await send({ resumePaused: 'um1', tabId: 1 });
+        expect(cdp()).toEqual([[{ tabId: 1 }, 'Fetch.continueRequest', { requestId: 'um1' }]]);
+      });
+    });
+
     describe('breakpoint messages', () => {
       test.each([
         [{ getBreakpointState: 'yes', tabId: 1 }, 'getBreakpointState'],

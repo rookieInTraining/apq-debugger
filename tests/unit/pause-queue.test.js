@@ -192,3 +192,14 @@ describe('fresh module after service worker restart', () => {
     expect(Object.keys(written)).toEqual(['2']);
   });
 });
+
+test('releaseAll sends a contaminated (bodyModified) body as postData', async () => {
+  const body = [{ extensions: { persistedQuery: { sha256Hash: 'bogus' } } }, { query: '{ a }' }];
+  await pq.holdRequest(held({ id: 'm1', body, bodyModified: true }));
+  await pq.holdRequest(held({ id: 'u1' }));
+  await pq.releaseAll(1);
+  const calls = chrome.debugger.sendCommand.mock.calls.map((c) => c[2]);
+  expect(calls).toContainEqual({ requestId: 'm1', postData: expect.any(String) });
+  expect(JSON.parse(atob(calls.find((p) => p.requestId === 'm1').postData))).toEqual(body);
+  expect(calls).toContainEqual({ requestId: 'u1' });
+});

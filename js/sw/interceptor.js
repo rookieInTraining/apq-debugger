@@ -4,12 +4,12 @@
  */
 
 import { digestMessage } from './hash.js';
-import { encodeBase64Json } from './resume-body.js';
+import { encodeBase64Json, buildContinueParams } from './resume-body.js';
 import { isPassiveMode, lookupHash, registerHash } from './hash-registry.js';
 import { recordEndpoint } from './endpoint-tracker.js';
 import { isPanelConnected } from './panel-presence.js';
 import { initBreakpoints, getDebugState, decidePause, consumePauseNext } from './breakpoints.js';
-import { holdRequest } from './pause-queue.js';
+import { holdRequest, getHeld, continueHeld } from './pause-queue.js';
 import { extractOperationName } from '../shared/operation-name.js';
 import { BOGUS_HASH_SEED, DEFAULT_OPERATION_NAME } from '../shared/constants.js';
 
@@ -253,9 +253,11 @@ function describeOperation(op, index, original) {
  * @param {object} params - Fetch.requestPaused event params.
  * @param {object|object[]} body - Parsed (possibly contaminated) request body.
  * @param {{hash: string, isHashOnly: boolean}[]} originals - Pre-contamination snapshot.
- * @returns {Promise<boolean>} True if the request is now held (do not continue it).
+ * @param {boolean} bodyModified - Whether `body` was rewritten (contaminated).
+ * @returns {Promise<boolean>} True if the request was taken over by the pause
+ *   queue (do not continue it here).
  */
-async function holdIfPaused(tabId, params, body, originals) {
+async function holdIfPaused(tabId, params, body, originals, bodyModified) {
   try {
     await initBreakpoints();
     const { debugMode, pauseNext } = getDebugState(tabId);
@@ -287,7 +289,7 @@ async function holdIfPaused(tabId, params, body, originals) {
       });
     }
 
-    return await holdRequest({
+    const held = await holdRequest({
       id: params.requestId,
       networkId: params.networkId || '',
       tabId,
@@ -299,7 +301,17 @@ async function holdIfPaused(tabId, params, body, originals) {
       body,
       rawHeaders: params.request.headers || {},
       operations,
+      bodyModified,
     });
+    if (!held) return false;
+
+    // The panel may have gone while we were deciding; its disconnect already
+    // released the (then empty) queue, so release this request ourselves.
+    if (!isPanelConnected(tabId)) {
+      const item = getHeld(tabId, params.requestId);
+      if (item) await continueHeld(tabId, item.id, await buildContinueParams(item));
+    }
+    return true;
   } catch (error) {
     console.error('Breakpoint check failed:', error);
     return false;
@@ -359,7 +371,7 @@ export function handleFetchRequestPaused(source, params) {
         modified = await contaminatePayload(reqBody, requestUrl, source.tabId, requestHeaders);
       }
 
-      if (originals && (await holdIfPaused(source.tabId, params, reqBody, originals))) {
+      if (originals && (await holdIfPaused(source.tabId, params, reqBody, originals, modified))) {
         // Held: the panel resumes or fails it later
         return;
       }
