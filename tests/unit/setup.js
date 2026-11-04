@@ -21,6 +21,7 @@ global.chrome = {
     query: jest.fn(),
     get: jest.fn(),
     onUpdated: { addListener: jest.fn() },
+    onRemoved: { addListener: jest.fn() },
   },
   action: {
     setBadgeText: jest.fn(),

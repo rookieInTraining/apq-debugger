@@ -134,3 +134,5 @@ export const DEBUG_STATE_STORAGE_KEY = 'gqlDebugState';
 export const PAUSED_QUEUE_STORAGE_KEY = 'gqlPausedQueue';
 export const MAX_BREAKPOINTS = 100;
 export const MAX_PAUSED_PER_TAB = 50;
+/** Long-lived port name prefix; the panel connects as `${PANEL_PORT_PREFIX}${tabId}`. */
+export const PANEL_PORT_PREFIX = 'gql-panel:';

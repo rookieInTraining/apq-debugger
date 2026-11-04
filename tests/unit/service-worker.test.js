@@ -23,6 +23,16 @@ import {
   getStoredTabs,
   setStoredTabs,
 } from '../../js/sw/storage.js';
+import { encodeBase64Json } from '../../js/sw/resume-body.js';
+import {
+  initBreakpoints,
+  setBreakpoints,
+  setDebugMode,
+  setPauseNext,
+  getDebugState,
+  clearDebugState,
+} from '../../js/sw/breakpoints.js';
+import { holdRequest, listPaused, dropTab } from '../../js/sw/pause-queue.js';
 
 describe('Service Worker Logic', () => {
   beforeEach(() => {
@@ -1117,6 +1127,678 @@ describe('Service Worker Logic', () => {
         { apqAttachedTabs: [5, 10] },
         expect.any(Function)
       );
+    });
+  });
+
+  // ── Request breakpoints ────────────────────────────────────────
+
+  describe('request breakpoints', () => {
+    const BOGUS = 'c775e7b757ede630cd0aa11113bd102661ab38829ca52a6422ab782862f26864';
+    const URL = 'https://api.test.com/graphql';
+    const HEADERS = { 'Content-Type': 'application/json', Authorization: 'Bearer t' };
+    const flush = () => new Promise((r) => setTimeout(r, 50));
+    const cdp = () => chrome.debugger.sendCommand.mock.calls.map((c) => c.slice(0, 3));
+    const cdpMethods = () => chrome.debugger.sendCommand.mock.calls.map((c) => c[1]);
+    const send = (message) => new Promise((resolve) => handleMessage(message, {}, resolve));
+
+    /** Fetch.requestPaused params for a GraphQL POST. */
+    const paused = (requestId, body) => ({
+      requestId,
+      networkId: `net-${requestId}`,
+      request: {
+        method: 'POST',
+        url: URL,
+        hasPostData: true,
+        postData: JSON.stringify(body),
+        headers: HEADERS,
+      },
+    });
+
+    const heldItem = (over = {}) => ({
+      id: 'p1',
+      networkId: 'net-p1',
+      tabId: 1,
+      url: URL,
+      method: 'POST',
+      heldAt: 1,
+      reason: 'breakpoint',
+      state: 'paused',
+      body: { query: 'query A { a }', operationName: 'A' },
+      rawHeaders: {},
+      operations: [
+        {
+          index: 0,
+          operationName: 'A',
+          query: 'query A { a }',
+          querySource: 'request',
+          variables: null,
+          hash: '',
+          isHashOnly: false,
+        },
+      ],
+      ...over,
+    });
+
+    let listeners;
+    let disconnects = [];
+
+    /** Connect a fake panel port through the SW's onConnect listener. */
+    function connectPanel(tabId) {
+      const onDisconnect = [];
+      const port = {
+        name: `gql-panel:${tabId}`,
+        onDisconnect: { addListener: (fn) => onDisconnect.push(fn) },
+      };
+      listeners.onConnect(port);
+      const disconnect = () => onDisconnect.forEach((fn) => fn(port));
+      disconnects.push(disconnect);
+      return disconnect;
+    }
+
+    beforeAll(() => {
+      // index.js registers every listener at load; capture them before mocks are cleared
+      global.self = { addEventListener: jest.fn() };
+      require('../../js/sw/index.js');
+      const last = (fn) => fn.mock.calls[fn.mock.calls.length - 1][0];
+      listeners = {
+        onConnect: last(chrome.runtime.onConnect.addListener),
+        onEvent: last(chrome.debugger.onEvent.addListener),
+        onDetach: last(chrome.debugger.onDetach.addListener),
+        onUpdated: last(chrome.tabs.onUpdated.addListener),
+        onRemoved: last(chrome.tabs.onRemoved.addListener),
+      };
+    });
+
+    afterAll(() => {
+      delete global.self;
+    });
+
+    beforeEach(async () => {
+      await initBreakpoints();
+      await setBreakpoints([]);
+      for (const tabId of [1, 123]) {
+        await clearDebugState(tabId);
+        await dropTab(tabId);
+      }
+      clearRegistry();
+      await setPassiveMode(false);
+      jest.clearAllMocks();
+    });
+
+    afterEach(async () => {
+      disconnects.forEach((disconnect) => disconnect());
+      disconnects = [];
+      await flush();
+    });
+
+    describe('breakpoints in handleFetchRequestPaused', () => {
+      test('debug off and no pause-next: CDP calls are identical to the panel-less path', async () => {
+        // Same fixtures as the existing handleFetchRequestPaused tests (r3, r3b)
+        const run = async () => {
+          handleFetchRequestPaused(
+            { tabId: 1 },
+            {
+              requestId: 'r3',
+              request: {
+                hasPostData: true,
+                postData: JSON.stringify({ query: '{ users { id } }', operationName: 'Test' }),
+                url: URL,
+              },
+            }
+          );
+          await flush();
+          handleFetchRequestPaused(
+            { tabId: 1 },
+            {
+              requestId: 'r3b',
+              request: {
+                hasPostData: true,
+                postData: JSON.stringify({
+                  extensions: { persistedQuery: { sha256Hash: 'real-hash' } },
+                }),
+                url: URL,
+              },
+            }
+          );
+          await flush();
+          const calls = cdp();
+          chrome.debugger.sendCommand.mockClear();
+          return calls;
+        };
+        const expected = [
+          [{ tabId: 1 }, 'Fetch.continueRequest', { requestId: 'r3' }],
+          [
+            { tabId: 1 },
+            'Fetch.continueRequest',
+            {
+              requestId: 'r3b',
+              postData: encodeBase64Json({ extensions: { persistedQuery: { sha256Hash: BOGUS } } }),
+            },
+          ],
+        ];
+
+        const noPanel = await run();
+        connectPanel(1);
+        await setBreakpoints([
+          { name: 'Test', enabled: true },
+          { name: 'GetCart', enabled: true },
+        ]);
+        const panelDebugOff = await run();
+        await setDebugMode(1, true);
+        await setBreakpoints([{ name: 'Other', enabled: true }]);
+        const panelNoMatch = await run();
+
+        expect(noPanel).toEqual(expected);
+        expect(panelDebugOff).toEqual(expected);
+        expect(panelNoMatch).toEqual(expected);
+        expect(listPaused(1)).toEqual([]);
+      });
+
+      test('debug on + breakpoint + panel: full-query request is held, not continued', async () => {
+        await setBreakpoints([{ name: 'GetCart', enabled: true }]);
+        await setDebugMode(1, true);
+        connectPanel(1);
+        const body = {
+          query: 'query GetCart { cart { id } }',
+          operationName: 'GetCart',
+          variables: { a: 1 },
+          extensions: { persistedQuery: { version: 1, sha256Hash: 'cart-hash' } },
+        };
+
+        handleFetchRequestPaused({ tabId: 1 }, paused('h1', body));
+        await flush();
+
+        expect(cdpMethods()).not.toContain('Fetch.continueRequest');
+        const items = listPaused(1);
+        expect(items).toHaveLength(1);
+        expect(items[0]).toMatchObject({
+          id: 'h1',
+          networkId: 'net-h1',
+          tabId: 1,
+          url: URL,
+          method: 'POST',
+          reason: 'breakpoint',
+          state: 'paused',
+          body,
+          rawHeaders: HEADERS,
+        });
+        expect(items[0].heldAt).toEqual(expect.any(Number));
+        expect(items[0].operations).toEqual([
+          {
+            index: 0,
+            operationName: 'GetCart',
+            query: body.query,
+            querySource: 'request',
+            variables: { a: 1 },
+            hash: 'cart-hash',
+            isHashOnly: false,
+          },
+        ]);
+        expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(
+          expect.objectContaining({ status: 'INTERCEPTED', operationName: 'GetCart' }),
+          expect.any(Function)
+        );
+        expect(lookupHash('cart-hash')).toMatchObject({ operationName: 'GetCart' });
+        expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(
+          {
+            status: 'PAUSED_UPDATED',
+            tabId: 1,
+            paused: [expect.objectContaining({ id: 'h1' })],
+            pauseNext: false,
+          },
+          expect.any(Function)
+        );
+      });
+
+      test('same request with no panel connected is continued as today', async () => {
+        await setBreakpoints([{ name: 'GetCart', enabled: true }]);
+        await setDebugMode(1, true);
+
+        handleFetchRequestPaused(
+          { tabId: 1 },
+          paused('h2', { query: 'query GetCart { cart { id } }', operationName: 'GetCart' })
+        );
+        await flush();
+
+        expect(cdp()).toEqual([[{ tabId: 1 }, 'Fetch.continueRequest', { requestId: 'h2' }]]);
+        expect(listPaused(1)).toEqual([]);
+      });
+
+      test('active mode: hash-only request is contaminated and continued, never held', async () => {
+        await setBreakpoints([{ name: 'GetCart', enabled: true }]);
+        await setDebugMode(1, true);
+        connectPanel(1);
+
+        handleFetchRequestPaused(
+          { tabId: 1 },
+          paused('h3', {
+            operationName: 'GetCart',
+            extensions: { persistedQuery: { sha256Hash: 'cart-hash' } },
+          })
+        );
+        await flush();
+
+        expect(cdp()).toEqual([
+          [
+            { tabId: 1 },
+            'Fetch.continueRequest',
+            {
+              requestId: 'h3',
+              postData: encodeBase64Json({
+                operationName: 'GetCart',
+                extensions: { persistedQuery: { sha256Hash: BOGUS } },
+              }),
+            },
+          ],
+        ]);
+        expect(listPaused(1)).toEqual([]);
+      });
+
+      test('passive mode: hash-only request is held with the registry query', async () => {
+        await setPassiveMode(true);
+        registerHash('known-hash', {
+          query: 'query GetCart { cart { id } }',
+          operationName: 'GetCart',
+          variables: null,
+        });
+        await setBreakpoints([{ name: 'GetCart', enabled: true }]);
+        await setDebugMode(1, true);
+        connectPanel(1);
+        const body = {
+          variables: { id: 1 },
+          extensions: { persistedQuery: { sha256Hash: 'known-hash' } },
+        };
+
+        handleFetchRequestPaused({ tabId: 1 }, paused('h4', body));
+        await flush();
+
+        expect(cdpMethods()).not.toContain('Fetch.continueRequest');
+        const [item] = listPaused(1);
+        expect(item.body).toEqual(body);
+        expect(item.operations).toEqual([
+          {
+            index: 0,
+            operationName: 'GetCart',
+            query: 'query GetCart { cart { id } }',
+            querySource: 'registry',
+            variables: { id: 1 },
+            hash: 'known-hash',
+            isHashOnly: true,
+          },
+        ]);
+      });
+
+      test('passive mode: unknown hash is held with no query', async () => {
+        await setPassiveMode(true);
+        await setBreakpoints([{ name: 'GetCart', enabled: true }]);
+        await setDebugMode(1, true);
+        connectPanel(1);
+
+        handleFetchRequestPaused(
+          { tabId: 1 },
+          paused('h5', {
+            operationName: 'GetCart',
+            extensions: { persistedQuery: { sha256Hash: 'unknown-hash' } },
+          })
+        );
+        await flush();
+
+        expect(cdpMethods()).not.toContain('Fetch.continueRequest');
+        const [item] = listPaused(1);
+        expect(item.operations[0]).toMatchObject({
+          operationName: 'GetCart',
+          query: '',
+          querySource: 'none',
+          hash: 'unknown-hash',
+          isHashOnly: true,
+        });
+      });
+
+      test('pause-next holds one request, then disarms', async () => {
+        await setPauseNext(1, true);
+        connectPanel(1);
+
+        handleFetchRequestPaused({ tabId: 1 }, paused('n1', { query: '{ a }' }));
+        await flush();
+        expect(listPaused(1)).toEqual([
+          expect.objectContaining({ id: 'n1', reason: 'pause-next' }),
+        ]);
+        expect(getDebugState(1).pauseNext).toBe(false);
+        expect(chrome.storage.session.set).toHaveBeenCalledWith(
+          { gqlDebugState: expect.objectContaining({ 1: { debugMode: false, pauseNext: false } }) },
+          expect.any(Function)
+        );
+
+        handleFetchRequestPaused({ tabId: 1 }, paused('n2', { query: '{ a }' }));
+        await flush();
+        expect(cdp()).toEqual([[{ tabId: 1 }, 'Fetch.continueRequest', { requestId: 'n2' }]]);
+        expect(listPaused(1)).toHaveLength(1);
+      });
+
+      test('pause-next wins over a breakpoint as the reason', async () => {
+        await setBreakpoints([{ name: 'GetCart', enabled: true }]);
+        await setDebugMode(1, true);
+        await setPauseNext(1, true);
+        connectPanel(1);
+
+        handleFetchRequestPaused(
+          { tabId: 1 },
+          paused('n3', { query: 'query GetCart { cart { id } }', operationName: 'GetCart' })
+        );
+        await flush();
+
+        expect(listPaused(1)[0].reason).toBe('pause-next');
+      });
+
+      test('batch [GetUser, GetCart] with breakpoint GetCart: one held item, contaminated body', async () => {
+        await setBreakpoints([{ name: 'GetCart', enabled: true }]);
+        await setDebugMode(1, true);
+        connectPanel(1);
+        const batch = [
+          { operationName: 'GetUser', extensions: { persistedQuery: { sha256Hash: 'user-hash' } } },
+          { query: 'query GetCart { cart { id } }', operationName: 'GetCart' },
+        ];
+
+        handleFetchRequestPaused({ tabId: 1 }, paused('b1', batch));
+        await flush();
+
+        expect(cdpMethods()).not.toContain('Fetch.continueRequest');
+        const items = listPaused(1);
+        expect(items).toHaveLength(1);
+        expect(items[0].body).toEqual([
+          { operationName: 'GetUser', extensions: { persistedQuery: { sha256Hash: BOGUS } } },
+          batch[1],
+        ]);
+        expect(items[0].operations).toEqual([
+          expect.objectContaining({
+            index: 0,
+            operationName: 'GetUser',
+            hash: 'user-hash',
+            isHashOnly: true,
+            querySource: 'none',
+          }),
+          expect.objectContaining({
+            index: 1,
+            operationName: 'GetCart',
+            querySource: 'request',
+            isHashOnly: false,
+          }),
+        ]);
+      });
+
+      test('queue full: request is continued unmodified', async () => {
+        for (let i = 0; i < 50; i++) await holdRequest(heldItem({ id: `q${i}` }));
+        await setBreakpoints([{ name: 'GetCart', enabled: true }]);
+        await setDebugMode(1, true);
+        connectPanel(1);
+        chrome.debugger.sendCommand.mockClear();
+
+        handleFetchRequestPaused(
+          { tabId: 1 },
+          paused('full', { query: 'query GetCart { cart { id } }', operationName: 'GetCart' })
+        );
+        await flush();
+
+        expect(cdp()).toEqual([[{ tabId: 1 }, 'Fetch.continueRequest', { requestId: 'full' }]]);
+        expect(listPaused(1)).toHaveLength(50);
+      });
+    });
+
+    describe('breakpoint messages', () => {
+      test.each([
+        [{ getBreakpointState: 'yes', tabId: 1 }, 'getBreakpointState'],
+        [{ setDebugMode: 'yes', tabId: 1 }, 'setDebugMode'],
+        [{ setPauseNext: 1, tabId: 1 }, 'setPauseNext'],
+        [{ resumeAllPaused: 'all', tabId: 1 }, 'resumeAllPaused'],
+        [{ resumePaused: 5, tabId: 1 }, 'resumePaused'],
+        [{ failPaused: null, tabId: 1 }, 'failPaused'],
+        [{ setBreakpoints: 'x' }, 'setBreakpoints'],
+        [{ setBreakpoints: [{ name: 1, enabled: true }] }, 'setBreakpoints'],
+        [{ setBreakpoints: [{ name: 'A' }] }, 'setBreakpoints'],
+        [{ setBreakpoints: [null] }, 'setBreakpoints'],
+        [{ resumePaused: 'p1', tabId: 1, edits: null }, 'edits'],
+        [{ resumePaused: 'p1', tabId: 1, edits: 'x' }, 'edits'],
+        [{ resumePaused: 'p1', tabId: 1, edits: [] }, 'edits'],
+        [{ setDebugMode: true, tabId: '1' }, 'tabId'],
+      ])('rejects %j', (message, field) => {
+        const sendResponse = jest.fn();
+        expect(handleMessage(message, {}, sendResponse)).toBe(false);
+        expect(sendResponse).toHaveBeenCalledWith({
+          status: 'ERROR',
+          error: expect.stringContaining(`"${field}"`),
+        });
+      });
+
+      test('ignores PAUSED_UPDATED broadcasts', () => {
+        const sendResponse = jest.fn();
+        expect(handleMessage({ status: 'PAUSED_UPDATED', tabId: 1 }, {}, sendResponse)).toBe(false);
+        expect(sendResponse).not.toHaveBeenCalled();
+      });
+
+      test('per-tab messages without tabId are rejected', async () => {
+        expect(await send({ setDebugMode: true })).toMatchObject({ status: 'ERROR' });
+        expect(await send({ getBreakpointState: true })).toMatchObject({ status: 'ERROR' });
+      });
+
+      test('setBreakpoints stores and returns the cleaned list', async () => {
+        const response = await send({
+          setBreakpoints: [
+            { name: ' GetCart ', enabled: true },
+            { name: 'GetCart', enabled: false },
+          ],
+        });
+        expect(response).toEqual({
+          status: 'SUCCESS',
+          breakpoints: [{ name: 'GetCart', enabled: true }],
+        });
+      });
+
+      test('getBreakpointState returns breakpoints, flags and the paused queue', async () => {
+        await setBreakpoints([{ name: 'A', enabled: true }]);
+        await setDebugMode(1, true);
+        await holdRequest(heldItem());
+
+        expect(await send({ getBreakpointState: true, tabId: 1 })).toEqual({
+          status: 'SUCCESS',
+          breakpoints: [{ name: 'A', enabled: true }],
+          debugMode: true,
+          pauseNext: false,
+          paused: [heldItem()],
+        });
+      });
+
+      test('setDebugMode / setPauseNext toggle Network events on an attached tab', async () => {
+        attachedTabs.add(1);
+
+        expect(await send({ setDebugMode: true, tabId: 1 })).toEqual({
+          status: 'SUCCESS',
+          debugMode: true,
+          pauseNext: false,
+        });
+        expect(cdp()).toEqual([
+          [{ tabId: 1 }, 'Network.enable', { maxTotalBufferSize: 0, maxResourceBufferSize: 0 }],
+        ]);
+
+        await send({ setPauseNext: true, tabId: 1 });
+        await send({ setDebugMode: false, tabId: 1 });
+        chrome.debugger.sendCommand.mockClear();
+        expect(await send({ setPauseNext: false, tabId: 1 })).toEqual({
+          status: 'SUCCESS',
+          debugMode: false,
+          pauseNext: false,
+        });
+        expect(cdp()).toEqual([[{ tabId: 1 }, 'Network.disable', {}]]);
+      });
+
+      test('setDebugMode on a tab without the debugger sends no CDP command', async () => {
+        await send({ setDebugMode: true, tabId: 1 });
+        expect(getDebugState(1).debugMode).toBe(true);
+        expect(chrome.debugger.sendCommand).not.toHaveBeenCalled();
+      });
+
+      test('resumePaused builds the edited request and continues it', async () => {
+        await holdRequest(heldItem());
+
+        const response = await send({
+          resumePaused: 'p1',
+          tabId: 1,
+          edits: { operations: [{ index: 0, query: 'query A { b }' }] },
+        });
+
+        expect(response).toEqual({ status: 'SUCCESS', result: 'sent' });
+        expect(cdp()).toEqual([
+          [
+            { tabId: 1 },
+            'Fetch.continueRequest',
+            {
+              requestId: 'p1',
+              postData: encodeBase64Json({ query: 'query A { b }', operationName: 'A' }),
+            },
+          ],
+        ]);
+        expect(listPaused(1)).toEqual([]);
+      });
+
+      test('resumePaused for an unknown id reports cancelled', async () => {
+        expect(await send({ resumePaused: 'nope', tabId: 1 })).toEqual({
+          status: 'SUCCESS',
+          result: 'cancelled',
+        });
+        expect(chrome.debugger.sendCommand).not.toHaveBeenCalled();
+      });
+
+      test('failPaused aborts the held request', async () => {
+        await holdRequest(heldItem());
+
+        expect(await send({ failPaused: 'p1', tabId: 1 })).toEqual({
+          status: 'SUCCESS',
+          result: 'failed',
+        });
+        expect(cdp()).toEqual([
+          [{ tabId: 1 }, 'Fetch.failRequest', { requestId: 'p1', errorReason: 'Aborted' }],
+        ]);
+      });
+
+      test('resumeAllPaused continues every paused item unmodified', async () => {
+        await holdRequest(heldItem({ id: 'a' }));
+        await holdRequest(heldItem({ id: 'b' }));
+
+        expect(await send({ resumeAllPaused: true, tabId: 1 })).toEqual({ status: 'SUCCESS' });
+        expect(cdp()).toEqual([
+          [{ tabId: 1 }, 'Fetch.continueRequest', { requestId: 'a' }],
+          [{ tabId: 1 }, 'Fetch.continueRequest', { requestId: 'b' }],
+        ]);
+        expect(listPaused(1)).toEqual([]);
+      });
+    });
+
+    describe('breakpoint lifecycle', () => {
+      test('detachDebuggerFromTab releases held requests before detaching', async () => {
+        attachedTabs.add(1);
+        await holdRequest(heldItem());
+
+        await detachDebuggerFromTab(1);
+
+        const continueCall = chrome.debugger.sendCommand.mock.calls.findIndex(
+          (c) => c[1] === 'Fetch.continueRequest' && c[2].requestId === 'p1'
+        );
+        expect(continueCall).toBeGreaterThanOrEqual(0);
+        expect(chrome.debugger.sendCommand.mock.invocationCallOrder[continueCall]).toBeLessThan(
+          chrome.debugger.detach.mock.invocationCallOrder[0]
+        );
+        expect(listPaused(1)).toEqual([]);
+      });
+
+      test('attaching with debug mode already on enables Network events', async () => {
+        await setDebugMode(1, true);
+        await attachDebuggerToTab({ id: 1, url: 'https://example.com' }, [{ urlPattern: '*' }]);
+        expect(cdpMethods()).toEqual(['Fetch.enable', 'Network.enable']);
+        expect(cdp()[1][2]).toEqual({ maxTotalBufferSize: 0, maxResourceBufferSize: 0 });
+      });
+
+      test('attaching with debug mode off sends no Network command', async () => {
+        await attachDebuggerToTab({ id: 1, url: 'https://example.com' }, [{ urlPattern: '*' }]);
+        expect(cdpMethods()).toEqual(['Fetch.enable']);
+      });
+
+      test('onDetach drops the queue without CDP and keeps debug state', async () => {
+        await holdRequest(heldItem());
+        await setDebugMode(1, true);
+
+        listeners.onDetach({ tabId: 1 }, 'canceled_by_user');
+        await flush();
+
+        expect(listPaused(1)).toEqual([]);
+        expect(chrome.debugger.sendCommand).not.toHaveBeenCalled();
+        expect(getDebugState(1).debugMode).toBe(true);
+      });
+
+      test('onDetach for a closed tab also clears its debug state', async () => {
+        await holdRequest(heldItem());
+        await setDebugMode(1, true);
+
+        listeners.onDetach({ tabId: 1 }, 'target_closed');
+        await flush();
+
+        expect(listPaused(1)).toEqual([]);
+        expect(getDebugState(1)).toEqual({ debugMode: false, pauseNext: false });
+      });
+
+      test('tabs.onRemoved drops the queue and debug state', async () => {
+        await holdRequest(heldItem());
+        await setPauseNext(1, true);
+
+        listeners.onRemoved(1, {});
+        await flush();
+
+        expect(listPaused(1)).toEqual([]);
+        expect(getDebugState(1)).toEqual({ debugMode: false, pauseNext: false });
+      });
+
+      test('navigation (status loading) releases held requests and clears pause-next', async () => {
+        await holdRequest(heldItem());
+        await setPauseNext(1, true);
+        await setDebugMode(1, true);
+
+        await listeners.onUpdated(1, { status: 'loading' });
+        await flush();
+
+        expect(listPaused(1)).toEqual([]);
+        expect(cdp()).toContainEqual([{ tabId: 1 }, 'Fetch.continueRequest', { requestId: 'p1' }]);
+        expect(getDebugState(1)).toEqual({ debugMode: true, pauseNext: false });
+      });
+
+      test('last panel port disconnecting releases held requests and disarms pause-next', async () => {
+        const disconnect = connectPanel(123);
+        await holdRequest(heldItem({ tabId: 123 }));
+        await setPauseNext(123, true);
+        chrome.debugger.sendCommand.mockClear();
+
+        disconnect();
+        await flush();
+
+        expect(cdp()).toEqual([[{ tabId: 123 }, 'Fetch.continueRequest', { requestId: 'p1' }]]);
+        expect(listPaused(123)).toEqual([]);
+        expect(getDebugState(123).pauseNext).toBe(false);
+      });
+
+      test('Network.loadingFailed with canceled marks the held request cancelled', async () => {
+        await holdRequest(heldItem({ networkId: 'n1' }));
+
+        listeners.onEvent({ tabId: 1 }, 'Network.loadingFailed', {
+          requestId: 'n1',
+          canceled: false,
+        });
+        await flush();
+        expect(listPaused(1)[0].state).toBe('paused');
+
+        listeners.onEvent({ tabId: 1 }, 'Network.loadingFailed', {
+          requestId: 'n1',
+          canceled: true,
+        });
+        await flush();
+        expect(listPaused(1)[0].state).toBe('cancelled');
+      });
     });
   });
 });

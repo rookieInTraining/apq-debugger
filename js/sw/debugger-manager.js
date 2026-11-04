@@ -10,6 +10,11 @@ import {
   sendDebuggerCommand,
 } from './chrome-api.js';
 import { saveTabToStorage, removeTabFromStorage, getStoredTabs, setStoredTabs } from './storage.js';
+import { initBreakpoints, getDebugState } from './breakpoints.js';
+import { releaseAll } from './pause-queue.js';
+
+/** Network domain settings: events only, never buffer response bodies. */
+const NETWORK_ENABLE_PARAMS = { maxTotalBufferSize: 0, maxResourceBufferSize: 0 };
 
 /** Set of tab IDs with an active debugger session managed by this extension. */
 export const attachedTabs = new Set();
@@ -123,6 +128,11 @@ export async function attachDebuggerToTab(currentTab, validPatterns) {
   chrome.action.setBadgeText({ text: 'ON', tabId: currentTab.id });
   chrome.action.setBadgeBackgroundColor({ color: '#5cb85c', tabId: currentTab.id });
 
+  // Debug mode / pause-next may already be on for this tab (set before attaching)
+  if (await wantsNetworkEvents(currentTab.id)) {
+    await sendNetworkCommand(currentTab.id, 'Network.enable', NETWORK_ENABLE_PARAMS);
+  }
+
   return { status: 'SUCCESS', message: 'Network Interception enabled for logic' };
 }
 
@@ -137,6 +147,13 @@ export async function detachDebuggerFromTab(detachTabId) {
   if (!isAttached) {
     cleanupTabState(detachTabId);
     return { status: 'SUCCESS', message: 'Debugger already detached' };
+  }
+
+  // Never leave a request held with no way to resume it
+  try {
+    await releaseAll(detachTabId);
+  } catch (error) {
+    console.warn('Failed to release held requests:', error);
   }
 
   try {
@@ -205,7 +222,42 @@ export async function restoreDebuggerState() {
   }
 }
 
+/**
+ * Enable Network events for an attached tab while debug mode or pause-next is
+ * on (they report page-cancelled held requests), and disable them when both are off.
+ * Does nothing for tabs without an attached debugger.
+ * @param {number} tabId
+ * @returns {Promise<void>}
+ */
+export async function syncNetworkEvents(tabId) {
+  if (!(await isDebuggerActive(tabId))) return;
+  if (await wantsNetworkEvents(tabId)) {
+    await sendNetworkCommand(tabId, 'Network.enable', NETWORK_ENABLE_PARAMS);
+  } else {
+    await sendNetworkCommand(tabId, 'Network.disable');
+  }
+}
+
 // ── Internal helpers ──────────────────────────────────────────────
+
+async function wantsNetworkEvents(tabId) {
+  try {
+    await initBreakpoints();
+  } catch (error) {
+    console.warn('Failed to load debug state:', error);
+    return false;
+  }
+  const { debugMode, pauseNext } = getDebugState(tabId);
+  return debugMode || pauseNext;
+}
+
+async function sendNetworkCommand(tabId, method, params) {
+  try {
+    await sendDebuggerCommand(tabId, method, params);
+  } catch (error) {
+    console.warn(`${method} failed:`, error);
+  }
+}
 
 function cleanupTabState(tabId) {
   attachedTabs.delete(tabId);

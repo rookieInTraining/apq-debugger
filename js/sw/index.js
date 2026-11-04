@@ -4,18 +4,52 @@
  */
 
 import { getTargets } from './chrome-api.js';
-import { attachedTabs, restoreDebuggerState } from './debugger-manager.js';
+import { attachedTabs, restoreDebuggerState, syncNetworkEvents } from './debugger-manager.js';
 import { removeTabFromStorage, getStoredTabs } from './storage.js';
 import { handleFetchRequestPaused } from './interceptor.js';
-import { handleMessage, toggleDebuggerFromAction } from './messaging.js';
+import { handleMessage, toggleDebuggerFromAction, broadcastPausedUpdate } from './messaging.js';
 import { initRegistry } from './hash-registry.js';
 import { clearObservedEndpoints } from './endpoint-tracker.js';
+import { initBreakpoints, getDebugState, setPauseNext, clearDebugState } from './breakpoints.js';
+import {
+  ensurePausedLoaded,
+  onQueueChanged,
+  releaseAll,
+  dropTab,
+  markCancelled,
+} from './pause-queue.js';
+import { initPanelPresence } from './panel-presence.js';
 
 const ACTION_MENU_ID = 'apq-toggle-debugger';
 
 // Load the persisted hash registry and passive-mode flag on every SW start
 // (MV3 service workers are terminated and restarted frequently).
 initRegistry();
+
+/**
+ * Log a rejected background task instead of leaving it unhandled.
+ * @param {Promise<unknown>} promise
+ * @param {string} what - Description for the log.
+ */
+function logFailure(promise, what) {
+  promise.catch((error) => console.error(`${what} failed:`, error));
+}
+
+// Request breakpoints: breakpoint list, per-tab debug state and the paused
+// queue are persisted, so they are reloaded on every SW start too.
+logFailure(initBreakpoints(), 'Loading breakpoints');
+logFailure(ensurePausedLoaded(), 'Loading paused queue');
+onQueueChanged((tabId) => logFailure(broadcastPausedUpdate(tabId), 'Paused queue broadcast'));
+
+// When the last panel for a tab closes, nothing could resume its held
+// requests: send them on unmodified and disarm pause-next.
+initPanelPresence((tabId) => {
+  logFailure(releaseAll(tabId), 'Releasing held requests');
+  logFailure(
+    setPauseNext(tabId, false).then(() => syncNetworkEvents(tabId)),
+    'Clearing pause-next'
+  );
+});
 
 // ── Global error handling ─────────────────────────────────────────
 
@@ -36,6 +70,9 @@ chrome.debugger.onEvent.addListener((source, method, params) => {
     if (method === 'Fetch.requestPaused') {
       console.info('Request paused:', params);
       handleFetchRequestPaused(source, params);
+    } else if (method === 'Network.loadingFailed' && params && params.canceled === true) {
+      // The page gave up on a request; flag it if it is held
+      logFailure(markCancelled(source.tabId, params.requestId), 'Marking request cancelled');
     }
   } catch (error) {
     console.error('Debugger event handling error:', error);
@@ -50,7 +87,11 @@ chrome.debugger.onDetach.addListener((source, reason) => {
   chrome.action.setBadgeText({ text: 'OFF', tabId: source.tabId });
   chrome.action.setBadgeBackgroundColor({ color: '#d9534f', tabId: source.tabId });
 
+  // Chrome releases paused requests when the debugger goes; just clear the queue
+  logFailure(dropTab(source.tabId), 'Dropping paused queue');
+
   if (reason === 'target_closed') {
+    logFailure(clearDebugState(source.tabId), 'Clearing debug state');
     clearObservedEndpoints(source.tabId);
     console.log('The target tab was closed.');
   } else if (reason === 'canceled_by_user') {
@@ -96,6 +137,22 @@ chrome.contextMenus.onClicked.addListener((info) => {
 // ── Tab navigation handling ───────────────────────────────────────
 
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo) => {
+  if (changeInfo.status === 'loading') {
+    // Navigation: the old page's held requests go on unmodified (Chrome has
+    // usually cancelled them already) and pause-next was meant for the old page
+    logFailure(releaseAll(tabId), 'Releasing held requests');
+    try {
+      await initBreakpoints();
+      if (getDebugState(tabId).pauseNext) {
+        await setPauseNext(tabId, false);
+        await syncNetworkEvents(tabId);
+      }
+    } catch (error) {
+      console.error('Failed to clear pause-next on navigation:', error);
+    }
+    return;
+  }
+
   if (changeInfo.status !== 'complete') {
     return;
   }
@@ -121,4 +178,10 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo) => {
   } catch (error) {
     console.error('Failed to handle tab update:', error);
   }
+});
+
+chrome.tabs.onRemoved.addListener((tabId) => {
+  // Closed tab: forget its paused queue and debug state
+  logFailure(dropTab(tabId), 'Dropping paused queue');
+  logFailure(clearDebugState(tabId), 'Clearing debug state');
 });

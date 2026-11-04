@@ -11,10 +11,21 @@ import {
   isDebuggerActive,
   attachDebuggerToTab,
   detachDebuggerFromTab,
+  syncNetworkEvents,
 } from './debugger-manager.js';
 import { getRegistrySize, clearRegistry, isPassiveMode, setPassiveMode } from './hash-registry.js';
 import { loadSchema } from './schema-loader.js';
 import { ensureEndpointsLoaded, getObservedEndpoints } from './endpoint-tracker.js';
+import {
+  initBreakpoints,
+  getBreakpoints,
+  setBreakpoints,
+  getDebugState,
+  setDebugMode,
+  setPauseNext,
+} from './breakpoints.js';
+import { ensurePausedLoaded, listPaused, getHeld, continueHeld, failHeld } from './pause-queue.js';
+import { buildContinueParams } from './resume-body.js';
 
 /**
  * Broadcast a status update to all listeners (DevTools panel, popup, etc.).
@@ -28,6 +39,31 @@ export function sendActionUpdate(payload, tabId) {
       // Common for this to fail if no DevTools or popup is listening
     }
   });
+}
+
+/**
+ * Broadcast the paused queue for a tab to the DevTools panel.
+ * Silently ignores the (common) case where no panel is listening.
+ * @param {number} tabId - The tab whose queue changed.
+ * @returns {Promise<void>}
+ */
+export async function broadcastPausedUpdate(tabId) {
+  let pauseNext = false;
+  try {
+    await initBreakpoints();
+    pauseNext = getDebugState(tabId).pauseNext;
+  } catch (_) {
+    // Debug state unavailable — report pause-next as off
+  }
+  await ensurePausedLoaded();
+  chrome.runtime.sendMessage(
+    { status: 'PAUSED_UPDATED', tabId, paused: listPaused(tabId), pauseNext },
+    () => {
+      if (chrome.runtime.lastError) {
+        // DevTools panel for this tab might not be open — that's fine
+      }
+    }
+  );
 }
 
 /**
@@ -162,6 +198,38 @@ function validateMessage(message) {
     return '"url" must be a string';
   }
 
+  // Validate request-breakpoint message shapes
+  for (const key of ['getBreakpointState', 'setDebugMode', 'setPauseNext', 'resumeAllPaused']) {
+    if (message[key] !== undefined && typeof message[key] !== 'boolean') {
+      return `"${key}" must be a boolean`;
+    }
+  }
+  if (message.setBreakpoints !== undefined) {
+    if (
+      !Array.isArray(message.setBreakpoints) ||
+      !message.setBreakpoints.every(
+        (bp) =>
+          bp &&
+          typeof bp === 'object' &&
+          typeof bp.name === 'string' &&
+          typeof bp.enabled === 'boolean'
+      )
+    ) {
+      return '"setBreakpoints" must be an array of { name: string, enabled: boolean }';
+    }
+  }
+  for (const key of ['resumePaused', 'failPaused']) {
+    if (message[key] !== undefined && typeof message[key] !== 'string') {
+      return `"${key}" must be a string`;
+    }
+  }
+  if (
+    message.edits !== undefined &&
+    (!message.edits || typeof message.edits !== 'object' || Array.isArray(message.edits))
+  ) {
+    return '"edits" must be an object';
+  }
+
   // Validate tabId when present
   if (message.tabId !== undefined && typeof message.tabId !== 'number') {
     return '"tabId" must be a number';
@@ -181,7 +249,8 @@ export function handleMessage(message, sender, sendResponse) {
     (message.status === 'INTERCEPTED' ||
       message.status === 'ACTION_TOGGLE' ||
       message.status === 'REGISTRY_UPDATED' ||
-      message.status === 'SCHEMA_PROGRESS')
+      message.status === 'SCHEMA_PROGRESS' ||
+      message.status === 'PAUSED_UPDATED')
   ) {
     return false;
   }
@@ -239,6 +308,18 @@ export function handleMessage(message, sender, sendResponse) {
             status: 'SUCCESS',
             endpoints: getObservedEndpoints(message.tabId),
           });
+        }
+      } else if (message.setBreakpoints !== undefined) {
+        await initBreakpoints();
+        sendResponse({
+          status: 'SUCCESS',
+          breakpoints: await setBreakpoints(message.setBreakpoints),
+        });
+      } else if (isBreakpointTabMessage(message)) {
+        if (message.tabId === undefined) {
+          sendResponse({ status: 'ERROR', error: 'No tabId provided for breakpoint message' });
+        } else {
+          await handleBreakpointTabMessage(message, sendResponse);
         }
       } else {
         sendResponse({ status: 'ERROR', error: 'Invalid message format or empty patterns' });
@@ -366,6 +447,68 @@ async function handleLoadSchemaMessage(message, sendResponse) {
     });
   } catch (error) {
     sendResponse({ status: 'ERROR', error: error.message || 'Schema load failed' });
+  }
+}
+
+/**
+ * Whether a message is one of the per-tab request-breakpoint messages.
+ * @param {object} message
+ * @returns {boolean}
+ */
+function isBreakpointTabMessage(message) {
+  return (
+    message.getBreakpointState === true ||
+    message.setDebugMode !== undefined ||
+    message.setPauseNext !== undefined ||
+    message.resumePaused !== undefined ||
+    message.failPaused !== undefined ||
+    message.resumeAllPaused === true
+  );
+}
+
+/**
+ * Handle a per-tab request-breakpoint message (tabId already checked).
+ * Loads the breakpoint store and paused queue first: a panel message often
+ * wakes a fresh service worker.
+ * @param {object} message
+ * @param {(response: object) => void} sendResponse
+ * @returns {Promise<void>}
+ */
+async function handleBreakpointTabMessage(message, sendResponse) {
+  const tabId = message.tabId;
+  await initBreakpoints();
+  await ensurePausedLoaded();
+
+  if (message.getBreakpointState === true) {
+    sendResponse({
+      status: 'SUCCESS',
+      breakpoints: getBreakpoints(),
+      ...getDebugState(tabId),
+      paused: listPaused(tabId),
+    });
+  } else if (message.setDebugMode !== undefined || message.setPauseNext !== undefined) {
+    if (message.setDebugMode !== undefined) await setDebugMode(tabId, message.setDebugMode);
+    if (message.setPauseNext !== undefined) await setPauseNext(tabId, message.setPauseNext);
+    await syncNetworkEvents(tabId);
+    sendResponse({ status: 'SUCCESS', ...getDebugState(tabId) });
+  } else if (message.resumePaused !== undefined) {
+    const held = getHeld(tabId, message.resumePaused);
+    if (!held) {
+      sendResponse({ status: 'SUCCESS', result: 'cancelled' });
+      return;
+    }
+    const params = await buildContinueParams(held, message.edits || {});
+    const result = await continueHeld(tabId, message.resumePaused, params);
+    sendResponse({ status: 'SUCCESS', result });
+  } else if (message.failPaused !== undefined) {
+    const result = await failHeld(tabId, message.failPaused);
+    sendResponse({ status: 'SUCCESS', result });
+  } else {
+    // resumeAllPaused — unedited items go out unmodified
+    for (const item of listPaused(tabId)) {
+      await continueHeld(tabId, item.id);
+    }
+    sendResponse({ status: 'SUCCESS' });
   }
 }
 

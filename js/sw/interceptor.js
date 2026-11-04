@@ -7,6 +7,10 @@ import { digestMessage } from './hash.js';
 import { encodeBase64Json } from './resume-body.js';
 import { isPassiveMode, lookupHash, registerHash } from './hash-registry.js';
 import { recordEndpoint } from './endpoint-tracker.js';
+import { isPanelConnected } from './panel-presence.js';
+import { initBreakpoints, getDebugState, decidePause, consumePauseNext } from './breakpoints.js';
+import { holdRequest } from './pause-queue.js';
+import { extractOperationName } from '../shared/operation-name.js';
 import { BOGUS_HASH_SEED, DEFAULT_OPERATION_NAME } from '../shared/constants.js';
 
 /**
@@ -204,9 +208,110 @@ function continueRequest(tabId, requestId, postData) {
 }
 
 /**
+ * Record each operation's hash and shape before contamination rewrites hashes.
+ * @param {object|object[]} body - Parsed request body.
+ * @returns {{hash: string, isHashOnly: boolean}[]}
+ */
+function snapshotOperations(body) {
+  return (Array.isArray(body) ? body : [body]).map((op) => {
+    const pq = op && typeof op === 'object' && op.extensions && op.extensions.persistedQuery;
+    return {
+      hash: (pq && typeof pq.sha256Hash === 'string' && pq.sha256Hash) || '',
+      isHashOnly: !!pq && op.query === undefined,
+    };
+  });
+}
+
+/**
+ * Describe one operation of a held request for the panel.
+ * @param {*} op - Operation payload (possibly contaminated).
+ * @param {number} index - Position in the batch (0 for a single operation).
+ * @param {{hash: string, isHashOnly: boolean}} original - Pre-contamination snapshot.
+ * @returns {import('./pause-queue.js').HeldOperation}
+ */
+function describeOperation(op, index, original) {
+  const payload = op && typeof op === 'object' ? op : {};
+  const entry = original.hash ? lookupHash(original.hash) : null;
+  const hasQuery = typeof payload.query === 'string';
+  const registryQuery = !hasQuery && entry && entry.query ? entry.query : '';
+  return {
+    index,
+    operationName: extractOperationName(payload, entry),
+    query: hasQuery ? payload.query : registryQuery,
+    querySource: hasQuery ? 'request' : registryQuery ? 'registry' : 'none',
+    variables: payload.variables !== undefined ? payload.variables : null,
+    hash: original.hash,
+    isHashOnly: original.isHashOnly,
+  };
+}
+
+/**
+ * Hold the request in the pause queue if debug mode or pause-next asks for it.
+ * Only called while a panel for the tab is connected. Any failure resolves to
+ * false so the caller falls back to the normal continue path.
+ * @param {number} tabId
+ * @param {object} params - Fetch.requestPaused event params.
+ * @param {object|object[]} body - Parsed (possibly contaminated) request body.
+ * @param {{hash: string, isHashOnly: boolean}[]} originals - Pre-contamination snapshot.
+ * @returns {Promise<boolean>} True if the request is now held (do not continue it).
+ */
+async function holdIfPaused(tabId, params, body, originals) {
+  try {
+    await initBreakpoints();
+    const { debugMode, pauseNext } = getDebugState(tabId);
+    if (!debugMode && !pauseNext) return false;
+
+    const ctx = { tabId, passive: isPassiveMode() };
+    const ops = Array.isArray(body) ? body : [body];
+    const operations = ops.map((op, index) => describeOperation(op, index, originals[index]));
+
+    let reason = null;
+    for (const op of operations) {
+      const decision = decidePause(
+        { operationName: op.operationName, isHashOnly: op.isHashOnly },
+        ctx
+      );
+      if (decision === 'pause-next') {
+        reason = decision;
+        break;
+      }
+      if (decision) reason = decision;
+    }
+    if (!reason) return false;
+
+    if (reason === 'pause-next') {
+      // The in-memory flag clears synchronously, so a concurrent request
+      // cannot also be taken as "the next one".
+      consumePauseNext(tabId).catch((error) => {
+        console.warn('Failed to persist pause-next:', error);
+      });
+    }
+
+    return await holdRequest({
+      id: params.requestId,
+      networkId: params.networkId || '',
+      tabId,
+      url: params.request.url || '',
+      method: params.request.method || 'POST',
+      heldAt: Date.now(),
+      reason,
+      state: 'paused',
+      body,
+      rawHeaders: params.request.headers || {},
+      operations,
+    });
+  } catch (error) {
+    console.error('Breakpoint check failed:', error);
+    return false;
+  }
+}
+
+/**
  * Handle a Fetch.requestPaused debugger event.
  * Parses the request body, contaminates APQ payloads, and continues the request.
  * The request body is only rewritten when a payload was actually modified.
+ * While a panel for the tab is connected and debug mode or pause-next is on,
+ * a matching request is held in the pause queue instead of being continued.
  * @param {{tabId: number}} source
  * @param {object} params - Fetch.requestPaused event params.
  */
@@ -232,9 +337,14 @@ export function handleFetchRequestPaused(source, params) {
       const requestUrl = params.request.url || '';
       const requestHeaders = normalizeRequestHeaders(params.request.headers);
       let modified = false;
+      const isGraphQL = looksLikeGraphQL(reqBody);
+
+      // Breakpoints only apply while a panel for this tab is connected
+      const originals =
+        isGraphQL && isPanelConnected(source.tabId) ? snapshotOperations(reqBody) : null;
 
       // Remember GraphQL endpoints (with their headers) for schema loading
-      if (looksLikeGraphQL(reqBody)) {
+      if (isGraphQL) {
         recordEndpoint(source.tabId, requestUrl, requestHeaders);
       }
 
@@ -247,6 +357,11 @@ export function handleFetchRequestPaused(source, params) {
       } else {
         console.log('Request payload is a JSON element');
         modified = await contaminatePayload(reqBody, requestUrl, source.tabId, requestHeaders);
+      }
+
+      if (originals && (await holdIfPaused(source.tabId, params, reqBody, originals))) {
+        // Held: the panel resumes or fails it later
+        return;
       }
 
       if (!modified) {
