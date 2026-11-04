@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
   <!--
-  Promo stage: a browser window drawn around the real APQ Debugger panel.
+  Promo stage: a browser window drawn around the real GraphQL Debugger panel.
   Copied next to devtools.html in a temporary extension build by
   scripts/promo/lib.js, so the iframe below loads the real panel.
   Everything outside the iframe is illustration; all data is synthetic.
@@ -9,7 +9,7 @@
 
   <head>
     <meta charset="UTF-8" />
-    <title>APQ Debugger demo stage</title>
+    <title>GraphQL Debugger demo stage</title>
     <style>
       :root {
         color-scheme: light;
@@ -559,7 +559,7 @@
         </div>
       </div>
       <div class="chrome-infobar" id="chrome-infobar" hidden>
-        “APQ Debugger” started debugging this browser
+        “GraphQL Debugger” started debugging this browser
         <button type="button">Cancel</button>
       </div>
       <div class="page" id="page">
@@ -580,9 +580,9 @@
       <div class="devtools">
         <div class="dt-tabs">
           <span>Elements</span><span>Console</span><span>Sources</span><span>Network</span
-          ><span>Application</span><span class="on">APQ Debugger</span><span class="dt-end">⋮</span>
+          ><span>Application</span><span class="on">GraphQL Debugger</span><span class="dt-end">⋮</span>
         </div>
-        <iframe id="panel" src="devtools.html" title="APQ Debugger panel"></iframe>
+        <iframe id="panel" src="devtools.html" title="GraphQL Debugger panel"></iframe>
       </div>
 
       <div class="callout" id="callout" hidden>
@@ -594,13 +594,13 @@
       </div>
       <div class="card" id="card" hidden>
         <img src="icons/icon128.png" alt="" />
-        <h1 id="card-title">APQ Debugger</h1>
+        <h1 id="card-title">GraphQL Debugger</h1>
         <p id="card-line"></p>
       </div>
       <div class="menu" id="menu" hidden>
-        <div class="muted">APQ Debugger</div>
+        <div class="muted">GraphQL Debugger</div>
         <hr />
-        <div class="hi">Toggle APQ Debugger</div>
+        <div class="hi">Toggle GraphQL Debugger</div>
         <hr />
         <div>Unpin</div>
         <div>Remove from Chrome…</div>

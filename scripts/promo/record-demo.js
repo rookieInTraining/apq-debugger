@@ -116,7 +116,7 @@ async function main() {
   const hold = (ms) => page.waitForTimeout(ms);
   const caption = (text, placement) => stage('caption', text, placement);
 
-  await stage('card', 'APQ Debugger', 'See the GraphQL behind every persisted-query hash.');
+  await stage('card', 'GraphQL Debugger', 'Pause, edit and read every GraphQL request.');
   await hold(600);
   const cast = await startScreencast(page);
 
@@ -133,7 +133,7 @@ async function main() {
   await stage('callout', false);
 
   // Scene 3 · Set a pattern
-  await caption('Tell APQ Debugger which requests to watch.');
+  await caption('Tell GraphQL Debugger which requests to watch.');
   await hold(900);
   const patternInput = panel.locator('.urlPattern').first();
   await clickWithCursor(page, patternInput);
@@ -228,11 +228,11 @@ async function main() {
   // Scene 11 · End card
   await caption('');
   await stage('hideCursor');
-  await stage('card', 'APQ Debugger', 'A Chrome DevTools panel for Apollo APQ');
+  await stage('card', 'GraphQL Debugger', 'A Chrome DevTools panel for Apollo APQ');
   await hold(5500);
 
   const frames = await cast.stop();
-  await stage('card', 'APQ Debugger', 'See the GraphQL behind every persisted-query hash.');
+  await stage('card', 'GraphQL Debugger', 'Pause, edit and read every GraphQL request.');
   await page.screenshot({ path: POSTER });
   await context.close();
 
