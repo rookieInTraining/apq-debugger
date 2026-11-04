@@ -6,6 +6,7 @@
  */
 
 import { getElement } from './dom-helpers.js';
+import { track } from './analytics-consent.js';
 import { UI_SETTINGS_STORAGE_KEY } from '../shared/constants.js';
 
 const DEFAULT_SETTINGS = { theme: 'system', density: 'comfortable' };
@@ -122,8 +123,10 @@ export function initSettings() {
 
     if (input.name === 'theme') {
       currentSettings.theme = input.value;
+      track('settings_change', { theme: input.value });
     } else if (input.name === 'density') {
       currentSettings.density = input.value;
+      track('settings_change', { density: input.value });
     }
 
     applySettings(currentSettings);

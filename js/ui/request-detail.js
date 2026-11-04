@@ -8,6 +8,7 @@
 import { getElement, escapeHtml } from './dom-helpers.js';
 import { state } from './state.js';
 import { openCurlModal } from './curl-copy.js';
+import { track } from './analytics-consent.js';
 import { getRequestState, isAnonymousOperation } from './request-state.js';
 
 /**
@@ -128,7 +129,7 @@ export function renderRequestDetail(requestId) {
         let text = request.query;
         if (type === 'variables') text = JSON.stringify(request.variables, null, 2);
         else if (type === 'hash') text = request.hash;
-        copyToClipboard(text, btn);
+        copyToClipboard(text, btn, type);
       } catch (e) {
         console.error('Failed to prepare copy content:', e);
       }
@@ -303,11 +304,13 @@ export function formatGraphQL(query) {
  * Copy text to the clipboard and briefly update the button label.
  * @param {string} text
  * @param {HTMLButtonElement} button
+ * @param {string} what - Analytics `copy.what` value for this button.
  */
-function copyToClipboard(text, button) {
+function copyToClipboard(text, button, what) {
   navigator.clipboard
     .writeText(text)
     .then(() => {
+      track('copy', { what });
       const originalText = button.textContent;
       button.textContent = 'Copied';
       button.classList.add('is-done');

@@ -656,6 +656,39 @@ kbd {
   background: color-mix(in srgb, currentColor 10%, transparent);
 }
 
+/* ---- notice: one-time analytics consent (info, not a warning) ---- */
+
+.notice {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  min-height: var(--toolbar-h);
+  padding: var(--s-2) var(--s-5);
+  border-bottom: 1px solid var(--info-border);
+  background: var(--info-bg);
+  color: var(--info-text);
+}
+
+.notice-text {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+
+.notice-link {
+  color: inherit;
+  white-space: nowrap;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.notice-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--s-3);
+}
+
 /* ---- requests split ---- */
 
 .split {

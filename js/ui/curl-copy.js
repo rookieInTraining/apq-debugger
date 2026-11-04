@@ -5,6 +5,7 @@
  */
 
 import { getElement } from './dom-helpers.js';
+import { track } from './analytics-consent.js';
 
 /** @type {object|null} Request currently shown in the modal. */
 let activeRequest = null;
@@ -223,6 +224,10 @@ export function initCurlCopy() {
       navigator.clipboard
         .writeText(preview.textContent)
         .then(() => {
+          const active = document.querySelector('.curl-shell-option.active');
+          track('copy', {
+            what: active && active.dataset.shell === 'powershell' ? 'curl_powershell' : 'curl_bash',
+          });
           copyBtn.textContent = 'Copied';
           setTimeout(() => {
             copyBtn.textContent = 'Copy';

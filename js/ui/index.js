@@ -30,6 +30,7 @@ import { initEndpoints, scheduleEndpointsRefresh } from './endpoints.js';
 import { initSession, renderSessionBar } from './session.js';
 import { initBreakpointsView, handlePausedMessage } from './breakpoints-view.js';
 import { connectPanelPort } from './panel-port.js';
+import { initAnalyticsConsent, handleAnalyticsUpdated, track } from './analytics-consent.js';
 
 // ── Panel registration ────────────────────────────────────────────
 
@@ -64,6 +65,8 @@ document.addEventListener('DOMContentLoaded', function () {
   initConfirm();
   initEndpoints();
   initBreakpointsView();
+  initAnalyticsConsent();
+  track('panel_open');
   connectPanelPort(inspectedTabId);
 
   // ── Message listeners ─────────────────────────────────────────
@@ -100,6 +103,8 @@ document.addEventListener('DOMContentLoaded', function () {
         }
       } else if (message.status === 'REGISTRY_UPDATED') {
         updateRegistryUI(message);
+      } else if (message.status === 'ANALYTICS_UPDATED') {
+        handleAnalyticsUpdated(message);
       } else if (message.status === 'PAUSED_UPDATED') {
         handlePausedMessage(message);
       } else if (message.status === 'SCHEMA_PROGRESS') {

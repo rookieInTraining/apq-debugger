@@ -4,6 +4,7 @@
  */
 
 import { getElement } from './dom-helpers.js';
+import { track } from './analytics-consent.js';
 import { state } from './state.js';
 import { renderRequestList, updateRequestCount } from './request-list.js';
 import { showStatusBanner } from './status.js';
@@ -73,6 +74,7 @@ function exportHistory() {
     anchor.click();
     anchor.remove();
     URL.revokeObjectURL(url);
+    track('export_history');
   } catch (error) {
     console.error('Failed to export history:', error);
     showStatusBanner('Failed to export request history', 'error');

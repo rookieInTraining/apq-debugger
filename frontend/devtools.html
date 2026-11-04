@@ -93,6 +93,12 @@
                   ><input type="radio" name="density" value="compact" /> Compact</label
                 >
               </fieldset>
+              <fieldset class="menu-group hidden" id="analytics-setting">
+                <legend class="menu-label">Usage data</legend>
+                <label class="menu-option"
+                  ><input type="checkbox" id="analytics-toggle" /> Send anonymous usage data</label
+                >
+              </fieldset>
               <p class="menu-hint">
                 Shortcuts: <kbd>Ctrl</kbd>+<kbd>E</kbd> start or stop, <kbd>Ctrl</kbd>+<kbd>F</kbd>
                 filter, <kbd>Esc</kbd> close details.
@@ -101,6 +107,36 @@
           </div>
         </div>
       </header>
+
+      <!-- One-time analytics consent notice; shown only while consent is unset -->
+      <div class="notice hidden" id="analytics-notice" role="region" aria-label="Usage data">
+        <p class="notice-text">
+          Help improve GraphQL Debugger? Send anonymous feature usage — never URLs, queries,
+          variables or headers.
+          <a
+            class="notice-link"
+            href="https://github.com/rookieInTraining/apq-debugger/blob/trunk/store/privacy-policy.md"
+            target="_blank"
+            rel="noopener noreferrer"
+            >What's sent</a
+          >
+        </p>
+        <div class="notice-actions">
+          <button type="button" class="tb-btn primary" id="analytics-allow">Allow</button>
+          <button type="button" class="tb-btn" id="analytics-decline">No thanks</button>
+          <button
+            type="button"
+            class="icon-btn btn-close"
+            id="analytics-dismiss"
+            aria-label="Dismiss"
+          >
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <line x1="7" y1="7" x2="17" y2="17" />
+              <line x1="17" y1="7" x2="7" y2="17" />
+            </svg>
+          </button>
+        </div>
+      </div>
 
       <main class="views" aria-label="GraphQL Debugger">
         <!-- ── Requests ─────────────────────────────────────────── -->
