@@ -79,7 +79,8 @@ function setConsent(value) {
 }
 
 /**
- * Wire the notice buttons and settings checkbox, then load the current state.
+ * Wire the notice buttons and settings checkbox, load the current state, and
+ * report `panel_open` once that state shows consent is granted.
  */
 export function initAnalyticsConsent() {
   const allow = getElement('analytics-allow');
@@ -98,6 +99,8 @@ export function initAnalyticsConsent() {
     if (chrome.runtime.lastError) return;
     if (response && response.status === 'SUCCESS') {
       applyState({ configured: response.configured, consent: response.consent });
+      // Only now is consent known, so panel_open can pass the track() gate
+      track('panel_open');
     }
   });
 }

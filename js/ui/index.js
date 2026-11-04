@@ -30,7 +30,7 @@ import { initEndpoints, scheduleEndpointsRefresh } from './endpoints.js';
 import { initSession, renderSessionBar } from './session.js';
 import { initBreakpointsView, handlePausedMessage } from './breakpoints-view.js';
 import { connectPanelPort } from './panel-port.js';
-import { initAnalyticsConsent, handleAnalyticsUpdated, track } from './analytics-consent.js';
+import { initAnalyticsConsent, handleAnalyticsUpdated } from './analytics-consent.js';
 
 // ── Panel registration ────────────────────────────────────────────
 
@@ -66,7 +66,6 @@ document.addEventListener('DOMContentLoaded', function () {
   initEndpoints();
   initBreakpointsView();
   initAnalyticsConsent();
-  track('panel_open');
   connectPanelPort(inspectedTabId);
 
   // ── Message listeners ─────────────────────────────────────────

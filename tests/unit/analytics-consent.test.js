@@ -72,6 +72,20 @@ describe('analytics consent UI', () => {
     expect($('analytics-toggle').checked).toBe(false);
   });
 
+  describe('panel_open', () => {
+    const opens = () => sent().filter((m) => m.trackEvent && m.trackEvent.name === 'panel_open');
+
+    test('granted at init sends exactly one panel_open', () => {
+      init({ configured: true, consent: 'granted' });
+      expect(opens()).toEqual([{ trackEvent: { name: 'panel_open', params: undefined } }]);
+    });
+
+    test.each([null, 'denied'])('consent %s at init sends no panel_open', (consent) => {
+      init({ configured: true, consent });
+      expect(opens()).toEqual([]);
+    });
+  });
+
   test('Allow sends granted, hides the notice and checks the box', () => {
     init({ configured: true, consent: null });
     $('analytics-allow').click();
