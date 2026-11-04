@@ -3,7 +3,7 @@
  * worker and the panel, so it must not import the `graphql` package.
  */
 
-const STRINGS_AND_COMMENTS = /"""[\s\S]*?"""|"(?:\.|[^"\\n])*"|#[^\n]*/g;
+const STRINGS_AND_COMMENTS = /"""[\s\S]*?"""|"(?:\\.|[^"\\\n])*"|#[^\n]*/g;
 const TOKEN = /[{}()]|\b(query|mutation|subscription|fragment)\b(?:\s+([_A-Za-z][_0-9A-Za-z]*))?/g;
 
 /**

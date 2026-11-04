@@ -35,6 +35,12 @@ describe('extractOperationName', () => {
   test('non-object payload is empty', () => {
     expect(extractOperationName(null)).toBe('');
   });
+  test('strings containing the letter n and an unbalanced brace are stripped', () => {
+    expect(extractOperationName({ query: 'query A { f(name: "Jon }}}") { id } }' })).toBe('A');
+  });
+  test('strings with an escaped quote containing a brace are stripped', () => {
+    expect(extractOperationName({ query: 'query A { f(s: "a \\" }}} b") { id } }' })).toBe('A');
+  });
   test('ignores keywords inside strings and nested selections', () => {
     expect(
       extractOperationName({ query: 'query Real { f(a: "query Fake { x }") { query } }' })
