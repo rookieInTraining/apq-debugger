@@ -162,30 +162,7 @@ export function isSchemaLoaded() {
   return schemaLoaded;
 }
 
-/**
- * Switch the visible main-panel tab.
- * @param {'requests'|'schema'} tab
- */
-export function showMainTab(tab) {
-  const requestsTab = getElement('tab-requests');
-  const schemaTab = getElement('tab-schema');
-  const requestsContent = getElement('requests-content');
-  const schemaContent = getElement('schema-content');
-  if (!requestsTab || !schemaTab || !requestsContent || !schemaContent) return;
-
-  const showSchema = tab === 'schema';
-  requestsTab.setAttribute('aria-selected', String(!showSchema));
-  schemaTab.setAttribute('aria-selected', String(showSchema));
-  requestsTab.setAttribute('tabindex', showSchema ? '-1' : '0');
-  schemaTab.setAttribute('tabindex', showSchema ? '0' : '-1');
-  requestsContent.classList.toggle('hidden', showSchema);
-  schemaContent.classList.toggle('hidden', !showSchema);
-}
-
-/** @deprecated Use showMainTab('schema') */
-export function showDetailTab(tab) {
-  showMainTab(tab === 'schema' ? 'schema' : 'requests');
-}
+export { showMainTab, showDetailTab } from './tabs.js';
 
 function setExplorerVisible(visible) {
   const explorer = getElement('schema-explorer');
@@ -332,19 +309,9 @@ export function setSchema(sdl, meta) {
 }
 
 /**
- * Wire up the main-panel tabs, type list, and schema search box.
+ * Wire up the type list and schema search box.
  */
 export function initSchemaViewer() {
-  const requestsTab = getElement('tab-requests');
-  const schemaTab = getElement('tab-schema');
-
-  if (requestsTab) {
-    requestsTab.addEventListener('click', () => showMainTab('requests'));
-  }
-  if (schemaTab) {
-    schemaTab.addEventListener('click', () => showMainTab('schema'));
-  }
-
   const typeList = getElement('schema-type-list');
   if (typeList) {
     typeList.addEventListener('click', (event) => {

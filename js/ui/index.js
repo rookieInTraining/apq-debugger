@@ -23,6 +23,7 @@ import { initLayout } from './layout.js';
 import { initKeyboard } from './keyboard.js';
 import { initSchemaControls, updateSchemaProgress } from './schema-controls.js';
 import { initSchemaViewer } from './schema-viewer.js';
+import { initTabs } from './tabs.js';
 import { initCurlCopy } from './curl-copy.js';
 import { initConfirm } from './confirm.js';
 import { initEndpoints, scheduleEndpointsRefresh } from './endpoints.js';
@@ -54,6 +55,7 @@ document.addEventListener('DOMContentLoaded', function () {
   initToolbar();
   initLayout();
   initKeyboard();
+  initTabs();
   initSchemaViewer();
   initSchemaControls();
   initCurlCopy();

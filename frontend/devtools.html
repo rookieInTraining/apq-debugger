@@ -31,6 +31,16 @@
           >
             Schema
           </button>
+          <button
+            class="tab"
+            id="tab-breakpoints"
+            role="tab"
+            aria-selected="false"
+            tabindex="-1"
+            aria-controls="breakpoints-content"
+          >
+            Breakpoints
+          </button>
         </div>
         <div class="tabstrip-end">
           <div class="status" id="debugger-status" role="status" aria-live="polite">
@@ -432,6 +442,14 @@
             </div>
           </div>
         </section>
+
+        <!-- ── Breakpoints ──────────────────────────────────────── -->
+        <section
+          class="view hidden"
+          id="breakpoints-content"
+          role="tabpanel"
+          aria-labelledby="tab-breakpoints"
+        ></section>
       </main>
 
       <!-- Toasts (bottom-right); error toasts individually get role="alert" -->

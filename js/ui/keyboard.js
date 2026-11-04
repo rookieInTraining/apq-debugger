@@ -12,7 +12,7 @@
 
 import { getElement } from './dom-helpers.js';
 import { state } from './state.js';
-import { showMainTab } from './schema-viewer.js';
+import { showMainTab, getActiveView } from './tabs.js';
 
 function isEditableTarget(target) {
   if (!target) return false;
@@ -144,14 +144,15 @@ function handleTabKeydown(e) {
   else if (e.key === 'Home') next = 0;
   else next = tabs.length - 1;
 
-  showMainTab(tabs[next].id === 'tab-schema' ? 'schema' : 'requests');
+  showMainTab(tabs[next].id.replace('tab-', ''));
   tabs[next].focus();
 }
 
 /** Focus the filter of whichever view is showing. */
 function focusActiveFilter() {
-  const schemaVisible = !document.getElementById('schema-content')?.classList.contains('hidden');
-  const filter = document.getElementById(schemaVisible ? 'schema-search' : 'filter-input');
+  const view = getActiveView();
+  if (view === 'breakpoints') return;
+  const filter = document.getElementById(view === 'schema' ? 'schema-search' : 'filter-input');
   if (filter) {
     filter.focus();
     filter.select?.();
