@@ -1,4 +1,4 @@
-# APQ Debugger — Permissions Justification
+# GraphQL Debugger — Permissions Justification
 
 This document explains why each permission declared in `manifest.json` is required, for Chrome Web Store review and transparency.
 
@@ -24,7 +24,7 @@ This document explains why each permission declared in `manifest.json` is requir
 
 ### `contextMenus`
 
-**Why:** Adds a "Toggle APQ Debugger" option to the extension's toolbar icon right-click menu, providing an alternative way to start/stop debugging without opening DevTools.
+**Why:** Adds a "Toggle GraphQL Debugger" option to the extension's toolbar icon right-click menu, providing an alternative way to start/stop debugging without opening DevTools.
 
 **Scope:** Only creates a single context menu item on the extension's own action button (`contexts: ['action']`). Does not add menus to web pages.
 

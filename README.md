@@ -2,9 +2,9 @@
    <img src="./icons/icon128.png" style="padding: 20px;">
 </p>
 
-# APQ Debugger — Chrome extension for Apollo GraphQL Persisted Queries (APQ)
+# GraphQL Debugger — Chrome DevTools extension for debugging GraphQL
 
-**APQ Debugger** reveals the full GraphQL operation behind Apollo Client's Automatic Persisted Queries (APQ) hashes and visualizes the fallback flow in Chrome DevTools.
+**GraphQL Debugger** (formerly APQ Debugger) works on network traffic, so it works with any GraphQL client on any site. It reveals the full GraphQL operation behind Apollo Client's Automatic Persisted Queries (APQ) hashes and visualizes the fallback flow in Chrome DevTools.
 [→ Install from Chrome Web Store](https://chromewebstore.google.com/detail/apq-debugger-beta/gbanmonipiommdljkadhhiomhkgjchee)
 
 ## Features
@@ -25,12 +25,12 @@
 3. Open Chrome and go to `chrome://extensions/`
 4. Enable "Developer mode"
 5. Click "Load unpacked" and select the `extension_build/` folder
-6. Open DevTools and look for the "APQ Debugger" panel
+6. Open DevTools and look for the "GraphQL Debugger" panel
 
 ## Usage
 
 1. Navigate to the target page with Apollo Client
-2. Open Chrome DevTools and go to the "APQ Debugger" panel
+2. Open Chrome DevTools and go to the "GraphQL Debugger" panel
 3. Add URL patterns to match GraphQL endpoints (e.g., `*graphql*`, `*/api/*`)
 4. Click "Start Debugging" to begin interception
 5. Intercepted requests will trigger twice:

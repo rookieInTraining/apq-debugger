@@ -1,5 +1,5 @@
 ---
-name: APQ Debugger
+name: GraphQL Debugger
 description: A DevTools-native panel that recovers the GraphQL query behind every Apollo persisted-query hash.
 colors:
   surface: "light-dark(#ffffff, #202124)"
@@ -171,13 +171,13 @@ components:
     width: "400px"
 ---
 
-# Design System: APQ Debugger
+# Design System: GraphQL Debugger
 
 ## Overview
 
 **Creative North Star: "The First-Party Panel"**
 
-APQ Debugger is built to be mistaken for a panel Chrome shipped itself. It sits beside Network and Elements, so it takes their system wholesale: 12px system UI type, monospace for anything machine-made (hashes, queries, URLs, timestamps), white and grey-100 surfaces (dark: #202124 / #292a2d) split by 1px dividers, Google blue for selection, focus and the one primary action, record red, a yellow infobar while traffic is being rewritten, and green reserved for a resolved hash. Familiarity is the design goal; personality is spent only on state changes.
+GraphQL Debugger is built to be mistaken for a panel Chrome shipped itself. It sits beside Network and Elements, so it takes their system wholesale: 12px system UI type, monospace for anything machine-made (hashes, queries, URLs, timestamps), white and grey-100 surfaces (dark: #202124 / #292a2d) split by 1px dividers, Google blue for selection, focus and the one primary action, record red, a yellow infobar while traffic is being rewritten, and green reserved for a resolved hash. Familiarity is the design goal; personality is spent only on state changes.
 
 The structure is the DevTools canon: a tab strip (Requests, Schema, settings gear and session status at the right), a per-view toolbar, an optional collapsible patterns pane, an infobar when interception or passive mode is on, then a dense single-line data table with a detail pane that appears only after selection. In the detail pane the recovered query is the largest, most readable thing on screen, wrapped and syntax-coloured in DevTools Sources colours. The system rejects the editorial card-and-metric dashboard and the permanent settings sidebar that preceded it.
 

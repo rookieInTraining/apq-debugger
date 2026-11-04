@@ -1,14 +1,14 @@
-# APQ Debugger — Privacy Policy
+# GraphQL Debugger — Privacy Policy
 
 **Last updated:** February 7, 2026
 
 ## Overview
 
-APQ Debugger is a Chrome DevTools extension that helps developers debug Apollo Client Automatic Persisted Queries (APQ). This privacy policy explains what data the extension accesses and how it is handled.
+GraphQL Debugger is a Chrome DevTools extension that helps developers debug GraphQL, including Apollo Client Automatic Persisted Queries (APQ). This privacy policy explains what data the extension accesses and how it is handled.
 
 ## Data Collection
 
-**APQ Debugger does not collect, transmit, or store any personal data.** All data processing happens entirely within the user's browser.
+**GraphQL Debugger does not collect, transmit, or store any personal data.** All data processing happens entirely within the user's browser.
 
 ## What the Extension Accesses
 
@@ -41,7 +41,7 @@ The extension requests only the permissions strictly necessary for its functiona
 
 ## Third-Party Services
 
-APQ Debugger does not use any third-party services, libraries that phone home, or external APIs.
+GraphQL Debugger does not use any third-party services, libraries that phone home, or external APIs.
 
 ## Changes to This Policy
 

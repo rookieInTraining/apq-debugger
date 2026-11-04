@@ -1,46 +1,45 @@
-# APQ Debugger — Chrome Web Store Listing
+# GraphQL Debugger: breakpoints, APQ & schema — Chrome Web Store Listing
 
 ## Short Description (132 characters max)
 
-Reveal full GraphQL queries behind Apollo APQ hashes. Debug Automatic Persisted Queries in Chrome DevTools.
+Pause and edit GraphQL requests, reveal the full query behind Apollo APQ hashes, and explore the schema — right in DevTools.
 
 ## Detailed Description
 
-APQ Debugger is a Chrome DevTools extension for developers working with Apollo Client's Automatic Persisted Queries (APQ).
+APQ Debugger is now GraphQL Debugger.
 
-When Apollo Client uses APQ, network requests only contain a SHA-256 hash instead of the full GraphQL query. This makes debugging difficult — you can't see what query is actually being executed just by looking at the Network tab.
-
-APQ Debugger solves this by intercepting APQ requests and triggering the fallback mechanism, forcing Apollo Client to send the full query. You get to see the complete GraphQL operation, variables, and more — right inside DevTools.
+GraphQL Debugger is a Chrome DevTools extension for developers working with GraphQL. It works on network traffic, so it works with any client (Apollo Client, Relay, urql and more) on any site.
 
 ### How It Works
 
-1. Open Chrome DevTools and go to the "APQ Debugger" panel
+1. Open Chrome DevTools and go to the "GraphQL Debugger" panel
 2. Add URL patterns to match your GraphQL endpoint (e.g., *graphql*)
 3. Click "Start Debugging"
 4. Browse your app — intercepted requests appear in real time
 
 ### Features
 
-- Real-time network interception of GraphQL requests
-- Configurable URL pattern matching for targeted debugging
-- Live request list with type filtering (APQ vs. full query)
+- Request breakpoints: pause a request, edit its query, variables and headers, then resume <!-- breakpoints: enable when plan 2 lands -->
+- APQ recovery, active and passive: reveal the full query behind Apollo Automatic Persisted Query hashes, either by forcing the retry or by resolving hashes already seen
+- Schema loading: introspect an endpoint and browse its types
+- Copy as cURL for any request
+- Export captured requests
+- Live request list with type filtering and search
 - Syntax-highlighted GraphQL query viewer
-- One-click copy for queries and variables
-- Request history with search and filtering
 - Light and dark theme support (follows system preference)
 - Toolbar toggle for quick start/stop without opening DevTools
 - Persistent URL patterns across browser sessions
 
 ### Who Is This For?
 
-- Frontend developers using Apollo Client with APQ
+- Frontend developers working with GraphQL, including Apollo Client with APQ
 - Backend developers debugging GraphQL API interactions
 - QA engineers investigating GraphQL request behavior
 - Anyone who needs to see the full query behind an APQ hash
 
 ### Privacy
 
-APQ Debugger processes all data locally in your browser. No data is collected, transmitted, or stored externally. See our full privacy policy for details.
+GraphQL Debugger processes all data locally in your browser. No data is collected, transmitted, or stored externally. See our full privacy policy for details.
 
 ---
 
@@ -60,7 +59,7 @@ Generated from the real panel UI by `npm run build && npm run promo:screens` (se
 2. **`02-request-detail.png`** — Light theme: a resolved hash with its formatted query, hash, Copy as cURL and the link to its retry request.
 3. **`03-schema.png`** — Schema tab (dark): types loaded by introspection, `Product` selected.
 4. **`04-requests-light.png`** — Patterns pane open (two URL patterns, passive mode, endpoints seen on the page) while a hash row resolves in place.
-5. **`05-toolbar.png`** — The toolbar icon with the ON badge and its right-click "Toggle APQ Debugger" item, with Chrome's "started debugging" bar.
+5. **`05-toolbar.png`** — The toolbar icon with the ON badge and its right-click "Toggle GraphQL Debugger" item, with Chrome's "started debugging" bar.
 
 ## Promotional Images
 

@@ -1,6 +1,6 @@
-# Contributing to APQ Debugger
+# Contributing to GraphQL Debugger
 
-Thank you for your interest in contributing to APQ Debugger! This document covers the development setup, architecture, coding conventions, and the process for submitting changes.
+Thank you for your interest in contributing to GraphQL Debugger! This document covers the development setup, architecture, coding conventions, and the process for submitting changes.
 
 ## Development Setup
 
@@ -33,7 +33,7 @@ npm test
 2. Enable **Developer mode** (toggle in the top-right corner)
 3. Click **Load unpacked**
 4. Select the `extension_build/` folder (created by `npm run build`)
-5. Open DevTools on any page — the **APQ Debugger** panel will appear
+5. Open DevTools on any page — the **GraphQL Debugger** panel will appear
 
 ### Watch Mode
 
@@ -43,7 +43,7 @@ During development, use watch mode to automatically rebuild on file changes:
 npm run watch
 ```
 
-After a rebuild, go to `chrome://extensions/` and click the reload button on the APQ Debugger card, then reopen DevTools.
+After a rebuild, go to `chrome://extensions/` and click the reload button on the GraphQL Debugger card, then reopen DevTools.
 
 ## Architecture Overview
 

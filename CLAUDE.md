@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Chrome MV3 DevTools extension that reveals the full GraphQL operations behind Apollo Automatic Persisted Query (APQ) hashes. It attaches the Chrome Debugger API to a tab, intercepts requests via `Fetch.requestPaused`, and replaces the APQ hash with a bogus one so the server responds `PersistedQueryNotFound`, forcing Apollo Client to retry with the full query text — which is then captured and shown in a DevTools panel.
+GraphQL Debugger is a Chrome MV3 DevTools extension for debugging GraphQL; its APQ feature reveals the full GraphQL operations behind Apollo Automatic Persisted Query (APQ) hashes. It attaches the Chrome Debugger API to a tab, intercepts requests via `Fetch.requestPaused`, and replaces the APQ hash with a bogus one so the server responds `PersistedQueryNotFound`, forcing Apollo Client to retry with the full query text — which is then captured and shown in a DevTools panel.
 
 ## Commands
 

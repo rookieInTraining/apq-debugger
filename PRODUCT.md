@@ -8,15 +8,15 @@ web
 
 ## Users
 
-Front-end and GraphQL developers (also backend devs and QA) debugging apps that use Apollo Client's Automatic Persisted Queries. They are mid-investigation inside Chrome DevTools, usually with the Network panel open beside this one, often docked at the bottom of the window at a few hundred pixels tall. Their job: see the real operation, variables and endpoint behind an opaque SHA-256 hash, then copy it into an editor, a cURL or a bug report.
+Developers and testers working on web apps that use GraphQL (APQ users first). They are mid-investigation inside Chrome DevTools, usually with the Network panel open beside this one, often docked at the bottom of the window at a few hundred pixels tall. Their job: see the real operation, variables and endpoint behind an opaque SHA-256 hash, then copy it into an editor, a cURL or a bug report.
 
 ## Product Purpose
 
-APQ requests carry only a hash, so the Network panel cannot show what query ran. APQ Debugger attaches the Chrome Debugger to the inspected tab, swaps the hash for a bogus one so the server answers `PersistedQueryNotFound`, and captures the full query Apollo Client retries with. Success: within seconds of browsing, every hashed operation on the page is readable, copyable, and attributable to its endpoint.
+GraphQL Debugger works at the network level, so it works with any GraphQL client (Apollo Client, Relay, urql and more) on any site, and it can change traffic as well as read it. Its first feature recovers the query behind Apollo APQ hashes: APQ requests carry only a hash, so the Network panel cannot show what query ran. It attaches the Chrome Debugger to the inspected tab, swaps the hash for a bogus one so the server answers `PersistedQueryNotFound`, and captures the full query Apollo Client retries with. Success: within seconds of browsing, every GraphQL operation on the page is readable, copyable, and attributable to its endpoint.
 
 ## Positioning
 
-It recovers the query from live traffic without access to the app's source, build, or server-side persisted-query store. Passive mode then resolves known hashes from a local registry without touching traffic at all.
+It works from live traffic without access to the app's source, build, or server-side persisted-query store, and it is not tied to one client library. Passive mode resolves known APQ hashes from a local registry without touching traffic at all.
 
 ## Operating Context
 
@@ -36,7 +36,7 @@ It recovers the query from live traffic without access to the app's source, buil
 
 ## Brand Commitments
 
-- Name: APQ Debugger. Icons in `icons/`.
+- Name: GraphQL Debugger. Icons in `icons/`.
 - Visual direction (confirmed 2026-10-21): DevTools-native. The panel should sit alongside Chrome DevTools' own panels (Network, Elements) as if it belonged there. This replaces the earlier Kora styling.
 
 ## Evidence on Hand
