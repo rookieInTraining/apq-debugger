@@ -39,7 +39,7 @@ GraphQL Debugger is a Chrome DevTools extension for developers working with Grap
 
 ### Privacy
 
-GraphQL Debugger processes all data locally in your browser. No data is collected, transmitted, or stored externally. See our full privacy policy for details.
+GraphQL Debugger processes your GraphQL traffic locally in your browser; it is never sent anywhere. Anonymous feature-usage analytics are off by default and sent only if you opt in. See our full privacy policy for details.
 
 ---
 

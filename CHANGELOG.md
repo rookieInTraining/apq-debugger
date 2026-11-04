@@ -15,8 +15,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   when the panel closes, the page navigates, the tab closes or interception
   stops. Edited queries get their persisted-query hash recomputed. The status
   vocabulary gains `Paused`.
+- Opt-in anonymous usage analytics (Google Analytics 4, Measurement Protocol):
+  off by default, a one-time notice asks once, and a settings toggle turns it
+  off and deletes the random install and session IDs. Only allowlisted event
+  names with fixed values are sent; no URLs, operation names, queries,
+  variables, headers or hashes. Builds without `GA_MEASUREMENT_ID` and
+  `GA_API_SECRET` have analytics fully off.
 
 ### Changed
+- Privacy policy and store copy updated to describe the opt-in analytics.
 - Renamed: APQ Debugger is now GraphQL Debugger.
 
 ## [4.0.0] - 2026-10-23

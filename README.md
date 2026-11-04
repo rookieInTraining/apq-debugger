@@ -189,6 +189,13 @@ cookies and authorization tokens — in the generated command so the request can
 replayed as-is. This data never leaves your browser; it is only written to your
 clipboard when you click **Copy**.
 
+Your GraphQL traffic (URLs, queries, variables, headers, hashes, schemas) never leaves
+your browser. Official builds can optionally send anonymous feature-usage counts
+(which features are used, extension and browser version, OS, UI language) to Google
+Analytics, but only if you opt in; nothing is sent until you do, and you can switch it
+off any time in the panel settings, which also deletes the random IDs. Builds from
+source have no analytics configured. See the [privacy policy](store/privacy-policy.md).
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, architecture details, and contribution guidelines.

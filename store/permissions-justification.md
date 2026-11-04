@@ -42,9 +42,9 @@ This document explains why each permission declared in `manifest.json` is requir
 
 ### `<all_urls>`
 
-**Why:** The Chrome Debugger API requires host permissions for the tabs it attaches to. Since GraphQL endpoints can be hosted on any domain, the extension needs broad host access. The user controls which URLs are actually intercepted via the URL pattern configuration.
+**Why:** The Chrome Debugger API requires host permissions for the tabs it attaches to. Since GraphQL endpoints can be hosted on any domain, the extension needs broad host access. The user controls which URLs are actually intercepted via the URL pattern configuration. The same host permission is used to send anonymous, allowlisted usage events to `https://www.google-analytics.com/` when (and only when) the user opts in to analytics; see the privacy policy.
 
-**Scope:** Despite the broad permission, the extension only intercepts requests that match user-configured URL patterns on tabs where the user has explicitly enabled debugging.
+**Scope:** Despite the broad permission, the extension only intercepts requests that match user-configured URL patterns on tabs where the user has explicitly enabled debugging. The only other host it contacts on its own is `www.google-analytics.com`, and only after opt-in.
 
 ---
 

@@ -51,7 +51,7 @@ It works from live traffic without access to the app's source, build, or server-
 2. Be honest about interception: the user always knows whether traffic is being rewritten, on which patterns.
 3. Belong in DevTools. Earned familiarity beats personality; save emphasis for state changes and the moment a hash resolves.
 4. Work at the docked size people actually use.
-5. Local only: nothing leaves the browser.
+5. Local first: nothing from your traffic leaves the browser; anonymous feature usage is sent only if you opt in.
 
 ## Accessibility & Inclusion
 
