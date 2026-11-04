@@ -19,7 +19,7 @@ GraphQL Debugger is a Chrome DevTools extension for developers working with Grap
 
 ### Features
 
-- Request breakpoints: pause a request, edit its query, variables and headers, then resume <!-- breakpoints: enable when plan 2 lands -->
+- Request breakpoints: pause a request, edit its query, variables and headers, then resume
 - APQ recovery, active and passive: reveal the full query behind Apollo Automatic Persisted Query hashes, either by forcing the retry or by resolving hashes already seen
 - Schema loading: introspect an endpoint and browse its types
 - Copy as cURL for any request

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Request breakpoints: a Breakpoints tab that pauses requests by operation
+  name (with debug mode on) or the next request sent, then lets you edit the
+  query, variables and headers and resume one or all (F8), or fail the
+  request. Only the request is held; held requests are released unmodified
+  when the panel closes, the page navigates, the tab closes or interception
+  stops. Edited queries get their persisted-query hash recomputed. The status
+  vocabulary gains `Paused`.
+
 ### Changed
 - Renamed: APQ Debugger is now GraphQL Debugger.
 

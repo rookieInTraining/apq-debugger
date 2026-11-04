@@ -10,6 +10,7 @@
 ## Features
 
 - **Network Interception**: Intercept and modify GraphQL requests in real-time
+- **Request Breakpoints**: Pause a request by operation name (or the next one), edit its query, variables and headers, then resume or fail it
 - **Pattern Matching**: Use URL patterns to target specific GraphQL endpoints
 - **DevTools Integration**: Seamless integration with Chrome DevTools
 - **APQ Fallback Visualization**: See both the hash-only and full-query phases of APQ requests
@@ -37,6 +38,17 @@
    - First: Failing due to `PersistedQueryNotFound`
    - Second: Containing the full GraphQL query
 
+### Breakpoints
+
+Breakpoints hold a matching request in the service worker before it is sent; only the request is held, the page keeps running.
+
+1. Start interception on the **Requests** tab, then open the **Breakpoints** tab
+2. Add an operation name (e.g. `GetCart`) and turn on **Debug mode**, or press **Pause on next request** to catch whatever is sent next
+3. When a request pauses, edit its **Query**, **Variables** or **Headers**, then **Resume this** (or **Resume all**, F8), or **Fail request** to make the page's fetch fail
+4. Invalid JSON in Variables or Headers blocks the resume with an inline error. An edited query gets its persisted-query hash recomputed
+
+In active mode a hash-only request is never paused (it is still swapped as usual); its full-query retry is. In passive mode hash-only requests pause too. Requests are only held while the panel is open: closing it, navigating, closing the tab or stopping interception sends every held request on unmodified.
+
 ## File Structure
 
 ```
@@ -57,6 +69,10 @@ apq-debugger/
 │   │   ├── chrome-api.js          # Promise wrappers for Chrome APIs
 │   │   ├── debugger-manager.js    # Attach/detach/restore lifecycle
 │   │   ├── interceptor.js         # Fetch.requestPaused handler
+│   │   ├── breakpoints.js         # Breakpoint list, debug mode, pause decision
+│   │   ├── pause-queue.js         # Held requests: hold, resume, fail, release
+│   │   ├── resume-body.js         # Build the resumed request from panel edits
+│   │   ├── panel-presence.js      # Which tabs have a panel connected (ports)
 │   │   ├── messaging.js           # onMessage router & action toggle
 │   │   ├── storage.js             # chrome.storage.local helpers
 │   │   ├── hash.js                # SHA-256 digest utility
@@ -76,6 +92,10 @@ apq-debugger/
 │   │   ├── registry-controls.js   # Hash registry & passive mode controls
 │   │   ├── schema-controls.js     # Schema loading controls & progress
 │   │   ├── schema-viewer.js       # Introspected schema explorer
+│   │   ├── tabs.js                # Requests / Schema / Breakpoints tab switching
+│   │   ├── panel-port.js          # Port telling the SW this panel is open
+│   │   ├── breakpoints-view.js    # Breakpoints tab: toolbar, paused queue, list
+│   │   ├── paused-editor.js       # Edit, resume or fail a paused request
 │   │   ├── settings.js            # Panel settings
 │   │   ├── toolbar.js             # Toolbar actions
 │   │   ├── keyboard.js            # Keyboard navigation
@@ -159,7 +179,7 @@ The GitHub Actions [release workflow](.github/workflows/release.yml) will automa
 
 - **Service Worker** (`js/sw/`): Background process handling network interception via the Chrome Debugger API
 - **DevTools Panel** (`js/ui/`): User interface for configuration and live request monitoring
-- **Message Passing**: Bidirectional communication between the panel and service worker via `chrome.runtime.sendMessage`
+- **Message Passing**: Bidirectional communication between the panel and service worker via `chrome.runtime.sendMessage`, plus a long-lived port per open panel so requests are only held while a panel is connected
 - **Persistent State**: URL patterns and attached-tab state are persisted in `chrome.storage.local` to survive service worker restarts
 
 ### Privacy Note

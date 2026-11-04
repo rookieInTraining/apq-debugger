@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Breakpoints e2e app</title>
+  </head>
+  <body>
+    <button type="button" id="named">Get cart</button>
+    <button type="button" id="anonymous">Anonymous query</button>
+    <pre id="out"></pre>
+    <script>
+      const out = document.getElementById('out');
+
+      function send(body) {
+        out.textContent = '';
+        fetch('/graphql', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+          .then((res) => res.text())
+          .then((text) => {
+            out.textContent = text;
+          })
+          .catch((error) => {
+            out.textContent = `Fetch error: ${error.message}`;
+          });
+      }
+
+      document.getElementById('named').addEventListener('click', () =>
+        send({
+          operationName: 'GetCart',
+          query: 'query GetCart($c:String){cart(currency:$c)}',
+          variables: { c: 'USD' },
+        })
+      );
+      document
+        .getElementById('anonymous')
+        .addEventListener('click', () =>
+          send({ query: '{ cart(currency: "USD") }', variables: { c: 'USD' } })
+        );
+    </script>
+  </body>
+</html>

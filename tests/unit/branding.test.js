@@ -13,7 +13,12 @@ describe('GraphQL Debugger branding', () => {
   });
 
   test('no "APQ Debugger" left in shipped sources', () => {
-    for (const p of ['js/ui/index.js', 'js/sw/index.js', 'js/sw/messaging.js', 'frontend/devtools.html']) {
+    for (const p of [
+      'js/ui/index.js',
+      'js/sw/index.js',
+      'js/sw/messaging.js',
+      'frontend/devtools.html',
+    ]) {
       expect(read(p)).not.toMatch(/APQ Debugger/);
     }
   });

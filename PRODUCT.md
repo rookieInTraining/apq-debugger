@@ -29,6 +29,7 @@ It works from live traffic without access to the app's source, build, or server-
 
 - Active mode (hash contamination) vs passive mode (registry lookup, no traffic changes); registry is LRU-capped.
 - Request list with operation-name filter, APQ/full filter, endpoint filter; detail with query, variables, copy, Copy as cURL (Bash/PowerShell); JSON export; history clear.
+- Breakpoints tab: pause matching requests by operation name (debug mode) or the next request; edit query, variables and headers, then resume (one, or all with F8) or fail. Only the request is held, never page JavaScript; requests are held only while the panel is open and are released unmodified when it closes, the page navigates, the tab closes or interception stops.
 - Schema tab: introspect observed endpoints (replaying captured headers) or a typed URL; SDL type browser.
 - Theme (system/light/dark) and density (comfortable/compact) settings.
 - MV3, `minimum_chrome_version` 123. No network-loaded fonts, icons or scripts; everything ships in the bundle.
