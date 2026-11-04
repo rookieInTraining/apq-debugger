@@ -113,7 +113,7 @@ export async function holdRequest(req) {
 }
 
 /**
- * Held requests for a tab, oldest first.
+ * Held requests for a tab, oldest first. Requires a prior `ensurePausedLoaded()`.
  * @param {number} tabId
  * @returns {HeldRequest[]}
  */
@@ -122,7 +122,7 @@ export function listPaused(tabId) {
 }
 
 /**
- * Look up a held request.
+ * Look up a held request. Requires a prior `ensurePausedLoaded()`.
  * @param {number} tabId
  * @param {string} id - Fetch requestId.
  * @returns {HeldRequest|null}
@@ -138,6 +138,7 @@ export function getHeld(tabId, id) {
  * @returns {Promise<void>}
  */
 export async function removeHeld(tabId, id) {
+  await ensurePausedLoaded();
   const items = queue.get(tabId);
   if (!items) return;
   const next = items.filter((r) => r.id !== id);
@@ -153,6 +154,7 @@ export async function removeHeld(tabId, id) {
  * @returns {Promise<boolean>} True when a paused item was flipped.
  */
 export async function markCancelled(tabId, networkId) {
+  await ensurePausedLoaded();
   const item = (queue.get(tabId) || []).find(
     (r) => r.networkId === networkId && r.state === 'paused'
   );
@@ -176,6 +178,7 @@ async function flagCancelled(tabId, item) {
  * @returns {Promise<'sent'|'cancelled'>}
  */
 export async function continueHeld(tabId, id, params = {}) {
+  await ensurePausedLoaded();
   const item = getHeld(tabId, id);
   if (!item) return 'cancelled';
   if (item.state === 'cancelled') return 'cancelled';
@@ -195,6 +198,7 @@ export async function continueHeld(tabId, id, params = {}) {
  * @returns {Promise<'failed'|'cancelled'>}
  */
 export async function failHeld(tabId, id) {
+  await ensurePausedLoaded();
   const item = getHeld(tabId, id);
   if (!item) return 'cancelled';
   if (item.state === 'cancelled') {
@@ -219,6 +223,7 @@ export async function failHeld(tabId, id) {
  * @returns {Promise<void>}
  */
 export async function releaseAll(tabId) {
+  await ensurePausedLoaded();
   const items = listPaused(tabId);
   await Promise.all(
     items
@@ -240,6 +245,7 @@ export async function releaseAll(tabId) {
  * @returns {Promise<void>}
  */
 export async function dropTab(tabId) {
+  await ensurePausedLoaded();
   if (!queue.has(tabId)) return;
   queue.delete(tabId);
   await persist();

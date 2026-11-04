@@ -163,3 +163,32 @@ test('onQueueChanged fires after hold, continue and release', async () => {
   await pq.releaseAll(1);
   expect(listener).toHaveBeenCalledWith(1);
 });
+
+describe('fresh module after service worker restart', () => {
+  const restore = (stored) =>
+    chrome.storage.session.get.mockImplementation((k, cb) => cb({ gqlPausedQueue: stored }));
+
+  test('continueHeld works without an explicit ensurePausedLoaded', async () => {
+    restore({ 1: [held()] });
+    expect(await pq.continueHeld(1, 'r1')).toBe('sent');
+    expect(chrome.debugger.sendCommand).toHaveBeenCalledWith(
+      { tabId: 1 },
+      'Fetch.continueRequest',
+      { requestId: 'r1' },
+      expect.any(Function)
+    );
+  });
+
+  test('releaseAll continues every restored paused item', async () => {
+    restore({ 1: [held(), held({ id: 'r2', networkId: 'n2' })] });
+    await pq.releaseAll(1);
+    expect(chrome.debugger.sendCommand).toHaveBeenCalledTimes(2);
+  });
+
+  test('dropTab does not wipe other tabs stored entries', async () => {
+    restore({ 1: [held()], 2: [held({ id: 'r9', tabId: 2 })] });
+    await pq.dropTab(1);
+    const written = chrome.storage.session.set.mock.calls.at(-1)[0].gqlPausedQueue;
+    expect(Object.keys(written)).toEqual(['2']);
+  });
+});
