@@ -105,8 +105,28 @@ test.describe('Request breakpoints', () => {
     return panel;
   }
 
+  /**
+   * Wait until the service worker has stored the tab's debug state flag.
+   * @param {number} tabId
+   * @param {'debugMode'|'pauseNext'} flag
+   */
+  async function waitForDebugFlag(tabId, flag) {
+    await expect
+      .poll(() =>
+        background.evaluate(
+          async ({ id, key }) => {
+            const stored = await chrome.storage.session.get('gqlDebugState');
+            const states = stored.gqlDebugState || {};
+            return !!(states[id] && states[id][key]);
+          },
+          { id: tabId, key: flag }
+        )
+      )
+      .toBe(true);
+  }
+
   /** Start interception on `*graphql*` and turn on debug mode. */
-  async function startDebugging(panel) {
+  async function startDebugging(panel, tabId) {
     await panel.locator('.urlPattern').first().fill('*graphql*');
     await panel.locator('#form-submit').click();
     await expect(panel.locator('#debugger-status')).toContainText('Intercepting', {
@@ -116,6 +136,7 @@ test.describe('Request breakpoints', () => {
     await panel.locator('#tab-breakpoints').click();
     await panel.locator('#bp-debug-mode').check();
     await expect(panel.locator('#bp-debug-mode')).toBeChecked();
+    await waitForDebugFlag(tabId, 'debugMode');
   }
 
   /** Add a breakpoint on an operation name (saved on blur). */
@@ -123,14 +144,21 @@ test.describe('Request breakpoints', () => {
     const field = panel.locator('#bp-list .bp-name').last();
     await field.fill(name);
     await field.press('Enter');
+    await expect
+      .poll(() =>
+        background.evaluate(async () => {
+          const stored = await chrome.storage.local.get('gqlBreakpoints');
+          return (stored.gqlBreakpoints || []).map((bp) => bp.name);
+        })
+      )
+      .toContain(name);
   }
 
   test('pauses on a breakpoint and resumes with edited variables', async () => {
     const { app, tabId } = await openApp();
     const panel = await openPanel(tabId);
-    await startDebugging(panel);
+    await startDebugging(panel, tabId);
     await addBreakpoint(panel, 'GetCart');
-    await panel.waitForTimeout(300);
 
     await app.locator('#named').click();
 
@@ -150,10 +178,11 @@ test.describe('Request breakpoints', () => {
   test('pause on next request, then fail it', async () => {
     const { app, tabId } = await openApp();
     const panel = await openPanel(tabId);
-    await startDebugging(panel);
+    await startDebugging(panel, tabId);
 
     await panel.locator('#bp-pause-next').click();
     await expect(panel.locator('#bp-pause-next')).toHaveAttribute('aria-pressed', 'true');
+    await waitForDebugFlag(tabId, 'pauseNext');
 
     await app.locator('#anonymous').click();
 
@@ -168,16 +197,19 @@ test.describe('Request breakpoints', () => {
   test('closing the panel while paused releases the request unmodified', async () => {
     const { app, tabId } = await openApp();
     const panel = await openPanel(tabId);
-    await startDebugging(panel);
+    await startDebugging(panel, tabId);
     await addBreakpoint(panel, 'GetCart');
-    await panel.waitForTimeout(300);
 
     await app.locator('#named').click();
     await expect(panel.locator('#bp-infobar-text')).toHaveText('Paused on GetCart');
     await expect(app.locator('#out')).toHaveText('');
 
+    // An unsent edit must not travel with the released request
+    await panel.locator('#bp-tab-variables').click();
+    await panel.locator('#bp-variables').fill('{"c":"EUR"}');
     await panel.close();
 
     await expect(app.locator('#out')).toContainText('USD', { timeout: 5000 });
+    await expect(app.locator('#out')).not.toContainText('EUR');
   });
 });
