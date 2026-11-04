@@ -1820,6 +1820,95 @@ summary.code-header:focus-visible {
   border-left: 0;
 }
 
+.app:not(.narrow) .bp-editor-back {
+  display: none;
+}
+
+.bp-editor-head #bp-operation {
+  flex: 0 1 auto;
+}
+
+.bp-subtabs {
+  display: flex;
+  min-height: var(--row-h);
+  border-bottom: 1px solid var(--divider);
+}
+
+.bp-edited {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+  margin-left: var(--s-2);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+
+/* the edited marker's shape: a filled dot beside the word */
+.bp-edited-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.bp-panel {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--s-3);
+  min-height: 0;
+  padding: var(--s-4) var(--s-5);
+}
+
+.bp-note {
+  margin: 0;
+  color: var(--text-2);
+}
+
+.code-input {
+  flex: 1;
+  min-height: 80px;
+  padding: var(--s-4) var(--s-5);
+  border: 1px solid var(--divider);
+  border-radius: var(--r-md);
+  background: var(--bg-sunken);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--fs-code);
+  line-height: var(--lh-code);
+  tab-size: 2;
+  resize: none;
+}
+
+.code-input:hover:not([readonly]) {
+  border-color: var(--border-input);
+}
+
+.code-input:focus-visible {
+  outline-offset: -1px;
+  border-color: var(--focus);
+}
+
+.code-input[readonly] {
+  color: var(--text-2);
+}
+
+.bp-error {
+  margin: 0 var(--s-5);
+  padding: var(--s-2) var(--s-4);
+  border-left: 3px solid var(--error);
+  background: var(--error-bg);
+  color: var(--error);
+}
+
+.bp-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+  padding: var(--s-4) var(--s-5);
+  border-top: 1px solid var(--divider);
+}
+
 /* ---- narrow and short panels ---- */
 
 /* the detail pane overlays the list when there is no room for a split */
@@ -1944,7 +2033,8 @@ summary.code-header:focus-visible {
     border-color: CanvasText;
   }
 
-  .bp-enable:checked {
+  .bp-enable:checked,
+  .bp-edited-dot {
     forced-color-adjust: none;
     background: CanvasText;
   }

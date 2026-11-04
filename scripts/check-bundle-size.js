@@ -10,9 +10,9 @@ const path = require('path');
 
 /** Max bytes per artifact in extension_build/ */
 const BUDGETS = {
-  'devtools.min.js': 62400, // breakpoints tab: measured 56732 + 10%
+  'devtools.min.js': 69700, // paused request editor: measured 63438 + 10%
   'service-worker.min.js': 34000, // request breakpoints: measured 30954 + 10%
-  'devtools.min.css': 30000,
+  'devtools.min.css': 33300, // paused request editor: measured 30315 + 10%
 };
 
 const extDir = path.join(__dirname, '..', 'extension_build');

@@ -524,7 +524,116 @@
               </div>
             </div>
 
-            <aside class="bp-editor hidden" id="bp-editor" aria-label="Paused request"></aside>
+            <aside class="bp-editor hidden" id="bp-editor" aria-label="Paused request">
+              <div class="detail-head bp-editor-head">
+                <button
+                  type="button"
+                  class="icon-btn bp-editor-back"
+                  id="bp-editor-back"
+                  title="Back to paused requests (Esc)"
+                  aria-label="Back to paused requests"
+                >
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <polyline points="14 6 8 12 14 18" />
+                  </svg>
+                </button>
+                <h2 class="detail-title" id="bp-editor-title"></h2>
+                <select class="tb-select hidden" id="bp-operation" aria-label="Operation"></select>
+              </div>
+              <div class="bp-subtabs" role="tablist" aria-label="Request parts">
+                <button
+                  type="button"
+                  class="tab bp-subtab"
+                  id="bp-tab-query"
+                  role="tab"
+                  data-part="query"
+                  aria-selected="true"
+                  aria-controls="bp-panel-query"
+                >
+                  Query
+                  <span class="bp-edited hidden"
+                    ><span class="bp-edited-dot" aria-hidden="true"></span>edited</span
+                  >
+                </button>
+                <button
+                  type="button"
+                  class="tab bp-subtab"
+                  id="bp-tab-variables"
+                  role="tab"
+                  data-part="variables"
+                  aria-selected="false"
+                  tabindex="-1"
+                  aria-controls="bp-panel-variables"
+                >
+                  Variables
+                  <span class="bp-edited hidden"
+                    ><span class="bp-edited-dot" aria-hidden="true"></span>edited</span
+                  >
+                </button>
+                <button
+                  type="button"
+                  class="tab bp-subtab"
+                  id="bp-tab-headers"
+                  role="tab"
+                  data-part="headers"
+                  aria-selected="false"
+                  tabindex="-1"
+                  aria-controls="bp-panel-headers"
+                >
+                  Headers
+                  <span class="bp-edited hidden"
+                    ><span class="bp-edited-dot" aria-hidden="true"></span>edited</span
+                  >
+                </button>
+              </div>
+              <div
+                class="bp-panel"
+                id="bp-panel-query"
+                role="tabpanel"
+                aria-labelledby="bp-tab-query"
+              >
+                <p class="bp-note hidden" id="bp-query-note"></p>
+                <textarea
+                  class="code-input"
+                  id="bp-query"
+                  spellcheck="false"
+                  aria-label="Query"
+                ></textarea>
+              </div>
+              <div
+                class="bp-panel hidden"
+                id="bp-panel-variables"
+                role="tabpanel"
+                aria-labelledby="bp-tab-variables"
+              >
+                <textarea
+                  class="code-input"
+                  id="bp-variables"
+                  spellcheck="false"
+                  aria-label="Variables"
+                ></textarea>
+              </div>
+              <div
+                class="bp-panel hidden"
+                id="bp-panel-headers"
+                role="tabpanel"
+                aria-labelledby="bp-tab-headers"
+              >
+                <textarea
+                  class="code-input"
+                  id="bp-headers"
+                  spellcheck="false"
+                  aria-label="Headers"
+                ></textarea>
+              </div>
+              <p class="bp-error hidden" id="bp-error" role="alert"></p>
+              <div class="bp-actions">
+                <button type="button" class="tb-btn primary" id="bp-resume">Resume this</button>
+                <button type="button" class="tb-btn" id="bp-revert">Revert edits</button>
+                <button type="button" class="tb-btn" id="bp-fail">Fail request</button>
+                <button type="button" class="tb-btn hidden" id="bp-remove">Remove</button>
+              </div>
+            </aside>
           </div>
         </section>
       </main>

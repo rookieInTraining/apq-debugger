@@ -1,14 +1,22 @@
 /**
  * Breakpoints tab: debug-mode and pause-on-next toolbar, the paused-request
  * list and infobar, the operation-name breakpoint list, and the tab-strip
- * `Paused` status. The request editor (#bp-editor) attaches through
- * {@link onPausedSelected}.
+ * `Paused` status. The request editor (#bp-editor) is rendered by
+ * js/ui/paused-editor.js on every selection change.
  * @module ui/breakpoints-view
  */
 
 import { state, inspectedTabId, getWaitingPaused } from './state.js';
 import { showMainTab, getActiveView, onTabShown } from './tabs.js';
 import { updateDebuggerStatus, restoreSessionStatus, showStatusBanner } from './status.js';
+import {
+  initPausedEditor,
+  renderPausedEditor,
+  getPendingEdits,
+  getEditError,
+  showEditError,
+  CANCELLED_MESSAGE,
+} from './paused-editor.js';
 
 /**
  * One GraphQL operation inside a held request (mirrors `HeldOperation` in
@@ -224,13 +232,46 @@ function applyDebugState(response) {
 }
 
 /**
- * Continue every held request for this tab unmodified.
+ * Resume every waiting request for this tab: edited requests first, each
+ * with its edits, then the rest unmodified. An edited request with invalid
+ * JSON is selected with its error shown and nothing is sent. Both the
+ * Resume all button and F8 come through here.
  */
 export function resumeAllPaused() {
-  if (getWaitingPaused().length === 0) return;
-  sendToWorker({ resumeAllPaused: true, tabId: inspectedTabId }, null, () =>
-    showStatusBanner('Failed to resume paused requests', 'error')
-  );
+  const waiting = getWaitingPaused();
+  if (waiting.length === 0) return;
+
+  const invalid = waiting.find((item) => getEditError(item.id));
+  if (invalid) {
+    selectPaused(invalid.id);
+    showEditError(invalid.id);
+    return;
+  }
+
+  const edited = waiting
+    .map((item) => ({ id: item.id, edits: getPendingEdits(item.id) }))
+    .filter((item) => item.edits);
+  const fail = () => showStatusBanner('Failed to resume paused requests', 'error');
+  let cancelled = false;
+
+  // one at a time, so the worker continues each edited request before the rest
+  const sendNext = (i) => {
+    if (i >= edited.length) {
+      if (cancelled) showStatusBanner(CANCELLED_MESSAGE, 'warning');
+      sendToWorker({ resumeAllPaused: true, tabId: inspectedTabId }, null, fail);
+      return;
+    }
+    const { id, edits } = edited[i];
+    sendToWorker(
+      { resumePaused: id, tabId: inspectedTabId, edits },
+      (response) => {
+        if (response.result === 'cancelled') cancelled = true;
+        sendNext(i + 1);
+      },
+      fail
+    );
+  };
+  sendNext(0);
 }
 
 // ── Paused queue ──────────────────────────────────────────────────
@@ -307,7 +348,17 @@ function renderSelection() {
   const held = selectedHeld();
   const editor = byId('bp-editor');
   if (editor) editor.classList.toggle('hidden', !held);
+  renderPausedEditor(held);
   selectionListeners.forEach((listener) => listener(held));
+}
+
+/** Clear the selection (editor back button / Escape) and return to the list. */
+function clearPausedSelection() {
+  state.selectedPausedId = null;
+  renderPausedList();
+  renderSelection();
+  const list = byId('bp-paused-list');
+  if (list && !list.hidden) list.focus();
 }
 
 /**
@@ -345,7 +396,10 @@ export function renderPaused(paused, pauseNext) {
 
   state.paused = list;
   if (typeof pauseNext === 'boolean') state.pauseNext = pauseNext;
-  if (!list.some((item) => item.id === state.selectedPausedId)) {
+  // a removed selection moves to the next waiting request; a selection the
+  // user cleared stays clear until another request pauses
+  const cleared = state.selectedPausedId === null && !hasNew;
+  if (!cleared && !list.some((item) => item.id === state.selectedPausedId)) {
     const first = list.find((item) => item.state === 'paused') || list[0];
     state.selectedPausedId = first ? first.id : null;
   }
@@ -399,6 +453,8 @@ function handlePausedKeydown(e) {
  * held requests from the service worker.
  */
 export function initBreakpointsView() {
+  initPausedEditor({ onClose: clearPausedSelection });
+
   const form = byId('bp-list');
   if (form) form.addEventListener('submit', (e) => e.preventDefault());
 
