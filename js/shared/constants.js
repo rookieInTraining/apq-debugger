@@ -127,3 +127,10 @@ export const INTROSPECTION_QUERY = `
 export const UI_SETTINGS_STORAGE_KEY = 'apqUiSettings';
 export const PANEL_WIDTHS_STORAGE_KEY = 'apqPanelWidths';
 export const FIRST_RUN_NOTE_STORAGE_KEY = 'apqFirstRunNoteSeen';
+
+// ── Request Breakpoints ───────────────────────────────────────────
+export const BREAKPOINTS_STORAGE_KEY = 'gqlBreakpoints';
+export const DEBUG_STATE_STORAGE_KEY = 'gqlDebugState';
+export const PAUSED_QUEUE_STORAGE_KEY = 'gqlPausedQueue';
+export const MAX_BREAKPOINTS = 100;
+export const MAX_PAUSED_PER_TAB = 50;

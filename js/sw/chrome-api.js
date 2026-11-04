@@ -117,3 +117,31 @@ export function storageSet(items) {
     });
   });
 }
+
+/**
+ * Read values from `chrome.storage.session`.
+ * @param {string|string[]} keys - Storage key(s) to retrieve.
+ * @returns {Promise<object>} Object containing the requested key/value pairs.
+ */
+export function sessionGet(keys) {
+  return new Promise((resolve, reject) => {
+    chrome.storage.session.get(keys, (result) => {
+      if (chrome.runtime.lastError) reject(chrome.runtime.lastError);
+      else resolve(result);
+    });
+  });
+}
+
+/**
+ * Write values to `chrome.storage.session`.
+ * @param {object} items - Key/value pairs to store.
+ * @returns {Promise<void>} Resolves when the data is persisted.
+ */
+export function sessionSet(items) {
+  return new Promise((resolve, reject) => {
+    chrome.storage.session.set(items, () => {
+      if (chrome.runtime.lastError) reject(chrome.runtime.lastError);
+      else resolve();
+    });
+  });
+}

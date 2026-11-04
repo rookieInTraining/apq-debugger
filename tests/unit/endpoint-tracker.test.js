@@ -25,6 +25,8 @@ describe('Endpoint Tracker persistence', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     chrome.runtime.lastError = null;
+    // These tests exercise the tracker's storage.local fallback (no session area).
+    delete chrome.storage.session;
     chrome.storage.local.get.mockImplementation((_keys, cb) => cb({}));
     chrome.storage.local.set.mockImplementation((_items, cb) => cb && cb());
   });

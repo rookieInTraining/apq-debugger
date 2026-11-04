@@ -7,6 +7,7 @@ global.chrome = {
     onInstalled: { addListener: jest.fn() },
     onStartup: { addListener: jest.fn() },
     onSuspend: { addListener: jest.fn() },
+    onConnect: { addListener: jest.fn() },
   },
   debugger: {
     onEvent: { addListener: jest.fn() },
@@ -28,6 +29,11 @@ global.chrome = {
   },
   storage: {
     local: {
+      get: jest.fn((keys, cb) => cb && cb({})),
+      set: jest.fn((items, cb) => cb && cb()),
+      remove: jest.fn((keys, cb) => cb && cb()),
+    },
+    session: {
       get: jest.fn((keys, cb) => cb && cb({})),
       set: jest.fn((items, cb) => cb && cb()),
       remove: jest.fn((keys, cb) => cb && cb()),
