@@ -10,7 +10,7 @@ const path = require('path');
 
 /** Max bytes per artifact in extension_build/ */
 const BUDGETS = {
-  'devtools.min.js': 55000,
+  'devtools.min.js': 62400, // breakpoints tab: measured 56732 + 10%
   'service-worker.min.js': 34000, // request breakpoints: measured 30954 + 10%
   'devtools.min.css': 30000,
 };

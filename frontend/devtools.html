@@ -449,7 +449,84 @@
           id="breakpoints-content"
           role="tabpanel"
           aria-labelledby="tab-breakpoints"
-        ></section>
+        >
+          <div class="toolbar" id="bp-toolbar" role="toolbar" aria-label="Breakpoints">
+            <label class="check">
+              <input type="checkbox" id="bp-debug-mode" />
+              Debug mode
+            </label>
+            <span class="tb-sep" aria-hidden="true"></span>
+            <button type="button" class="tb-btn" id="bp-pause-next" aria-pressed="false">
+              <span class="pause-shape" aria-hidden="true"></span>
+              Pause on next request
+            </button>
+            <span class="bp-hint" id="bp-pause-next-hint" hidden
+              >Waiting for the next request…</span
+            >
+            <span class="tb-spacer" aria-hidden="true"></span>
+            <button
+              type="button"
+              class="tb-btn"
+              id="bp-resume-all"
+              title="Resume all (F8)"
+              disabled
+            >
+              <svg class="icon icon-resume" viewBox="0 0 24 24" aria-hidden="true">
+                <polygon points="8 6 18 12 8 18" />
+              </svg>
+              Resume all
+            </button>
+          </div>
+
+          <!-- Paused infobar -->
+          <div class="infobar is-paused hidden" id="bp-infobar">
+            <span class="pause-shape" aria-hidden="true"></span>
+            <p class="infobar-text" id="bp-infobar-text"></p>
+          </div>
+
+          <div class="split bp-split" id="bp-split">
+            <div class="bp-lists">
+              <h2 class="bp-section-head" id="bp-paused-label">Paused requests</h2>
+              <div
+                class="bp-paused-list"
+                id="bp-paused-list"
+                role="listbox"
+                aria-label="Paused requests"
+                tabindex="0"
+                hidden
+              ></div>
+              <div class="empty-state bp-empty" id="bp-empty">
+                <p class="empty-title">No paused requests</p>
+                <p class="empty-desc">
+                  Add an operation name below and turn on debug mode. Matching requests pause here
+                  before they are sent.
+                </p>
+                <p class="empty-desc" id="bp-empty-off">
+                  Start interception on the Requests tab first.
+                </p>
+              </div>
+
+              <h2 class="bp-section-head" id="bp-list-label">Breakpoints</h2>
+              <form
+                id="bp-list"
+                class="bp-list"
+                role="group"
+                aria-labelledby="bp-list-label"
+              ></form>
+              <div class="bp-list-actions">
+                <button type="button" class="tb-btn btn-add-pattern" id="bp-add">
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <line x1="12" y1="6" x2="12" y2="18" />
+                    <line x1="6" y1="12" x2="18" y2="12" />
+                  </svg>
+                  Add breakpoint
+                </button>
+              </div>
+            </div>
+
+            <aside class="bp-editor hidden" id="bp-editor" aria-label="Paused request"></aside>
+          </div>
+        </section>
       </main>
 
       <!-- Toasts (bottom-right); error toasts individually get role="alert" -->

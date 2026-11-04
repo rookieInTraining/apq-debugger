@@ -3,6 +3,7 @@
  * - Escape closes the detail panel
  * - Ctrl/Cmd+E starts or stops interception (as Network's record shortcut)
  * - Ctrl/Cmd+F or "/" focuses the active view's filter
+ * - F8 resumes all paused requests
  * - Arrow navigation between the Requests / Schema tabs
  * - Arrow/Home/End navigation within the request list (roving focus)
  * - Arrow/Home/End navigation within the schema type list (roving focus)
@@ -204,6 +205,16 @@ export function initKeyboard() {
 
   document.addEventListener('keydown', (e) => {
     const mod = e.ctrlKey || e.metaKey;
+
+    // F8: resume every paused request (the DevTools debugger's shortcut)
+    if (e.key === 'F8' && !mod && !e.shiftKey && !e.altKey) {
+      const resumeAll = document.getElementById('bp-resume-all');
+      if (resumeAll && !resumeAll.disabled) {
+        e.preventDefault();
+        resumeAll.click();
+      }
+      return;
+    }
 
     if (mod && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'e') {
       const recordButton = document.getElementById('form-submit');

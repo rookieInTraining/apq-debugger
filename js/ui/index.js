@@ -28,6 +28,8 @@ import { initCurlCopy } from './curl-copy.js';
 import { initConfirm } from './confirm.js';
 import { initEndpoints, scheduleEndpointsRefresh } from './endpoints.js';
 import { initSession, renderSessionBar } from './session.js';
+import { initBreakpointsView, handlePausedMessage } from './breakpoints-view.js';
+import { connectPanelPort } from './panel-port.js';
 
 // ── Panel registration ────────────────────────────────────────────
 
@@ -61,6 +63,8 @@ document.addEventListener('DOMContentLoaded', function () {
   initCurlCopy();
   initConfirm();
   initEndpoints();
+  initBreakpointsView();
+  connectPanelPort(inspectedTabId);
 
   // ── Message listeners ─────────────────────────────────────────
 
@@ -96,6 +100,8 @@ document.addEventListener('DOMContentLoaded', function () {
         }
       } else if (message.status === 'REGISTRY_UPDATED') {
         updateRegistryUI(message);
+      } else if (message.status === 'PAUSED_UPDATED') {
+        handlePausedMessage(message);
       } else if (message.status === 'SCHEMA_PROGRESS') {
         updateSchemaProgress(message.message || '');
       } else if (message.status === 'ACTION_TOGGLE') {

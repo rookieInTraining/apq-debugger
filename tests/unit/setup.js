@@ -8,6 +8,13 @@ global.chrome = {
     onStartup: { addListener: jest.fn() },
     onSuspend: { addListener: jest.fn() },
     onConnect: { addListener: jest.fn() },
+    connect: jest.fn(({ name } = {}) => ({
+      name,
+      onDisconnect: { addListener: jest.fn() },
+      onMessage: { addListener: jest.fn() },
+      postMessage: jest.fn(),
+      disconnect: jest.fn(),
+    })),
   },
   debugger: {
     onEvent: { addListener: jest.fn() },

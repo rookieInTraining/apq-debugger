@@ -6,6 +6,7 @@
  */
 
 import { getElement } from './dom-helpers.js';
+import { state } from './state.js';
 
 /** Maximum toasts kept on screen; oldest are dropped first. */
 const TOAST_LIMIT = 4;
@@ -18,12 +19,18 @@ const CLOSE_ICON =
 
 /**
  * Update the session status indicator in the tab strip.
- * @param {string} text - Status word (Off, Starting, Intercepting, Passive, Stopping, Error…).
- * @param {'default'|'active'|'success'|'info'|'warning'|'error'} type
+ * While requests are held, `Paused` stays up: settled session words
+ * (default/active/success/info) wait for {@link restoreSessionStatus},
+ * which recomputes them from state once the queue empties.
+ * @param {string} text - Status word (Off, Starting, Intercepting, Passive, Paused, Stopping, Error…).
+ * @param {'default'|'active'|'success'|'info'|'warning'|'error'|'paused'} type
  */
 export function updateDebuggerStatus(text, type = 'default') {
   const statusBadge = getElement('debugger-status');
   if (!statusBadge) return;
+
+  const settled = type !== 'paused' && type !== 'warning' && type !== 'error';
+  if (settled && state.paused.length > 0) return;
 
   const statusText = statusBadge.querySelector('.status-text');
   if (statusText) statusText.textContent = text;
@@ -37,7 +44,19 @@ export function updateDebuggerStatus(text, type = 'default') {
     statusBadge.classList.add('warning');
   } else if (type === 'error') {
     statusBadge.classList.add('error');
+  } else if (type === 'paused') {
+    statusBadge.classList.add('paused');
   }
+}
+
+/**
+ * Show the session word the current state implies (Intercepting,
+ * Passive or Off). Used when the paused queue empties.
+ */
+export function restoreSessionStatus() {
+  if (state.isDebuggerActive) updateDebuggerStatus('Intercepting', 'active');
+  else if (state.passiveMode) updateDebuggerStatus('Passive', 'info');
+  else updateDebuggerStatus('Off', 'default');
 }
 
 /**

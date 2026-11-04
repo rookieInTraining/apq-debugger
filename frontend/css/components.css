@@ -1585,6 +1585,241 @@ summary.code-header:focus-visible {
   gap: var(--s-3);
 }
 
+/* ── Breakpoints ── */
+
+/* pause: two 3px bars, the DevTools debugger's paused shape */
+.pause-shape {
+  display: inline-block;
+  flex: none;
+  box-sizing: border-box;
+  width: 8px;
+  height: 10px;
+  border-left: 3px solid currentColor;
+  border-right: 3px solid currentColor;
+}
+
+.status.paused {
+  color: var(--pending);
+  font-weight: 600;
+}
+
+.status.paused .status-dot {
+  box-sizing: border-box;
+  border: 0;
+  border-left: 3px solid currentColor;
+  border-right: 3px solid currentColor;
+  border-radius: 0;
+  background: none;
+}
+
+#bp-pause-next[aria-pressed='true'] {
+  background: var(--bg-selected);
+  color: var(--text-on-selected);
+}
+
+.bp-hint {
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.bp-hint[hidden] {
+  display: none;
+}
+
+.icon-resume {
+  fill: currentColor;
+  stroke: none;
+}
+
+.infobar.is-paused {
+  background: var(--live-bg);
+  border-color: var(--live-border);
+  color: var(--live-text);
+}
+
+.infobar > .pause-shape {
+  margin-top: 3px;
+}
+
+.bp-lists {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+}
+
+.bp-section-head {
+  flex: none;
+  margin: 0;
+  height: var(--row-h);
+  line-height: calc(var(--row-h) - 1px);
+  padding: 0 var(--s-4);
+  background: var(--bg-chrome);
+  border-bottom: 1px solid var(--divider);
+  color: var(--text-2);
+  font-size: var(--fs);
+  font-weight: 500;
+}
+
+.bp-section-head ~ .bp-section-head {
+  border-top: 1px solid var(--divider);
+}
+
+.bp-paused-list[hidden] {
+  display: none;
+}
+
+.bp-paused-list:focus-visible {
+  outline-offset: -2px;
+}
+
+.bp-paused-item {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  height: var(--row-h);
+  padding: 0 var(--s-4);
+  cursor: default;
+  border-bottom: 1px solid color-mix(in srgb, var(--divider) 55%, transparent);
+}
+
+.bp-paused-item:hover {
+  background: var(--bg-hover);
+}
+
+.bp-paused-item.selected {
+  background: var(--bg-selected-idle);
+}
+
+.bp-paused-list:focus-within .bp-paused-item.selected {
+  background: var(--bg-selected);
+  color: var(--text-on-selected);
+}
+
+.bp-paused-item:focus-visible {
+  outline: 1px solid var(--focus);
+  outline-offset: -1px;
+}
+
+.bp-op {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+}
+
+.bp-paused-item.is-cancelled .bp-op {
+  text-decoration: line-through;
+  color: var(--text-2);
+}
+
+.bp-state {
+  flex: none;
+  white-space: nowrap;
+}
+
+.bp-state--paused {
+  color: var(--pending);
+}
+
+.bp-state--paused::before {
+  box-sizing: border-box;
+  width: 8px;
+  height: 8px;
+  border-left: 3px solid currentColor;
+  border-right: 3px solid currentColor;
+}
+
+.bp-state--cancelled {
+  color: var(--text-2);
+  font-weight: 400;
+}
+
+.bp-state--cancelled::before {
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+}
+
+.bp-paused-list:focus-within .bp-paused-item.selected .bp-state,
+.bp-paused-list:focus-within .bp-paused-item.selected .bp-op {
+  color: inherit;
+}
+
+.empty-state.bp-empty {
+  gap: var(--s-3);
+  padding: var(--s-5) var(--s-6);
+}
+
+.bp-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  padding: var(--s-3) var(--s-4) 0;
+}
+
+.bp-item {
+  display: flex;
+  align-items: center;
+  gap: var(--s-1);
+}
+
+.bp-item .bp-name {
+  flex: 1;
+  min-width: 0;
+  max-width: 360px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+}
+
+/* enable toggle drawn as a breakpoint marker: filled on, hollow off */
+.bp-enable {
+  appearance: none;
+  flex: none;
+  box-sizing: border-box;
+  width: 10px;
+  height: 10px;
+  margin: 0 var(--s-3) 0 var(--s-2);
+  border: 1.5px solid var(--primary);
+  border-radius: 50%;
+  background: transparent;
+}
+
+.bp-enable:checked {
+  background: var(--primary);
+}
+
+.bp-list-actions {
+  padding: var(--s-3) var(--s-4) var(--s-4);
+}
+
+.bp-list-actions .tb-btn {
+  border-color: var(--divider);
+}
+
+.bp-editor {
+  display: flex;
+  flex-direction: column;
+  width: clamp(320px, 50%, 720px);
+  min-width: 280px;
+  min-height: 0;
+  background: var(--bg);
+  border-left: 1px solid var(--divider);
+}
+
+/* below 640px the editor overlays the lists, like the request detail pane */
+.app.narrow .bp-editor {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  width: auto;
+  min-width: 0;
+  border-left: 0;
+}
+
 /* ---- narrow and short panels ---- */
 
 /* the detail pane overlays the list when there is no room for a split */
@@ -1690,5 +1925,27 @@ summary.code-header:focus-visible {
   .menu,
   .modal-panel {
     border: 1px solid CanvasText;
+  }
+
+  .bp-paused-item.selected {
+    forced-color-adjust: none;
+    background: Highlight;
+    color: HighlightText;
+  }
+
+  /* bar and hollow shapes are drawn with borders; keep their gaps open */
+  .status.paused .status-dot,
+  .bp-state--paused::before,
+  .bp-state--cancelled::before {
+    background: none;
+  }
+
+  .bp-enable {
+    border-color: CanvasText;
+  }
+
+  .bp-enable:checked {
+    forced-color-adjust: none;
+    background: CanvasText;
   }
 }

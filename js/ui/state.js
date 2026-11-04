@@ -25,7 +25,12 @@ export const inspectedTabId = chrome.devtools.inspectedWindow.tabId;
  *   requestHistory: object[],
  *   requestIdCounter: number,
  *   passiveMode: boolean,
- *   registrySize: number
+ *   registrySize: number,
+ *   breakpoints: Array<{name: string, enabled: boolean}>,
+ *   debugMode: boolean,
+ *   pauseNext: boolean,
+ *   paused: import('./breakpoints-view.js').HeldRequest[],
+ *   selectedPausedId: string|null
  * }}
  */
 export const state = {
@@ -40,4 +45,9 @@ export const state = {
   requestIdCounter: 0,
   passiveMode: false,
   registrySize: 0,
+  breakpoints: [],
+  debugMode: false,
+  pauseNext: false,
+  paused: [],
+  selectedPausedId: null,
 };
