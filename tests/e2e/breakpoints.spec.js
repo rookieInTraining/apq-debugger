@@ -212,4 +212,39 @@ test.describe('Request breakpoints', () => {
     await expect(app.locator('#out')).toContainText('USD', { timeout: 5000 });
     await expect(app.locator('#out')).not.toContainText('EUR');
   });
+
+  test('a page load releases held requests and keeps pause-next; SPA navigation does not', async () => {
+    const { app, tabId } = await openApp();
+    const panel = await openPanel(tabId);
+    await startDebugging(panel, tabId);
+    await addBreakpoint(panel, 'GetCart');
+
+    await app.locator('#named').click();
+    await expect(panel.locator('#bp-infobar-text')).toHaveText('Paused on GetCart');
+
+    // Same-document navigations leave the request held
+    await app.evaluate(() => {
+      location.hash = 'cart';
+      history.pushState({}, '', '/spa-route');
+    });
+    await app.waitForTimeout(1000);
+    await expect(panel.locator('#bp-infobar-text')).toHaveText('Paused on GetCart');
+
+    await panel.locator('#bp-pause-next').click();
+    await waitForDebugFlag(tabId, 'pauseNext');
+
+    // A cross-document navigation releases it, and pause-next stays armed
+    await app.reload();
+    await expect(panel.locator('#bp-infobar')).toBeHidden({ timeout: 5000 });
+    await expect
+      .poll(() =>
+        background.evaluate(async (id) => {
+          const stored = await chrome.storage.session.get('gqlPausedQueue');
+          return ((stored.gqlPausedQueue || {})[id] || []).length;
+        }, tabId)
+      )
+      .toBe(0);
+    await expect(panel.locator('#bp-pause-next')).toHaveAttribute('aria-pressed', 'true');
+    await waitForDebugFlag(tabId, 'pauseNext');
+  });
 });
