@@ -6,7 +6,7 @@
  * @module ui/breakpoints-view
  */
 
-import { state, inspectedTabId } from './state.js';
+import { state, inspectedTabId, getWaitingPaused } from './state.js';
 import { showMainTab, getActiveView, onTabShown } from './tabs.js';
 import { updateDebuggerStatus, restoreSessionStatus, showStatusBanner } from './status.js';
 
@@ -213,7 +213,7 @@ function renderToolbar() {
   if (hint) hint.hidden = !state.pauseNext;
 
   const resumeAll = byId('bp-resume-all');
-  if (resumeAll) resumeAll.disabled = state.paused.length === 0;
+  if (resumeAll) resumeAll.disabled = getWaitingPaused().length === 0;
 }
 
 /** @param {{debugMode?: boolean, pauseNext?: boolean}} response */
@@ -227,7 +227,7 @@ function applyDebugState(response) {
  * Continue every held request for this tab unmodified.
  */
 export function resumeAllPaused() {
-  if (state.paused.length === 0) return;
+  if (getWaitingPaused().length === 0) return;
   sendToWorker({ resumeAllPaused: true, tabId: inspectedTabId }, null, () =>
     showStatusBanner('Failed to resume paused requests', 'error')
   );
@@ -277,19 +277,20 @@ function renderPausedList() {
   }
 }
 
-/** Infobar text for the queue, or nothing when it is empty. */
+/** Infobar text for the waiting requests, hidden when none are waiting. */
 function renderInfobar() {
   const bar = byId('bp-infobar');
   const text = byId('bp-infobar-text');
   if (!bar || !text) return;
 
-  const count = state.paused.length;
+  const waiting = getWaitingPaused();
+  const count = waiting.length;
   bar.classList.toggle('hidden', count === 0);
   text.textContent =
     count === 0
       ? ''
       : count === 1
-        ? `Paused on ${heldName(state.paused[0])}`
+        ? `Paused on ${heldName(waiting[0])}`
         : `Paused · ${count} requests waiting`;
 }
 
@@ -338,14 +339,15 @@ export function onPausedSelected(listener) {
  */
 export function renderPaused(paused, pauseNext) {
   const list = Array.isArray(paused) ? paused : [];
-  const wasPaused = state.paused.length > 0;
+  const wasWaiting = getWaitingPaused().length > 0;
   const hasNew = list.some((item) => !seenIds.has(item.id));
   seenIds = new Set(list.map((item) => item.id));
 
   state.paused = list;
   if (typeof pauseNext === 'boolean') state.pauseNext = pauseNext;
   if (!list.some((item) => item.id === state.selectedPausedId)) {
-    state.selectedPausedId = list.length ? list[0].id : null;
+    const first = list.find((item) => item.state === 'paused') || list[0];
+    state.selectedPausedId = first ? first.id : null;
   }
 
   if (hasNew && getActiveView() !== 'breakpoints') showMainTab('breakpoints');
@@ -356,8 +358,8 @@ export function renderPaused(paused, pauseNext) {
   renderEmpty();
   renderSelection();
 
-  if (list.length > 0) updateDebuggerStatus('Paused', 'paused');
-  else if (wasPaused) restoreSessionStatus();
+  if (getWaitingPaused().length > 0) updateDebuggerStatus('Paused', 'paused');
+  else if (wasWaiting) restoreSessionStatus();
 }
 
 /**

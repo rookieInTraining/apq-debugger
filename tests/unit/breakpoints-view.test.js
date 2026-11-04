@@ -304,6 +304,42 @@ describe('paused updates', () => {
     expect(row.classList.contains('is-cancelled')).toBe(true);
   });
 
+  test('a cancelled request after a paused one is not named', () => {
+    setup();
+    renderPaused([held('1', 'GetCart'), held('2', 'GetUser', 'cancelled')], false);
+    expect(byId('bp-infobar-text').textContent).toBe('Paused on GetCart');
+  });
+
+  test('a cancelled request before a paused one is not named and not selected', () => {
+    setup();
+    renderPaused([held('1', 'GetCart', 'cancelled'), held('2', 'GetUser')], false);
+    expect(byId('bp-infobar-text').textContent).toBe('Paused on GetUser');
+    expect(state.selectedPausedId).toBe('2');
+  });
+
+  test('only paused requests count as waiting', () => {
+    setup();
+    renderPaused(
+      [held('1', 'GetCart'), held('2', 'GetUser', 'cancelled'), held('3', 'AddToCart')],
+      false
+    );
+    expect(byId('bp-infobar-text').textContent).toBe('Paused · 2 requests waiting');
+  });
+
+  test('cancelled-only queue: no infobar, session word restored, nothing to resume', () => {
+    setup();
+    renderPaused([held('1', 'GetCart')], false);
+    expect(statusText()).toBe('Paused');
+
+    renderPaused([held('1', 'GetCart', 'cancelled')], false);
+    expect(byId('bp-infobar').classList.contains('hidden')).toBe(true);
+    expect(statusText()).toBe('Intercepting');
+    expect(byId('bp-resume-all').disabled).toBe(true);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'F8', bubbles: true }));
+    expect(sent('resumeAllPaused')).toHaveLength(0);
+    expect(document.querySelectorAll('#bp-paused-list [role="option"]')).toHaveLength(1);
+  });
+
   test('pauseNext from the update drives the toolbar', () => {
     setup();
     renderPaused([], true);

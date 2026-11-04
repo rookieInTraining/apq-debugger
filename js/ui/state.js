@@ -51,3 +51,12 @@ export const state = {
   paused: [],
   selectedPausedId: null,
 };
+
+/**
+ * Held requests still waiting to be resumed (`state === 'paused'`);
+ * requests the page cancelled are listed but not waiting.
+ * @returns {import('./breakpoints-view.js').HeldRequest[]}
+ */
+export function getWaitingPaused() {
+  return state.paused.filter((item) => item.state === 'paused');
+}

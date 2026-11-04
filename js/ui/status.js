@@ -6,7 +6,7 @@
  */
 
 import { getElement } from './dom-helpers.js';
-import { state } from './state.js';
+import { state, getWaitingPaused } from './state.js';
 
 /** Maximum toasts kept on screen; oldest are dropped first. */
 const TOAST_LIMIT = 4;
@@ -19,7 +19,7 @@ const CLOSE_ICON =
 
 /**
  * Update the session status indicator in the tab strip.
- * While requests are held, `Paused` stays up: settled session words
+ * While requests are waiting, `Paused` stays up: settled session words
  * (default/active/success/info) wait for {@link restoreSessionStatus},
  * which recomputes them from state once the queue empties.
  * @param {string} text - Status word (Off, Starting, Intercepting, Passive, Paused, Stopping, Error…).
@@ -30,7 +30,7 @@ export function updateDebuggerStatus(text, type = 'default') {
   if (!statusBadge) return;
 
   const settled = type !== 'paused' && type !== 'warning' && type !== 'error';
-  if (settled && state.paused.length > 0) return;
+  if (settled && getWaitingPaused().length > 0) return;
 
   const statusText = statusBadge.querySelector('.status-text');
   if (statusText) statusText.textContent = text;
