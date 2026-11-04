@@ -427,6 +427,42 @@ describe('paused editor: Resume this', () => {
     }
   );
 
+  test.each([['x header'], ['x:y'], [''], ['x-é']])(
+    'an invalid header name %j shows the inline error, focuses Headers and sends nothing',
+    (name) => {
+      setup();
+      type('bp-headers', JSON.stringify({ 'content-type': 'application/json', [name]: 'v' }));
+      byId('bp-resume').click();
+      expect(actionMessages()).toEqual([]);
+      expect(byId('bp-error').textContent).toBe(`Header name "${name}" isn't valid.`);
+      expect(byId('bp-error').classList.contains('hidden')).toBe(false);
+      expect(document.activeElement).toBe(byId('bp-headers'));
+    }
+  );
+
+  test.each([['a\r\nx-injected: 1'], ['a\nb'], ['a\rb']])(
+    'a header value with a line break (%j) shows the inline error and sends nothing',
+    (value) => {
+      setup();
+      type('bp-headers', JSON.stringify({ authorization: value }));
+      byId('bp-resume').click();
+      expect(actionMessages()).toEqual([]);
+      expect(byId('bp-error').textContent).toBe(
+        'Header "authorization" has a line break in its value.'
+      );
+      expect(document.activeElement).toBe(byId('bp-headers'));
+    }
+  );
+
+  test('token punctuation is a valid header name', () => {
+    setup();
+    type('bp-headers', JSON.stringify({ "x-a!#$%&'*+.^_`|~1": 'v' }));
+    byId('bp-resume').click();
+    expect(actionMessages()).toEqual([
+      { resumePaused: '1', tabId: 123, edits: { headers: { "x-a!#$%&'*+.^_`|~1": 'v' } } },
+    ]);
+  });
+
   test('a cancelled result shows a warning toast', () => {
     setup();
     results.resume = 'cancelled';

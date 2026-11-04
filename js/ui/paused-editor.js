@@ -44,6 +44,11 @@ const NOTE_REGISTRY =
 /** @type {Part[]} */
 const PARTS = ['query', 'variables', 'headers'];
 
+/** RFC 7230 header field name (`token`). */
+const HEADER_NAME = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
+/** CR or LF, which would split a header value into another header. */
+const LINE_BREAK = /[\r\n]/;
+
 /** @param {string} id */
 const byId = (id) => document.getElementById(id);
 
@@ -150,6 +155,20 @@ function sortedJson(obj) {
 }
 
 /**
+ * The first header Chrome could not send: a name that isn't an HTTP token, or a
+ * value with a line break.
+ * @param {Record<string,string>} headers
+ * @returns {string|null} The message to show, or null when every header is valid.
+ */
+function headerProblem(headers) {
+  for (const [name, value] of Object.entries(headers)) {
+    if (!HEADER_NAME.test(name)) return `Header name "${name}" isn't valid.`;
+    if (LINE_BREAK.test(value)) return `Header "${name}" has a line break in its value.`;
+  }
+  return null;
+}
+
+/**
  * Turn a held request's draft into resume edits holding only the changed parts.
  * @param {HeldRequest} held
  * @returns {{edits: ResumeEdits|null, error: EditError|null}}
@@ -216,6 +235,10 @@ function buildEdits(held) {
           message: 'Headers must be a JSON object of strings.',
         },
       };
+    }
+    const headerError = headerProblem(headers);
+    if (headerError) {
+      return { edits: null, error: { part: 'headers', op: draft.op, message: headerError } };
     }
     if (sortedJson(headers) !== sortedJson(held.rawHeaders || {})) edits.headers = headers;
   }
