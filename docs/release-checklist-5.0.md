@@ -8,6 +8,7 @@ Owner steps to ship the GraphQL Debugger 5.0 release with opt-in usage analytics
 - [ ] GA Admin -> Data streams -> your stream -> Measurement Protocol API secrets -> Create. Copy the secret value.
 - [ ] In the GitHub repo, Settings -> Secrets and variables -> Actions, add `GA_MEASUREMENT_ID` and `GA_API_SECRET`.
 - [ ] Confirm the release workflow passes both to the build step as environment variables. They are never committed; empty values mean analytics is fully off in that build.
+- [ ] Know the limit: the Measurement Protocol API secret ships inside the extension bundle (inherent to Measurement Protocol; any client-side sender must carry it), so anyone who unpacks the extension could send junk hits to the property. Use a dedicated GA property for the extension (not one shared with a website), and set up data filters (for example on `extension_version` and the expected event names) so stray hits can be excluded.
 
 ## 2. Verify one event locally
 

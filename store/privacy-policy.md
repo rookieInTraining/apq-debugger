@@ -53,7 +53,7 @@ When the user explicitly enables debugging on a specific tab, the extension:
 
 2. **Displays request data** in the DevTools panel, including operation names, GraphQL queries, and variables. This data is held in memory and is discarded when the DevTools panel is closed.
 
-3. **Stores user preferences** (URL patterns and active-tab state) in `chrome.storage.local` to persist settings across browser sessions. This data never leaves the browser.
+3. **Stores data locally** in `chrome.storage.local` to persist it across browser sessions: the URL patterns, the active-tab state, the operation breakpoint list, the analytics consent choice, and the analytics install ID (only while you have opted in). It also keeps the hash registry (APQ hashes and the queries captured for them) and the passive-mode flag, the schema endpoint and its cached schema, panel sizes and display settings. None of this data leaves the browser; the install ID is sent only with opted-in analytics events.
 
 ## What the Extension Does NOT Do
 
