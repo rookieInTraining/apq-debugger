@@ -4,6 +4,8 @@ global.chrome = {
     lastError: null,
     sendMessage: jest.fn((msg, cb) => cb && cb(null)), // simple mock
     onMessage: { addListener: jest.fn() },
+    getManifest: jest.fn(() => ({ version: '0.0.0' })),
+    getPlatformInfo: jest.fn((cb) => cb && cb({ os: 'linux' })),
     onInstalled: { addListener: jest.fn() },
     onStartup: { addListener: jest.fn() },
     onSuspend: { addListener: jest.fn() },
@@ -55,6 +57,9 @@ global.chrome = {
     removeAll: jest.fn((cb) => cb && cb()),
     onClicked: { addListener: jest.fn() },
   },
+  i18n: {
+    getUILanguage: jest.fn(() => 'en-US'),
+  },
   devtools: {
     inspectedWindow: {
       tabId: 123,
@@ -91,5 +96,9 @@ Object.defineProperty(global, 'crypto', {
           ])
         ), // Mock SHA-256 of '1234567890'
     },
+    randomUUID: jest.fn(() => '00000000-0000-4000-8000-000000000000'),
   },
 });
+
+// fetch is stubbed so nothing in a test can reach the network by accident
+global.fetch = jest.fn();

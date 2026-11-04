@@ -136,3 +136,14 @@ export const MAX_BREAKPOINTS = 100;
 export const MAX_PAUSED_PER_TAB = 50;
 /** Long-lived port name prefix; the panel connects as `${PANEL_PORT_PREFIX}${tabId}`. */
 export const PANEL_PORT_PREFIX = 'gql-panel:';
+
+// ── Analytics ─────────────────────────────────────────────────────
+
+/** 'granted' | 'denied'; unset means the user has not been asked yet. */
+export const ANALYTICS_CONSENT_STORAGE_KEY = 'gqlAnalyticsConsent';
+/** Random install ID (chrome.storage.local); deleted when consent is withdrawn. */
+export const ANALYTICS_CLIENT_ID_STORAGE_KEY = 'gqlAnalyticsClientId';
+/** Random per-browser-session ID (chrome.storage.session). */
+export const ANALYTICS_SESSION_STORAGE_KEY = 'gqlAnalyticsSession';
+/** GA4 Measurement Protocol collection endpoint. */
+export const GA_ENDPOINT = 'https://www.google-analytics.com/mp/collect';

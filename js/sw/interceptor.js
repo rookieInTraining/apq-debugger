@@ -10,6 +10,7 @@ import { recordEndpoint } from './endpoint-tracker.js';
 import { isPanelConnected } from './panel-presence.js';
 import { initBreakpoints, getDebugState, decidePause, consumePauseNext } from './breakpoints.js';
 import { holdRequest, getHeld, continueHeld } from './pause-queue.js';
+import { trackEvent } from './analytics.js';
 import { extractOperationName } from '../shared/operation-name.js';
 import { BOGUS_HASH_SEED, DEFAULT_OPERATION_NAME } from '../shared/constants.js';
 
@@ -304,6 +305,10 @@ async function holdIfPaused(tabId, params, body, originals, bodyModified) {
       bodyModified,
     });
     if (!held) return false;
+    trackEvent('breakpoint_hit', {
+      reason: reason === 'pause-next' ? 'pause_next' : 'breakpoint',
+      mode: ctx.passive ? 'passive' : 'active',
+    });
 
     // The panel may have gone while we were deciding; its disconnect already
     // released the (then empty) queue, so release this request ourselves.

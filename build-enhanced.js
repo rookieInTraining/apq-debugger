@@ -82,6 +82,12 @@ async function bundleJS(entry, outfile) {
     sourcemap: isDev ? 'inline' : false,
     drop: isDev ? [] : ['debugger'],
     pure: isDev ? [] : ['console.info', 'console.debug'],
+    // Analytics credentials come from the environment at build time and are
+    // never committed; empty strings leave analytics disabled.
+    define: {
+      __GA_MEASUREMENT_ID__: JSON.stringify(process.env.GA_MEASUREMENT_ID || ''),
+      __GA_API_SECRET__: JSON.stringify(process.env.GA_API_SECRET || ''),
+    },
     legalComments: 'none',
     logLevel: 'warning',
     metafile: true,

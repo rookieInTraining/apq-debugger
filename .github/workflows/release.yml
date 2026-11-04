@@ -29,6 +29,9 @@ jobs:
 
       - name: Build extension
         run: npm run build
+        env:
+          GA_MEASUREMENT_ID: ${{ secrets.GA_MEASUREMENT_ID }}
+          GA_API_SECRET: ${{ secrets.GA_API_SECRET }}
 
       - name: Install zip utility
         run: sudo apt-get install -y zip

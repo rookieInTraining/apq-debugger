@@ -26,6 +26,25 @@ import {
 } from './breakpoints.js';
 import { ensurePausedLoaded, listPaused, getHeld, continueHeld, failHeld } from './pause-queue.js';
 import { buildContinueParams } from './resume-body.js';
+import { isAnalyticsConfigured, getConsent, setConsent, trackEvent } from './analytics.js';
+
+/**
+ * Analytics `mode` value for the current interception mode.
+ * @returns {'active'|'passive'}
+ */
+function interceptionMode() {
+  return isPassiveMode() ? 'passive' : 'active';
+}
+
+/**
+ * Whether a successful detach result actually stopped an attached session
+ * (detachDebuggerFromTab also reports SUCCESS when nothing was attached).
+ * @param {{status: string, message?: string}} result
+ * @returns {boolean}
+ */
+function stoppedInterception(result) {
+  return result.status === 'SUCCESS' && result.message !== 'Debugger already detached';
+}
 
 /**
  * Broadcast a status update to all listeners (DevTools panel, popup, etc.).
@@ -84,6 +103,7 @@ export async function toggleDebuggerFromAction() {
   // If already attached, detach
   if (attachedTabs.has(currentTab.id)) {
     const result = await detachDebuggerFromTab(currentTab.id);
+    if (stoppedInterception(result)) trackEvent('interception_stop', { trigger: 'toolbar' });
     if (result.status === 'SUCCESS') {
       sendActionUpdate({ active: false }, currentTab.id);
     } else {
@@ -129,6 +149,7 @@ export async function toggleDebuggerFromAction() {
 
   const result = await attachDebuggerToTab(currentTab, validPatterns);
   if (result.status === 'SUCCESS') {
+    trackEvent('interception_start', { mode: interceptionMode(), trigger: 'toolbar' });
     sendActionUpdate({ active: true, message: result.message }, currentTab.id);
   } else {
     sendActionUpdate(
@@ -230,6 +251,31 @@ function validateMessage(message) {
     return '"edits" must be an object';
   }
 
+  // Validate analytics message shapes
+  if (message.getAnalyticsState !== undefined && typeof message.getAnalyticsState !== 'boolean') {
+    return '"getAnalyticsState" must be a boolean';
+  }
+  if (
+    message.setAnalyticsConsent !== undefined &&
+    message.setAnalyticsConsent !== 'granted' &&
+    message.setAnalyticsConsent !== 'denied'
+  ) {
+    return '"setAnalyticsConsent" must be "granted" or "denied"';
+  }
+  if (message.trackEvent !== undefined) {
+    const event = message.trackEvent;
+    if (
+      !event ||
+      typeof event !== 'object' ||
+      Array.isArray(event) ||
+      typeof event.name !== 'string' ||
+      (event.params !== undefined &&
+        (!event.params || typeof event.params !== 'object' || Array.isArray(event.params)))
+    ) {
+      return '"trackEvent" must be { name: string, params?: object }';
+    }
+  }
+
   // Validate tabId when present
   if (message.tabId !== undefined && typeof message.tabId !== 'number') {
     return '"tabId" must be a number';
@@ -250,7 +296,8 @@ export function handleMessage(message, sender, sendResponse) {
       message.status === 'ACTION_TOGGLE' ||
       message.status === 'REGISTRY_UPDATED' ||
       message.status === 'SCHEMA_PROGRESS' ||
-      message.status === 'PAUSED_UPDATED')
+      message.status === 'PAUSED_UPDATED' ||
+      message.status === 'ANALYTICS_UPDATED')
   ) {
     return false;
   }
@@ -315,6 +362,22 @@ export function handleMessage(message, sender, sendResponse) {
           status: 'SUCCESS',
           breakpoints: await setBreakpoints(message.setBreakpoints),
         });
+      } else if (message.getAnalyticsState === true) {
+        sendResponse({
+          status: 'SUCCESS',
+          configured: isAnalyticsConfigured(),
+          consent: await getConsent(),
+        });
+      } else if (message.setAnalyticsConsent !== undefined) {
+        await setConsent(message.setAnalyticsConsent);
+        sendResponse({
+          status: 'SUCCESS',
+          configured: isAnalyticsConfigured(),
+          consent: await getConsent(),
+        });
+      } else if (message.trackEvent !== undefined) {
+        trackEvent(message.trackEvent.name, message.trackEvent.params);
+        sendResponse({ status: 'SUCCESS' });
       } else if (isBreakpointTabMessage(message)) {
         if (message.tabId === undefined) {
           sendResponse({ status: 'ERROR', error: 'No tabId provided for breakpoint message' });
@@ -386,6 +449,9 @@ async function handlePatternsMessage(message, sendResponse) {
   }
 
   const result = await attachDebuggerToTab(currentTab, validPatterns);
+  if (result.status === 'SUCCESS') {
+    trackEvent('interception_start', { mode: interceptionMode(), trigger: 'panel' });
+  }
   sendResponse(result);
 }
 
@@ -395,11 +461,13 @@ async function handleDisconnectMessage(message, sendResponse) {
   if (targetTabId !== undefined) {
     console.log(`Detaching debugger session for tab id: ${targetTabId}`);
     const result = await detachDebuggerFromTab(targetTabId);
+    if (stoppedInterception(result)) trackEvent('interception_stop', { trigger: 'panel' });
     sendResponse(result);
   } else {
     try {
       const currentTab = await getActiveTab();
       const result = await detachDebuggerFromTab(currentTab.id);
+      if (stoppedInterception(result)) trackEvent('interception_stop', { trigger: 'panel' });
       sendResponse(result);
     } catch (error) {
       sendResponse({ status: 'WARNING', message: 'No tab specified' });
@@ -433,6 +501,14 @@ async function handleLoadSchemaMessage(message, sendResponse) {
     );
   };
 
+  // Only the source category is reported, never the endpoint itself
+  const schemaSource = (endpoint) => {
+    if (message.url) return 'manual';
+    const observed = getObservedEndpoints(tabId);
+    if (endpoint === undefined) return observed.length > 0 ? 'observed' : 'guessed';
+    return observed.includes(endpoint) ? 'observed' : 'guessed';
+  };
+
   try {
     const result = await loadSchema({
       tabId,
@@ -440,12 +516,14 @@ async function handleLoadSchemaMessage(message, sendResponse) {
       url: message.url ? message.url.trim() : undefined,
       onProgress,
     });
+    trackEvent('schema_load', { result: 'success', source: schemaSource(result.endpoint) });
     sendResponse({
       status: 'SUCCESS',
       endpoint: result.endpoint,
       introspection: result.introspection,
     });
   } catch (error) {
+    trackEvent('schema_load', { result: 'error', source: schemaSource(undefined) });
     sendResponse({ status: 'ERROR', error: error.message || 'Schema load failed' });
   }
 }
@@ -487,8 +565,14 @@ async function handleBreakpointTabMessage(message, sendResponse) {
       paused: listPaused(tabId),
     });
   } else if (message.setDebugMode !== undefined || message.setPauseNext !== undefined) {
-    if (message.setDebugMode !== undefined) await setDebugMode(tabId, message.setDebugMode);
-    if (message.setPauseNext !== undefined) await setPauseNext(tabId, message.setPauseNext);
+    if (message.setDebugMode !== undefined) {
+      await setDebugMode(tabId, message.setDebugMode);
+      trackEvent('debug_mode_set', { on: message.setDebugMode ? 'yes' : 'no' });
+    }
+    if (message.setPauseNext !== undefined) {
+      await setPauseNext(tabId, message.setPauseNext);
+      if (message.setPauseNext) trackEvent('pause_next_armed');
+    }
     await syncNetworkEvents(tabId);
     sendResponse({ status: 'SUCCESS', ...getDebugState(tabId) });
   } else if (message.resumePaused !== undefined) {
@@ -498,16 +582,22 @@ async function handleBreakpointTabMessage(message, sendResponse) {
       return;
     }
     const params = await buildContinueParams(held, message.edits || {});
+    // Edited = the overrides differ from what an unedited resume would send
+    const unedited = await buildContinueParams(held);
+    const edited = !!params.headers || params.postData !== unedited.postData;
     const result = await continueHeld(tabId, message.resumePaused, params);
+    trackEvent('paused_resume', { edited: edited ? 'yes' : 'no' });
     sendResponse({ status: 'SUCCESS', result });
   } else if (message.failPaused !== undefined) {
     const result = await failHeld(tabId, message.failPaused);
+    trackEvent('paused_fail');
     sendResponse({ status: 'SUCCESS', result });
   } else {
     // resumeAllPaused — unedited items go out as held (contaminated bodies stay contaminated)
     for (const item of listPaused(tabId)) {
       await continueHeld(tabId, item.id, await buildContinueParams(item));
     }
+    trackEvent('paused_resume_all');
     sendResponse({ status: 'SUCCESS' });
   }
 }

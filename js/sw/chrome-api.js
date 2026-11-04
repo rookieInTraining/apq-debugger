@@ -145,3 +145,44 @@ export function sessionSet(items) {
     });
   });
 }
+
+/**
+ * Remove values from `chrome.storage.local`.
+ * @param {string|string[]} keys - Storage key(s) to remove.
+ * @returns {Promise<void>} Resolves when the keys are removed.
+ */
+export function storageRemove(keys) {
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.remove(keys, () => {
+      if (chrome.runtime.lastError) reject(chrome.runtime.lastError);
+      else resolve();
+    });
+  });
+}
+
+/**
+ * Remove values from `chrome.storage.session`.
+ * @param {string|string[]} keys - Storage key(s) to remove.
+ * @returns {Promise<void>} Resolves when the keys are removed.
+ */
+export function sessionRemove(keys) {
+  return new Promise((resolve, reject) => {
+    chrome.storage.session.remove(keys, () => {
+      if (chrome.runtime.lastError) reject(chrome.runtime.lastError);
+      else resolve();
+    });
+  });
+}
+
+/**
+ * Get the platform the browser runs on.
+ * @returns {Promise<chrome.runtime.PlatformInfo>} Platform info (`os`, `arch`, ...).
+ */
+export function getPlatformInfo() {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.getPlatformInfo((info) => {
+      if (chrome.runtime.lastError) reject(chrome.runtime.lastError);
+      else resolve(info);
+    });
+  });
+}

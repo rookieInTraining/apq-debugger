@@ -19,6 +19,7 @@ import {
   markCancelled,
 } from './pause-queue.js';
 import { initPanelPresence } from './panel-presence.js';
+import { trackEvent } from './analytics.js';
 
 const ACTION_MENU_ID = 'apq-toggle-debugger';
 
@@ -96,6 +97,8 @@ chrome.debugger.onDetach.addListener((source, reason) => {
     console.log('The target tab was closed.');
   } else if (reason === 'canceled_by_user') {
     console.log('The debugging session was manually detached by the user.');
+    // The user dismissed Chrome's "started debugging" infobar
+    trackEvent('interception_stop', { trigger: 'chrome' });
   } else {
     console.log('Debugger detached for an unknown reason.');
   }
