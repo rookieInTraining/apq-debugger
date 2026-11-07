@@ -1,0 +1,19 @@
+{
+  "voice": "af_heart",
+  "note": "One line per cue in store/promo/video/apq-debugger-demo-cues.json, in order. Spelled for the TTS (\"Graph Q L\", \"A-P-Q\" — a lone \"A\" is read as the article, \"U R L\"; lowercase \"curl\" so it is read as a word, not C-U-R-L).",
+  "lines": [
+    "Graph Q L Debugger. Pause, edit and read every request.",
+    "With Automatic Persisted Queries, Apollo sends a hash instead of the query, so the Network panel can't show what ran.",
+    "First, tell Graph Q L Debugger which requests to watch.",
+    "Press Start. The yellow bar stays up while requests are being rewritten.",
+    "Each hash is swapped, the server asks for the full query, and Apollo retries. The row resolves in place.",
+    "Open any operation to read and copy the full query, and its variables.",
+    "Copy it as a curl command, with the headers captured from the page, and replay it from a terminal.",
+    "Set a breakpoint on an operation name, and matching requests pause before they're sent.",
+    "Edit the query, variables or headers, then resume. Only the request waits. The page keeps running.",
+    "Filter by name, U R L, or request type.",
+    "On the Schema tab, load the schema by introspection, reusing headers from live traffic.",
+    "Stop when you're done. Nothing from your traffic leaves your browser.",
+    "Graph Q L Debugger. Breakpoints, A-P-Q, and schema."
+  ]
+}

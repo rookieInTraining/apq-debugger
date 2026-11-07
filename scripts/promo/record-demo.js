@@ -9,6 +9,7 @@
  *
  *   store/promo/video/apq-debugger-demo.mp4
  *   store/promo/video/apq-debugger-demo-poster.png
+ *   store/promo/video/apq-debugger-demo-cues.json (scene timings for the voiceover)
  */
 
 const fs = require('fs');
@@ -21,15 +22,18 @@ const {
   openStage,
   panelFrame,
   intercept,
+  holdRequest,
   playExchanges,
   clickWithCursor,
   typeSlowly,
 } = require('./lib');
-const { apqExchange, fullQuery, unresolvedTelemetry } = require('./demo-data');
+const { apqExchange, fullQuery, heldRequest, unresolvedTelemetry } = require('./demo-data');
 
 const OUT_DIR = path.join(ROOT, 'store', 'promo', 'video');
 const OUT_FILE = path.join(OUT_DIR, 'apq-debugger-demo.mp4');
 const POSTER = path.join(OUT_DIR, 'apq-debugger-demo-poster.png');
+/** Scene timings (seconds into the video) for placing the voiceover. */
+const CUES = path.join(OUT_DIR, 'apq-debugger-demo-cues.json');
 const FRAMES = path.join(os.tmpdir(), 'apq-debugger-demo-frames');
 
 /** Capture timestamped screencast frames until stop() is called. */
@@ -114,11 +118,19 @@ async function main() {
   const stage = (fn, ...args) =>
     page.evaluate(({ fn, args }) => window.stage[fn](...args), { fn, args });
   const hold = (ms) => page.waitForTimeout(ms);
-  const caption = (text, placement) => stage('caption', text, placement);
+  // Cues (wall-clock, converted to video time after recording) let the
+  // voiceover be placed on each caption when audio is mixed in post.
+  const cues = [];
+  const cue = (id, text) => cues.push({ id, text, t: Date.now() / 1000 });
+  const caption = (text, placement) => {
+    if (text) cue('caption', text);
+    return stage('caption', text, placement);
+  };
 
   await stage('card', 'GraphQL Debugger', 'Pause, edit and read every GraphQL request.');
   await hold(600);
   const cast = await startScreencast(page);
+  cue('title', 'GraphQL Debugger. Pause, edit and read every GraphQL request.');
 
   // Scene 1 · Title
   await hold(4500);
@@ -193,7 +205,46 @@ async function main() {
   await clickWithCursor(page, panel.locator('#curl-modal-close'));
   await hold(800);
 
-  // Scene 8 · Find things fast
+  // Scene 8 · Pause and edit a request
+  await caption(
+    'Set a breakpoint on an operation name. Matching requests pause before they are sent.'
+  );
+  await clickWithCursor(page, panel.locator('#tab-breakpoints'));
+  await hold(700);
+  const bpName = panel.locator('#bp-list .bp-name').first();
+  await clickWithCursor(page, bpName);
+  await typeSlowly(bpName, 'AddToCart', 110);
+  await bpName.press('Enter');
+  await hold(500);
+  await clickWithCursor(page, panel.locator('#bp-debug-mode'));
+  await hold(1200);
+  await clickWithCursor(page, page.locator('#grid .product .add').nth(1));
+  await intercept(page, [fullQuery('AddToCart')]);
+  await holdRequest(page, heldRequest('AddToCart', 'demo-hold-1'));
+  await hold(3600);
+
+  await caption(
+    'Edit the query, variables or headers, then resume. Only the request waits; the page keeps running.'
+  );
+  await clickWithCursor(page, panel.locator('#bp-tab-variables'));
+  await hold(800);
+  const variablesBox = panel.locator('#bp-variables');
+  await clickWithCursor(page, variablesBox);
+  const edited = (await variablesBox.inputValue()).replace('"quantity": 1', '"quantity": 3');
+  await variablesBox.fill(edited);
+  await hold(1600);
+  await clickWithCursor(page, panel.locator('#bp-resume'));
+  const resumedQty = await panel.evaluate(
+    () => window.__apqDemo.lastResume?.edits?.operations?.[0]?.variables?.input?.quantity ?? 1
+  );
+  await stage('setCart', 1 + resumedQty);
+  await hold(2600);
+  await clickWithCursor(page, panel.locator('#bp-debug-mode'));
+  await hold(900);
+  await clickWithCursor(page, panel.locator('#tab-requests'));
+  await hold(700);
+
+  // Scene 9 · Find things fast
   await caption('Filter by name, URL or request type.');
   const filter = panel.locator('#filter-input');
   await clickWithCursor(page, filter);
@@ -208,7 +259,7 @@ async function main() {
   await clickWithCursor(page, panel.locator('.chip[data-filter="all"]'));
   await hold(900);
 
-  // Scene 9 · Browse the schema
+  // Scene 10 · Browse the schema
   await caption('Load the schema by introspection, reusing the headers from live traffic.');
   await clickWithCursor(page, panel.locator('#tab-schema'));
   await hold(700);
@@ -218,20 +269,30 @@ async function main() {
   await clickWithCursor(page, panel.locator('.schema-type-item[data-type-name="Product"]'));
   await hold(2800);
 
-  // Scene 10 · Stop
-  await caption('Stop when you’re done. Everything stays local to your browser.');
+  // Scene 11 · Stop
+  await caption('Stop when you’re done. Nothing from your traffic leaves your browser.');
   await clickWithCursor(page, panel.locator('#tab-requests'));
   await hold(600);
   await clickWithCursor(page, panel.locator('#form-submit'));
   await hold(4800);
 
-  // Scene 11 · End card
+  // Scene 12 · End card
   await caption('');
   await stage('hideCursor');
-  await stage('card', 'GraphQL Debugger', 'A Chrome DevTools panel for Apollo APQ');
+  cue('end', 'GraphQL Debugger. Breakpoints, APQ and schema for GraphQL, in DevTools.');
+  await stage('card', 'GraphQL Debugger', 'Breakpoints, APQ and schema for GraphQL, in DevTools');
   await hold(5500);
 
   const frames = await cast.stop();
+  const start = frames[0].t;
+  fs.writeFileSync(
+    CUES,
+    JSON.stringify(
+      cues.map((c) => ({ ...c, t: Math.max(0, +(c.t - start).toFixed(3)) })),
+      null,
+      2
+    ) + '\n'
+  );
   await stage('card', 'GraphQL Debugger', 'Pause, edit and read every GraphQL request.');
   await page.screenshot({ path: POSTER });
   await context.close();

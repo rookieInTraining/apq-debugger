@@ -85,8 +85,35 @@ function mockPanelRuntime({ tabId, introspection, api }) {
     return addListener(fn);
   };
 
-  const fake = { passiveMode: false, registrySize: 0, active: false };
+  const fake = {
+    passiveMode: false,
+    registrySize: 0,
+    active: false,
+    breakpoints: [],
+    debugMode: false,
+    pauseNext: false,
+    paused: [],
+    lastResume: null,
+  };
   const notifyStage = (msg) => window.parent && window.parent.postMessage({ apqDemo: msg }, '*');
+  const broadcastPaused = () => {
+    for (const fn of window.__apqListeners) {
+      fn(
+        { status: 'PAUSED_UPDATED', tabId, paused: fake.paused.slice(), pauseNext: fake.pauseNext },
+        {},
+        () => {}
+      );
+    }
+  };
+  /** Hold a request the way the service worker's pause queue would. */
+  window.__apqHold = (held) => {
+    fake.paused.push(held);
+    broadcastPaused();
+  };
+  const releaseHeld = (id) => {
+    fake.paused = fake.paused.filter((item) => item.id !== id);
+    setTimeout(broadcastPaused, 120);
+  };
 
   chrome.runtime.sendMessage = (message, callback) => {
     let response = { status: 'SUCCESS' };
@@ -109,6 +136,31 @@ function mockPanelRuntime({ tabId, introspection, api }) {
       response = { status: 'SUCCESS', endpoints: [api] };
     } else if (message.loadSchema) {
       response = { status: 'SUCCESS', endpoint: message.url || api, introspection };
+    } else if (message.getBreakpointState) {
+      response = {
+        status: 'SUCCESS',
+        breakpoints: fake.breakpoints,
+        debugMode: fake.debugMode,
+        pauseNext: fake.pauseNext,
+        paused: fake.paused.slice(),
+      };
+    } else if (message.setBreakpoints) {
+      fake.breakpoints = message.setBreakpoints.filter((bp) => bp.name.trim());
+      response = { status: 'SUCCESS', breakpoints: fake.breakpoints };
+    } else if (message.setDebugMode !== undefined || message.setPauseNext !== undefined) {
+      if (message.setDebugMode !== undefined) fake.debugMode = Boolean(message.setDebugMode);
+      if (message.setPauseNext !== undefined) fake.pauseNext = Boolean(message.setPauseNext);
+      response = { status: 'SUCCESS', debugMode: fake.debugMode, pauseNext: fake.pauseNext };
+    } else if (message.resumePaused) {
+      fake.lastResume = { id: message.resumePaused, edits: message.edits || null };
+      releaseHeld(message.resumePaused);
+      response = { status: 'SUCCESS', result: 'sent' };
+    } else if (message.failPaused) {
+      releaseHeld(message.failPaused);
+      response = { status: 'SUCCESS', result: 'failed' };
+    } else if (message.resumeAllPaused) {
+      fake.paused = [];
+      setTimeout(broadcastPaused, 120);
     }
     if (typeof callback === 'function') setTimeout(() => callback(response), 250);
   };
@@ -171,6 +223,16 @@ async function intercept(page, messages) {
 }
 
 /**
+ * Hold a request in the panel's Breakpoints tab, as the service worker does
+ * when a breakpoint matches.
+ * @param {import('@playwright/test').Page} page
+ * @param {object} held - A HeldRequest (see js/sw/pause-queue.js).
+ */
+async function holdRequest(page, held) {
+  await panelFrame(page).evaluate((item) => window.__apqHold(item), held);
+}
+
+/**
  * Play APQ exchanges: each hash row arrives, then its retry after `gap` ms.
  * @param {import('@playwright/test').Page} page
  * @param {object[][]} exchanges - Arrays of [hashMessage, retryMessage?].
@@ -222,6 +284,7 @@ module.exports = {
   openStage,
   panelFrame,
   intercept,
+  holdRequest,
   playExchanges,
   clickWithCursor,
   typeSlowly,

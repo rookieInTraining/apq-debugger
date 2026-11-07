@@ -1,0 +1,67 @@
+[
+  {
+    "id": "title",
+    "text": "GraphQL Debugger. Pause, edit and read every GraphQL request.",
+    "t": 0
+  },
+  {
+    "id": "caption",
+    "text": "Apollo’s Automatic Persisted Queries send a SHA-256 hash, not the query. The Network panel can’t show you what ran.",
+    "t": 4.488
+  },
+  {
+    "id": "caption",
+    "text": "Tell GraphQL Debugger which requests to watch.",
+    "t": 12
+  },
+  {
+    "id": "caption",
+    "text": "Press Start (Ctrl+E). The bar stays up whenever requests are being rewritten.",
+    "t": 16.97
+  },
+  {
+    "id": "caption",
+    "text": "Each hash is swapped, the server asks for the full query, and Apollo retries. The row resolves in place.",
+    "t": 24.832
+  },
+  {
+    "id": "caption",
+    "text": "Open any operation to read and copy the full query and its variables.",
+    "t": 33.453
+  },
+  {
+    "id": "caption",
+    "text": "Copy as cURL to replay it from a terminal, with the headers captured from the page.",
+    "t": 42.632
+  },
+  {
+    "id": "caption",
+    "text": "Set a breakpoint on an operation name. Matching requests pause before they are sent.",
+    "t": 53.732
+  },
+  {
+    "id": "caption",
+    "text": "Edit the query, variables or headers, then resume. Only the request waits; the page keeps running.",
+    "t": 63.74
+  },
+  {
+    "id": "caption",
+    "text": "Filter by name, URL or request type.",
+    "t": 73.945
+  },
+  {
+    "id": "caption",
+    "text": "Load the schema by introspection, reusing the headers from live traffic.",
+    "t": 80.533
+  },
+  {
+    "id": "caption",
+    "text": "Stop when you’re done. Nothing from your traffic leaves your browser.",
+    "t": 87.392
+  },
+  {
+    "id": "end",
+    "text": "GraphQL Debugger. Breakpoints, APQ and schema for GraphQL, in DevTools.",
+    "t": 94.244
+  }
+]

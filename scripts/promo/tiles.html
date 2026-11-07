@@ -183,7 +183,7 @@
         width: 1400px;
         height: 560px;
         display: grid;
-        grid-template-columns: 560px 1fr;
+        grid-template-columns: 600px 1fr;
       }
 
       #marquee .copy {
@@ -195,7 +195,7 @@
       }
 
       #marquee .brand h1 {
-        font-size: 46px;
+        font-size: 42px;
       }
 
       #marquee .line {
@@ -274,14 +274,14 @@
     <section id="marquee">
       <div class="copy">
         <div class="brand">
-          <img src="icons/icon128.png" width="88" height="88" alt="" />
+          <img src="icons/icon128.png" width="76" height="76" alt="" />
           <h1>GraphQL Debugger<small>for Chrome DevTools</small></h1>
         </div>
         <p class="line">Pause, edit and read every GraphQL request.</p>
         <ul>
-          <li>Swaps the hash so Apollo retries with the full query</li>
-          <li>Shows each query and its variables, ready to copy or replay as cURL</li>
-          <li>Passive mode resolves known hashes without touching traffic</li>
+          <li>Pause requests and edit them before they are sent</li>
+          <li>Reveals the full query behind Apollo APQ hashes</li>
+          <li>Copy any operation, replay it as cURL, or browse the schema</li>
         </ul>
       </div>
       <div class="stage"><img class="shot" src="shots/01-requests-dark.png" alt="" /></div>

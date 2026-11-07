@@ -279,10 +279,47 @@ function buildIntrospection() {
   };
 }
 
+/**
+ * A full-query request held by a breakpoint, shaped like the service
+ * worker's HeldRequest (js/sw/pause-queue.js).
+ * @param {string} name
+ * @param {string} id - Fetch requestId stand-in.
+ */
+function heldRequest(name, id) {
+  const variables = VARIABLES[name] || null;
+  const body = { operationName: name, query: QUERIES[name], variables };
+  const rawHeaders = Object.fromEntries(HEADERS.map((h) => [h.name, h.value]));
+  return {
+    id,
+    networkId: `net-${id}`,
+    tabId: 123,
+    url: API,
+    method: 'POST',
+    heldAt: Date.now(),
+    reason: 'breakpoint',
+    state: 'paused',
+    body,
+    bodyModified: false,
+    rawHeaders,
+    operations: [
+      {
+        index: 0,
+        operationName: name,
+        query: QUERIES[name],
+        querySource: 'request',
+        variables,
+        hash: '',
+        isHashOnly: false,
+      },
+    ],
+  };
+}
+
 module.exports = {
   API,
   apqExchange,
   fullQuery,
+  heldRequest,
   unresolvedTelemetry,
   buildIntrospection,
 };
