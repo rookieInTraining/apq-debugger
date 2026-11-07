@@ -143,6 +143,77 @@ describe('Schema Loader', () => {
         'valid introspection result'
       );
     });
+
+    test('should surface the HTTP status and gateway message for non-GraphQL errors', async () => {
+      global.fetch.mockResolvedValue({
+        ok: false,
+        status: 429,
+        json: () =>
+          Promise.resolve({
+            error: 'Too Many Requests',
+            message: 'Provisioned request rate has been exceeded',
+            code: 429,
+          }),
+      });
+      await expect(fetchIntrospection('https://a.com/graphql')).rejects.toThrow(
+        'Endpoint returned HTTP 429: Provisioned request rate has been exceeded'
+      );
+    });
+
+    test('should fall back to the gateway "error" field when there is no message', async () => {
+      global.fetch.mockResolvedValue({
+        ok: false,
+        status: 403,
+        json: () => Promise.resolve({ error: 'Forbidden' }),
+      });
+      await expect(fetchIntrospection('https://a.com/graphql')).rejects.toThrow(
+        'Endpoint returned HTTP 403: Forbidden'
+      );
+    });
+
+    test('should report the HTTP status for non-JSON error pages', async () => {
+      global.fetch.mockResolvedValue({
+        ok: false,
+        status: 403,
+        json: () => Promise.reject(new SyntaxError('Unexpected token <')),
+      });
+      await expect(fetchIntrospection('https://a.com/graphql')).rejects.toThrow(
+        'Endpoint returned HTTP 403 (not a JSON response)'
+      );
+    });
+
+    test('should report a non-JSON success response without calling it unreachable', async () => {
+      global.fetch.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: () => Promise.reject(new SyntaxError('Unexpected token <')),
+      });
+      const error = await fetchIntrospection('https://a.com/graphql').catch((e) => e);
+      expect(error.message).toBe('Endpoint did not return JSON');
+    });
+
+    test('should truncate very long gateway messages', async () => {
+      global.fetch.mockResolvedValue({
+        ok: false,
+        status: 500,
+        json: () => Promise.resolve({ message: 'x'.repeat(500) }),
+      });
+      const error = await fetchIntrospection('https://a.com/graphql').catch((e) => e);
+      expect(error.message.length).toBeLessThan(260);
+      expect(error.message).toMatch(/^Endpoint returned HTTP 500: x+…$/);
+    });
+
+    test('should still prefer GraphQL errors when an error status carries them', async () => {
+      global.fetch.mockResolvedValue({
+        ok: false,
+        status: 400,
+        json: () =>
+          Promise.resolve({ errors: [{ message: 'GraphQL introspection is not allowed' }] }),
+      });
+      await expect(fetchIntrospection('https://a.com/graphql')).rejects.toThrow(
+        'Introspection is disabled on this endpoint'
+      );
+    });
   });
 
   describe('loadSchema', () => {

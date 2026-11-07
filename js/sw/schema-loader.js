@@ -45,6 +45,44 @@ export function buildOriginCandidates(tabUrl, excludeUrls = []) {
   return candidates;
 }
 
+/** Longest gateway message (characters) quoted back in an error. */
+const MAX_GATEWAY_MESSAGE = 200;
+
+/** Marks a response body that could not be parsed as JSON. */
+class NonJsonResponseError extends Error {
+  constructor(status, ok) {
+    super('Response was not JSON');
+    this.status = status;
+    this.ok = ok;
+  }
+}
+
+/**
+ * Pull a human-readable reason out of a non-GraphQL JSON error body, as
+ * returned by API gateways, WAFs and rate limiters (e.g. `{ error, message }`).
+ * @param {*} json
+ * @returns {string}
+ */
+function gatewayMessage(json) {
+  if (!json || typeof json !== 'object') return '';
+  const candidate = [json.message, json.error, json.error_description, json.detail].find(
+    (value) => typeof value === 'string' && value.trim()
+  );
+  if (!candidate) return '';
+  const text = candidate.trim();
+  return text.length > MAX_GATEWAY_MESSAGE ? `${text.slice(0, MAX_GATEWAY_MESSAGE)}…` : text;
+}
+
+/**
+ * Whether a fetch response reported an error status. Responses without a
+ * status (test doubles) count as successful.
+ * @param {{ok?: boolean, status?: number}} response
+ * @returns {boolean}
+ */
+function isErrorStatus(response) {
+  return response.ok === false && typeof response.status === 'number';
+}
+
 async function postJson(url, body, timeoutMs, headers = []) {
   const requestHeaders = { 'Content-Type': 'application/json', Accept: 'application/json' };
   for (const header of headers) {
@@ -65,7 +103,13 @@ async function postJson(url, body, timeoutMs, headers = []) {
       body: JSON.stringify(body),
       signal: controller.signal,
     });
-    return await response.json();
+    let json;
+    try {
+      json = await response.json();
+    } catch (_) {
+      throw new NonJsonResponseError(response.status, !isErrorStatus(response));
+    }
+    return { json, status: response.status, errorStatus: isErrorStatus(response) };
   } finally {
     clearTimeout(timer);
   }
@@ -80,7 +124,7 @@ async function postJson(url, body, timeoutMs, headers = []) {
  */
 export async function probeEndpoint(url) {
   try {
-    const json = await postJson(url, { query: '{__typename}' }, SCHEMA_PROBE_TIMEOUT_MS);
+    const { json } = await postJson(url, { query: '{__typename}' }, SCHEMA_PROBE_TIMEOUT_MS);
     if (!json || typeof json !== 'object') return false;
 
     if (json.data && typeof json.data.__typename === 'string') return true;
@@ -104,14 +148,23 @@ export async function probeEndpoint(url) {
  */
 export async function fetchIntrospection(url, headers = []) {
   let json;
+  let status;
+  let errorStatus;
   try {
-    json = await postJson(
+    ({ json, status, errorStatus } = await postJson(
       url,
       { query: INTROSPECTION_QUERY },
       SCHEMA_PROBE_TIMEOUT_MS * 3,
       headers
-    );
+    ));
   } catch (error) {
+    if (error instanceof NonJsonResponseError) {
+      throw new Error(
+        error.ok
+          ? 'Endpoint did not return JSON'
+          : `Endpoint returned HTTP ${error.status} (not a JSON response)`
+      );
+    }
     throw new Error(`Failed to reach ${url}: ${error.message || 'network error'}`);
   }
 
@@ -125,6 +178,13 @@ export async function fetchIntrospection(url, headers = []) {
       throw new Error('Introspection is disabled on this endpoint');
     }
     throw new Error(`Introspection failed: ${message || 'unknown GraphQL error'}`);
+  }
+
+  // Not GraphQL-shaped: usually a gateway, WAF or rate limiter answering
+  // before the GraphQL server. Say what it said instead of guessing.
+  if (errorStatus) {
+    const reason = gatewayMessage(json);
+    throw new Error(`Endpoint returned HTTP ${status}${reason ? `: ${reason}` : ''}`);
   }
 
   throw new Error('Endpoint did not return a valid introspection result');
