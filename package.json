@@ -1,6 +1,6 @@
 {
   "name": "apq-debugger",
-  "version": "4.0.0",
+  "version": "5.0.0",
   "description": "GraphQL Debugger: a Chrome DevTools extension for breakpoints, APQ recovery and schema exploration",
   "main": "build-enhanced.js",
   "scripts": {
