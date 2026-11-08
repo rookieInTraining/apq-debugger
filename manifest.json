@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "GraphQL Debugger",
   "description": "Debug GraphQL in DevTools: pause and edit requests, reveal Apollo APQ queries, explore the schema.",
-  "version": "4.0.0",
+  "version": "5.0.0",
   "minimum_chrome_version": "123",
   "permissions": ["contextMenus", "debugger", "storage", "tabs", "notifications"],
   "host_permissions": ["<all_urls>"],
